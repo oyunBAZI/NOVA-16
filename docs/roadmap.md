@@ -11,3 +11,9 @@ Build tasks include test and fmt. Headless has no external dependencies.
 `zig build test` and `zig build` returned exit 0. Raw-byte tests prove reset,
 NOP/HALT PC stepping, stopped retirement, malformed opcodes, alignment, and
 execute permissions. Decoder enumerates all 65,536 first words.
+
+## Phase 2 — passed
+`zig build test` returned exit 0. Implemented all ALU/control/stack operations
+and data-transfer dispatch. Boundary arithmetic uses independent signed/wide
+oracles; tested all flag/condition combinations, nested calls, invalid CALL
+atomicity, empty stack, shift counts 0/1/15. Bus/MMIO hardening follows in phase 3.
