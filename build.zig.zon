@@ -1,0 +1,7 @@
+.{
+    .name = .nova16_virtual_computer,
+    .version = "0.1.0",
+    .fingerprint = 0xc4c2031ab79250ce,
+    .minimum_zig_version = "0.17.1",
+    .paths = .{ "build.zig", "build.zig.zon", "src", "tests", "examples", "docs", "README.md", "LICENSE" },
+}
