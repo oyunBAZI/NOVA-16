@@ -1,5 +1,8 @@
-const std = @import("std");
-pub const version = "0.1.0";
-test "foundation" {
-    try std.testing.expectEqualStrings("0.1.0", version);
+pub const isa = @import("arch/isa.zig");
+pub const Cpu = @import("core/cpu.zig").Cpu;
+pub const Bus = @import("core/bus.zig").Bus;
+test {
+    _ = isa;
+    _ = Cpu;
+    _ = Bus;
 }
