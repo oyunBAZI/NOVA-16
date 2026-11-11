@@ -6,3 +6,10 @@ test {
     _ = Cpu;
     _ = Bus;
 }
+pub const Machine = @import("core/machine.zig").Machine;
+pub const rom = @import("rom/format.zig");
+test {
+    _ = Machine;
+    _ = rom;
+    _ = @import("devices/input.zig");
+}

@@ -17,3 +17,9 @@ execute permissions. Decoder enumerates all 65,536 first words.
 and data-transfer dispatch. Boundary arithmetic uses independent signed/wide
 oracles; tested all flag/condition combinations, nested calls, invalid CALL
 atomicity, empty stack, shift counts 0/1/15. Bus/MMIO hardening follows in phase 3.
+
+## Phase 3 — passed
+`zig build test` (13 tests) and `zig build` returned exit 0. Strict region/MMIO
+permissions, read-clear devices, ROM parser/packer, CRC, reset, and encoded
+boot-to-RAM-write integration pass. Mutation tests reject every changed header
+or payload byte; access tests cover all region boundaries.
