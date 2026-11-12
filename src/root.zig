@@ -32,3 +32,7 @@ test {
     _ = runtime;
 }
 pub const sdl = @import("frontend/sdl2.zig");
+pub const Debugger = @import("debug/debugger.zig").Debugger;
+test {
+    _ = Debugger;
+}

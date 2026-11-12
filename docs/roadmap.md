@@ -52,3 +52,9 @@ smoke and core tests passed. Real SDL windows were inspected using the desktop:
 512×384 splash, moving ball, keyboard paint stroke and clean Escape shutdown.
 Host-only pause/reset/pacing and integer texture scaling are implemented.
 The default headless build requires no SDL library. See gui.md for dependencies.
+
+## Phase 8 — passed
+`zig build test` and `zig build` passed. Scripted debugger unit tests prove
+pre-execution breakpoints, watch old/new values, BRK advance/resume, stack and
+reset. A piped n16dbg CLI session exercised help, regs, break, continue, step,
+mem, disasm with symbols, stack, watch, saveframe, reset and quit; exit 0.
