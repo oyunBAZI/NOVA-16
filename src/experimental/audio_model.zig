@@ -99,3 +99,18 @@ test "noise feedback vector, waveform bounds and muted phase behavior" {
     _ = mixer.next();
     try std.testing.expectEqual(1, mixer.voices[0].phase);
 }
+
+test "independent Python specification PCM vector matches isolated arithmetic" {
+    const vectors = @import("audio_vectors.zig");
+    var mixer: Mixer = .{ .gain = 193 };
+    for (&mixer.voices, [_]u8{ 255, 127, 200, 64 }, [_]Wave{ .square, .saw, .triangle, .noise }) |*voice, volume, wave| voice.* = .{ .enabled = true, .increment = 0x40000000, .volume = volume, .wave = wave, .noise = 0xace2 };
+    var bytes: [1600]u8 = undefined;
+    for (0..800) |i| {
+        const value = mixer.next();
+        if (i < vectors.first.len) try std.testing.expectEqual(vectors.first[i], value);
+        std.mem.writeInt(i16, bytes[i * 2 ..][0..2], value, .little);
+    }
+    var hash: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(&bytes, &hash, .{});
+    try std.testing.expectEqualSlices(u8, &vectors.sha256, &hash);
+}

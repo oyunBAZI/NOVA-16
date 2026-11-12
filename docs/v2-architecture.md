@@ -1,4 +1,4 @@
-# NOVA-16 V2 architecture proposal, revision 1
+# NOVA-16 V2 architecture specification, revision 2
 
 Status: **design for separate approval**, not implemented virtual hardware.
 The shipped computer remains ISA V1. The only executable experiment is
@@ -33,14 +33,12 @@ continues returning BadVersion for V2. Assembler activation must be explicit
 (`--architecture nova16-v2` in a future tool); default is V1. Proposed EI, DI,
 IRET syntax is rejected in V1. No such option/instructions exist today.
 
-Proposed N16S V2 uses a separately versioned bounded section directory: CPU2,
-MEM1, AUD1 and IRQ1, each with little-endian widths and CRC. Publish a complete
-byte-offset specification and independent vectors **before implementation**.
-Validate version/length/uniqueness/reserved fields, ROM identity and every state
-invariant into temporary state before assignment. V1 snapshots continue using
-the existing encoder/restore path. Unknown sections are rejected, not ignored.
-State JSON V2 adds profile, transition/audio counts and IRQ state; V1 output is
-never extended implicitly. Debug/source-map formats version independently.
+N16S V2 has the exact bounded directory and section formats in
+[v2-binary-contract.md](v2-binary-contract.md). That contract also resolves slot,
+timer, trap, reset and failure-atomicity details below. The binary contract is
+normative when it refines this overview. Independent vectors are checked by
+`python scripts/v2_contract_vectors.py`; they are specification fixtures, not a
+shipped V2 runtime. V1 snapshots/State JSON remain unchanged.
 
 ## Deterministic device clock
 
@@ -169,51 +167,24 @@ DI leaves pending bits intact; W1C only acknowledges selected bits. Frame IRQ
 is raised at final frame-slot completion and can be entered at the next requested
 transition. CPU traps do not themselves generate IRQs or host exceptions.
 
-## Higher-level guest tools and libraries
+## Delivered V1 developer platform
 
-Build a small compiler targeting **existing V1 first**, independently of hardware
-approval. Initial language: u16/i16/bool, fixed arrays, structs, local variables,
-functions, if/while, explicit casts, fixed globals; no heap, GC, floating point,
-implicit host calls or downloads. Arithmetic semantics must match wrapping CPU
-operations; division lowers to a tested runtime routine. Array bounds failures
-call a guest-visible failure routine. The backend emits ordinary ISA assembly
-and checksum-bound maps with original language locations.
+The V1 compiler, ABI, guest library and project workflow are now specified in
+[language.md](language.md), [guest-abi.md](guest-abi.md), [projects.md](projects.md)
+and guest/README.md. Those delivered contracts supersede revision1's tentative
+compiler/ABI limits. Crates and Pixel Studio demonstrate ordinary V1 execution.
 
-Proposed ABI: R0–R3 arguments/results and caller-saved; R4–R6 callee-saved; R7
-frame pointer; stack word aligned, return value R0. Handwritten existing ROMs
-keep their own conventions. Reserve global RAM from 0100 upward to 7FFF and a
-16 KiB stack region in a tool-generated layout manifest; reject static overlap.
-A project-level profile selects this ABI, not the machine. Compiler input 1 MiB,
-AST <=32768 nodes, nesting <=64, bounded optimization passes and 8 KiB output.
-Keep a simple reference interpreter for differential compiler tests.
+## Approval and next implementation gates
 
-Reusable V1 libraries should first provide rectangle/glyph drawing, sprites,
-button edge handling, frame waits and checked integer arithmetic through current
-includes. Export names use module prefixes; no implicit global constructor order.
-A future versioned object format may separate code/rodata/BSS and relocation
-records, but only after source inclusion proves insufficient. Define relocation
-width, signedness, addend/range checks and duplicate/undefined rules before a
-linker. Never silently grow ROM or alter RAM/VRAM layout to fit applications.
+1. Separately approve profile2 and the finalized binary/timing/IRQ contract.
+2. Add explicit V2 ROM/profile dispatch and independent fixture validation while
+   proving every V1 byte/deny/timing golden unchanged. Reject V2 snapshots in V1.
+3. Implement headless deterministic audio/MMIO and WAV, compare PCM vectors and
+   partial-frame restore across OSs; fuzz all atomic write and snapshot rejects.
+4. Implement timer/IRQ entry/IRET with stack/nesting/priority/fault boundaries,
+   snapshot/reverse replay and instruction/source diagnostics.
+5. Add optional bounded SDL playback queue tests and an explicitly V2 ROM.
 
-## Approval and next milestone gates
-
-1. Review/approve this profile, clock, map, ROM and interrupt contracts. Resolve
-   whether V2 idle slots should advance sound on trapped/BRK CPUs before freezing.
-2. Publish complete N16S V2 section/byte layouts, trap-code table and independent
-   ROM/snapshot/audio vectors. Add profile dispatch tests proving V1 byte output
-   and device-denial behavior unchanged.
-3. Implement audio/MMIO and headless WAV export behind explicit V2 loading;
-   reject all malformed writes atomically, compare PCM hashes across three OSs,
-   fuzz restore/MMIO and verify muted/disabled/copy continuation behavior.
-4. Implement IRQ entry/IRET/timer with every stack/target/priority boundary,
-   simultaneous-event/replay tests and snapshot/reverse integration.
-5. Add bounded optional SDL audio queue tests. Do not make sound playback a
-   requirement for CPU testing. Publish an experimental V2 guest, never relabel
-   a V1 ROM or claim that this design alone implements architectural extensions.
-6. In parallel, build the V1 compiler/library prototype with source spans,
-   allocation-failure tests, interpreter comparisons and a complete guest app.
-
-Recommended immediate milestone after RC review: reusable V1 graphics/input
-libraries extracted from Breakout plus a tiny V1-only compiler experiment.
-Keep architectural audio/interrupt implementation blocked on the separate design
-review. Network/filesystem peripherals are explicitly out of this milestone.
+No V2 hardware is enabled or implicitly authorized by v0.4. The existing audio
+arithmetic model is an isolated experiment, not a delivered device. Network and
+filesystem devices are outside this contract.
