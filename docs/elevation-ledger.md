@@ -107,3 +107,10 @@ Windows/macOS graphical acceptance is pending the new CI jobs; not yet claimed.
 The corrected expanded local phase-6 gate has now completed successfully:
 dummy SDL ABI/events/controls/scaling/readback, core tests, default build and
 complete black-box acceptance all returned exit 0. Native GUI CI remains pending.
+
+### Native graphical gate — closed
+GitHub CI run 43140210006 passed graphical acceptance natively on Linux,
+Windows 2022 and macOS 15, plus all native Debug/ReleaseSafe and cross-build jobs.
+Fuzzing passed separately. kcov's build needed its v43 tag for git-describe;
+the shallow pinned checkout now supplies that local tag. Source coverage remains
+pending a successful measurement; it has not been represented as passing.

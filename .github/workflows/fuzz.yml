@@ -37,6 +37,7 @@ jobs:
           git -C "$RUNNER_TEMP/kcov" remote add origin https://github.com/SimonKagstrom/kcov.git
           git -C "$RUNNER_TEMP/kcov" fetch --depth 1 origin a39874f938ce13f7a65f253120d1ec946b349ffe
           git -C "$RUNNER_TEMP/kcov" checkout --detach FETCH_HEAD
+          git -C "$RUNNER_TEMP/kcov" tag v43 a39874f938ce13f7a65f253120d1ec946b349ffe
           cmake -S "$RUNNER_TEMP/kcov" -B "$RUNNER_TEMP/kcov-build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/kcov-install"
           cmake --build "$RUNNER_TEMP/kcov-build" --parallel 2
           cmake --install "$RUNNER_TEMP/kcov-build"
