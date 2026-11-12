@@ -23,10 +23,15 @@ pub fn main(init: std.process.Init) !void {
     const m = try a.create(n.Machine);
     m.* = .{};
     try m.load(program.image);
+    var large: std.Io.Writer.Allocating = .init(a);
+    for (0..4096) |index| try large.writer.print(".equ s{d}, s{d}+1\n", .{ index, index + 1 });
+    try large.writer.writeAll(".equ s4096, 0\nLDI R0, s0\nHALT");
+    const game = try n.assembler.assemble(a, @import("examples").breakout, &diagnostic);
+    defer game.deinit();
     var results: std.ArrayList(Sample) = .empty;
     var guard: u64 = 0;
     for (0..samples) |_| {
-        m.reset();
+        try m.load(program.image);
         var start = now(init.io);
         while (m.cpu.retired < instructions) m.step();
         if (m.cpu.trap != null or m.cpu.r[1] != @as(u16, @truncate(instructions / 2))) return error.CpuBenchmarkMismatch;
@@ -73,6 +78,41 @@ pub fn main(init: std.process.Init) !void {
             guard +%= try m.bus.read16(address);
         }
         try results.append(a, .{ .name = "bus_word_pair", .operations = 100000, .nanoseconds = @intCast(now(init.io) - start) });
+        start = now(init.io);
+        for (0..10) |_| {
+            const assembled = try n.assembler.assemble(std.heap.smp_allocator, large.written(), &diagnostic);
+            guard +%= assembled.symbols.len;
+            assembled.deinit();
+        }
+        try results.append(a, .{ .name = "assemble_4097_symbols", .operations = 10, .nanoseconds = @intCast(now(init.io) - start) });
+        m.reset();
+        var debugger: n.Debugger = .{ .machine = m };
+        start = now(init.io);
+        for (0..10000) |_| {
+            var bytes: [256]u8 = undefined;
+            var output = std.Io.Writer.fixed(&bytes);
+            _ = try debugger.command("step", &output);
+        }
+        try results.append(a, .{ .name = "debugger_step", .operations = 10000, .nanoseconds = @intCast(now(init.io) - start) });
+        debugger.deinit();
+        if (m.cpu.retired != 10000 or m.cpu.trap != null) return error.DebuggerBenchmarkMismatch;
+        start = now(init.io);
+        for (0..1000) |_| {
+            const data = try n.snapshot.encode(std.heap.smp_allocator, m);
+            guard +%= data[12];
+            std.heap.smp_allocator.free(data);
+        }
+        try results.append(a, .{ .name = "snapshot_encode", .operations = 1000, .nanoseconds = @intCast(now(init.io) - start) });
+        const saved = try n.snapshot.encode(std.heap.smp_allocator, m);
+        defer std.heap.smp_allocator.free(saved);
+        start = now(init.io);
+        for (0..1000) |_| try n.snapshot.restore(m, saved, m.checksum);
+        try results.append(a, .{ .name = "snapshot_restore", .operations = 1000, .nanoseconds = @intCast(now(init.io) - start) });
+        try m.load(game.image);
+        start = now(init.io);
+        for (0..200) |frame| m.frame(if (frame == 5) 64 else if (frame >= 6) 4 else 0, 4_000_000);
+        if (m.cpu.trap != null or m.cpu.retired != 4_000_000) return error.GameBenchmarkMismatch;
+        try results.append(a, .{ .name = "breakout_frame", .operations = 200, .nanoseconds = @intCast(now(init.io) - start) });
         var pixels: [128 * 96 * 3]u8 = undefined;
         start = now(init.io);
         for (0..1000) |index| {

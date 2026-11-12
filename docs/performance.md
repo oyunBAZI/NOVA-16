@@ -51,3 +51,25 @@ The full second five-sample measurement is retained in
 [benchmarks/linux-initial.json](benchmarks/linux-initial.json), including raw
 samples, hardware, source tree and the corresponding public commit. Differences
 from the first timing table illustrate normal shared-host variance.
+
+## v0.3 measurements
+Raw reports: benchmarks/v0.3-linux.json and v0.2-same-host.json. Both measured
+on the same AMD EPYC 9V74 / znver4 host, Zig 0.17.1 ReleaseSafe, three samples.
+Do not compare these numerically with the older Intel-host baseline.
+
+| Operation | v0.2 same host | v0.3 |
+|---|---:|---:|
+| Instruction | 38.90 ns | 38.12 ns |
+| Headless frame | 0.796 ms | 0.757 ms |
+| Splash assembly | 529.3 µs | 32.5 µs |
+| RGB conversion | 12.48 µs | 13.18 µs |
+| Peak process RSS | 13,312 KiB | 13,312 KiB |
+
+CPU/frame/RGB differences are small and not claimed as optimizations. Indexed
+symbol/source lookup explains the substantial assembly improvement; the separate
+Debug reverse-chain before/after measurement is in v0.3-ledger.md. New workloads:
+4,097-symbol assembly 3.753 ms, debugger command stepping 97.4 ns/instruction,
+snapshot encode 167.3 µs/restore 154.2 µs, real Breakout frame 0.763 ms. All
+workloads validate real machine results; timers stay in host tooling. These are
+component wall-time measurements, not a sampling profiler or universal speed
+promise. Source fingerprint/dirty state, CPU and raw samples are preserved.

@@ -47,3 +47,9 @@ showed stale drawable readback during window resize; it is no longer selected
 by default. Actual software-renderer resize and all-pixel verification are
 required on each native platform. The window-resize test waits 50ms for host
 window-manager processing; this wait never advances guest state.
+
+macOS CI uses `python3 scripts/setup_sdl.py` (CMake required), then passes
+`--search-prefix .sdl-sdk`. This pins official SDL2 2.32.4 plus its SHA256;
+it avoids Homebrew's SDL3-backed sdl2-compat replacement, which failed the exact
+resize/pixel contract in CI. Other SDL2 dependencies may work, but native
+acceptance is required before claiming support for a compatibility layer.

@@ -18,9 +18,9 @@ for exe in ('nova16', 'n16asm', 'n16dbg'):
     path = Path('bin') / (exe + ('.exe' if system == 'windows' else ''))
     files[path.as_posix()] = (root / 'zig-out' / path).read_bytes()
 for path in sorted((root / 'zig-out/demos').glob('*')):
-    if path.suffix in ('.n16', '.sym'):
+    if path.suffix in ('.n16', '.sym', '.sym2'):
         files['demos/' + path.name] = path.read_bytes()
-for pattern in ('docs/**/*.md', 'docs/**/*.png', 'docs/benchmarks/*.json', 'examples/*.asm'):
+for pattern in ('docs/**/*.md', 'docs/**/*.png', 'docs/**/*.json', 'docs/gameplay/*.txt', 'examples/**/*.asm', 'scripts/rom_test.py', 'scripts/guest_package.py'):
     for path in sorted(root.glob(pattern)):
         files[path.relative_to(root).as_posix()] = path.read_bytes()
 for filename in ('README.md', 'INSTALL.md', 'LICENSE', 'CHANGELOG.md', 'SECURITY.md', 'CONTRIBUTING.md'):

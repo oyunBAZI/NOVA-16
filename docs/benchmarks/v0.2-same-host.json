@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "zig_version": "0.17.1",
+  "optimization": "safe",
+  "os": "linux",
+  "arch": "x86_64",
+  "cpu_model": "znver4",
+  "guard": 8224090068,
+  "samples": [
+    {
+      "name": "cpu_instruction",
+      "operations": 2000000,
+      "nanoseconds": 77792178
+    },
+    {
+      "name": "headless_frame",
+      "operations": 100,
+      "nanoseconds": 79566679
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 14698368
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 15522612
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 1443909
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 54494677
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 2862690
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 13114829
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 2000000,
+      "nanoseconds": 85091756
+    },
+    {
+      "name": "headless_frame",
+      "operations": 100,
+      "nanoseconds": 80145071
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 14058743
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 14775835
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 1377789
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 51986632
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 3242123
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 12476265
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 2000000,
+      "nanoseconds": 77478848
+    },
+    {
+      "name": "headless_frame",
+      "operations": 100,
+      "nanoseconds": 78344254
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 14274159
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 15831548
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 1623419
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 52932590
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 3212748
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 12295202
+    }
+  ],
+  "host": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "hardware_cpu": "AMD EPYC 9V74 80-Core Processor",
+  "commit": "26b4414ec92dc92506cd64f55398bcd7aaa6b9f5",
+  "source_dirty": false,
+  "binary_sha256": "b29f11f7c0fa31fa99ef5732aec57195f8cb0c665ed8549a923602c02a3f25bb",
+  "peak_rss_kib": 13312.0,
+  "median_ns_per_operation": {
+    "cpu_instruction": 38.896089,
+    "headless_frame": 795666.79,
+    "initialize": 1427.4159,
+    "reset": 1552.2612,
+    "rom_load": 1443.909,
+    "assemble_splash": 529325.9,
+    "bus_word_pair": 32.12748,
+    "video_rgb_frame": 12476.265
+  }
+}

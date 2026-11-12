@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "zig_version": "0.17.1",
+  "optimization": "safe",
+  "os": "linux",
+  "arch": "x86_64",
+  "cpu_model": "znver4",
+  "guard": 8224887978,
+  "samples": [
+    {
+      "name": "cpu_instruction",
+      "operations": 2000000,
+      "nanoseconds": 76757292
+    },
+    {
+      "name": "headless_frame",
+      "operations": 100,
+      "nanoseconds": 75691813
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 12493528
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 15055279
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 1251050
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 3721643
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 2874554
+    },
+    {
+      "name": "assemble_4097_symbols",
+      "operations": 10,
+      "nanoseconds": 38398461
+    },
+    {
+      "name": "debugger_step",
+      "operations": 10000,
+      "nanoseconds": 1000322
+    },
+    {
+      "name": "snapshot_encode",
+      "operations": 1000,
+      "nanoseconds": 166154745
+    },
+    {
+      "name": "snapshot_restore",
+      "operations": 1000,
+      "nanoseconds": 153101170
+    },
+    {
+      "name": "breakout_frame",
+      "operations": 200,
+      "nanoseconds": 152078957
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 13183204
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 2000000,
+      "nanoseconds": 76222729
+    },
+    {
+      "name": "headless_frame",
+      "operations": 100,
+      "nanoseconds": 76509904
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 12233036
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 14732329
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 1250122
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 3251652
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 2878828
+    },
+    {
+      "name": "assemble_4097_symbols",
+      "operations": 10,
+      "nanoseconds": 37528602
+    },
+    {
+      "name": "debugger_step",
+      "operations": 10000,
+      "nanoseconds": 942006
+    },
+    {
+      "name": "snapshot_encode",
+      "operations": 1000,
+      "nanoseconds": 168245684
+    },
+    {
+      "name": "snapshot_restore",
+      "operations": 1000,
+      "nanoseconds": 154204621
+    },
+    {
+      "name": "breakout_frame",
+      "operations": 200,
+      "nanoseconds": 152687324
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 13111426
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 2000000,
+      "nanoseconds": 76235909
+    },
+    {
+      "name": "headless_frame",
+      "operations": 100,
+      "nanoseconds": 75526264
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 12485818
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 14946933
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 1287018
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 3155907
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 2904476
+    },
+    {
+      "name": "assemble_4097_symbols",
+      "operations": 10,
+      "nanoseconds": 37101456
+    },
+    {
+      "name": "debugger_step",
+      "operations": 10000,
+      "nanoseconds": 974084
+    },
+    {
+      "name": "snapshot_encode",
+      "operations": 1000,
+      "nanoseconds": 167346032
+    },
+    {
+      "name": "snapshot_restore",
+      "operations": 1000,
+      "nanoseconds": 154687261
+    },
+    {
+      "name": "breakout_frame",
+      "operations": 200,
+      "nanoseconds": 182016206
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 13327372
+    }
+  ],
+  "host": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "hardware_cpu": "AMD EPYC 9V74 80-Core Processor",
+  "commit": "946afebd84cca499dc6088af59a0e2de890507b8",
+  "source_dirty": true,
+  "binary_sha256": "f7564b4aaf2f43cc60faf5c2bfab0919b6030bbbdf8973aeb9c90ce61552ae07",
+  "peak_rss_kib": 13312.0,
+  "median_ns_per_operation": {
+    "cpu_instruction": 38.1179545,
+    "headless_frame": 756918.13,
+    "initialize": 1248.5818,
+    "reset": 1494.6933,
+    "rom_load": 1251.05,
+    "assemble_splash": 32516.52,
+    "bus_word_pair": 28.78828,
+    "assemble_4097_symbols": 3752860.2,
+    "debugger_step": 97.4084,
+    "snapshot_encode": 167346.032,
+    "snapshot_restore": 154204.621,
+    "breakout_frame": 763436.62,
+    "video_rgb_frame": 13183.204
+  }
+}

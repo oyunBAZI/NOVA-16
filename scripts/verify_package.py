@@ -48,4 +48,28 @@ with tempfile.TemporaryDirectory(prefix='nova16-package-') as temp:
             assert state['registers'][7] == 0x600d
         session = run('n16dbg', generated, stdin='regs\nstep\nquit\n')
         assert 'PC=' in session
+    # New developer workflow must also work using only extracted tools/files.
+    for project in ('counter', 'breakout'):
+        source = root/'examples/projects'/project/'main.asm'
+        generated, symbols = root/(project+'.n16'), root/(project+'.sym2')
+        run('n16asm', source, '--project-root', source.parent, '--out', generated, '--debug-symbols', symbols)
+        inspection = json.loads(run('nova16', 'inspect', generated, '--json'))
+        assert inspection['schema_version'] == 1
+        if project == 'breakout':
+            assert generated.read_bytes() == (root/'demos/breakout.n16').read_bytes()
+        state = json.loads(run('nova16', 'run', generated, '--frames', '10'))
+        assert not state['trapped']
+        location = 'lib/graphics.asm:2' if project == 'counter' else 'entry.asm:5'
+        snapshot = root/(project+'.n16s')
+        session = run('n16dbg', generated, '--symbols', symbols, stdin=(
+            f'history 8\nbreak {location}\ncontinue 100\nsource\nnext\nstep\nreverse\n'
+            f'savesnap {snapshot}\nstep\nloadsnap {snapshot}\nregs\nquit\n'))
+        assert 'breakpoint before' in session and 'error:' not in session
+        assert snapshot.read_bytes().startswith(b'N16S')
+    hashes = json.loads((root/'docs/gameplay/hashes.json').read_text())
+    for scene, schedule in [('win','win-input.txt'), ('loss','right-input.txt')]:
+        shot = root/(scene+'.ppm')
+        run('nova16', 'run', root/'demos/breakout.n16', '--frames', '1000', '--max-instructions', '20000000',
+            '--input', root/'docs/gameplay'/schedule, '--screenshot', shot)
+        assert hashlib.sha256(shot.read_bytes()).hexdigest() == hashes[scene]
     print(f"Package {manifest['version']} {manifest['os']}/{manifest['arch']}: checksums, assembly, boot and debugger passed")

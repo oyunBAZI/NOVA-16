@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   native:
     strategy:
@@ -26,6 +29,8 @@ jobs:
       - run: zig build -Doptimize=${{ matrix.mode }} -Dstrip=${{ matrix.mode == 'ReleaseSafe' }} -Dcpu=baseline
       - run: zig build test -Doptimize=${{ matrix.mode }}
       - run: python scripts/acceptance.py
+      - run: python scripts/developer_acceptance.py
+      - run: python scripts/game_acceptance.py
       - if: matrix.mode == 'ReleaseSafe'
         run: python scripts/package.py
       - if: matrix.mode == 'ReleaseSafe'
@@ -63,9 +68,7 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libsdl2-dev xvfb xauth
       - if: runner.os == 'macOS'
-        run: |
-          brew install sdl2
-          echo "NOVA_SDL_PREFIX=$(brew --prefix sdl2)" >> "$GITHUB_ENV"
+        run: python scripts/setup_sdl.py
       - if: runner.os == 'Windows'
         shell: pwsh
         run: |
