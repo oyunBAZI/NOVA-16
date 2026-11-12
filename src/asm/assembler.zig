@@ -5,7 +5,7 @@ const enc = @import("encoder.zig");
 const isa = @import("../arch/isa.zig");
 const rom = @import("../rom/format.zig");
 pub const Diagnostic = @import("diagnostic.zig").Diagnostic;
-pub const Location = struct { address: u32, length: usize, line: usize, column: usize, source: []const u8 };
+pub const Location = struct { address: u32, length: usize, line: usize, column: usize, source: []const u8, file: []const u8 = "" };
 pub const Symbol = struct { name: []const u8, value: i64 };
 pub const Result = struct {
     image: []u8,
@@ -24,7 +24,9 @@ const Assembly = struct {
     diag: *Diagnostic,
     locations: std.ArrayList(Location) = .empty,
     symbols: std.ArrayList(Symbol) = .empty,
-    pending: std.ArrayList(struct { name: []const u8, expression: []const u8, line: usize }) = .empty,
+    indices: std.StringHashMap(usize),
+    pending_indices: std.StringHashMap(usize),
+    pending: std.ArrayList(struct { name: []const u8, expression: []const u8, status: u2 = 0 }) = .empty,
     line_number: usize = 1,
     bytes: [8192]u8 = @splat(0),
     pc: usize = 0xe000,
@@ -52,35 +54,50 @@ const Assembly = struct {
         self.diag.focus(self.source, s);
         if (s.len == 0) return error.ExpectedExpression;
         if (std.ascii.isDigit(s[0]) or s[0] == '-' or s[0] == '+') return number(s);
-        for (self.symbols.items) |sym| if (std.mem.eql(u8, s, sym.name)) return sym.value;
+        if (self.pending_indices.get(s)) |index| if (self.pending.items[index].status != 2) return error.UndefinedSymbol;
+        if (self.indices.get(s)) |index| return self.symbols.items[index].value;
         return error.UndefinedSymbol;
     }
     fn symbol(self: *Assembly, name: []const u8, v: i64) !void {
         self.diag.focus(self.source, name);
         if (!lex.identifier(name)) return error.InvalidSymbol;
-        for (self.symbols.items) |sym| if (std.mem.eql(u8, name, sym.name)) return error.DuplicateSymbol;
-        for (self.pending.items) |sym| if (std.mem.eql(u8, name, sym.name)) return error.DuplicateSymbol;
+        if (self.indices.contains(name)) return error.DuplicateSymbol;
+        if (self.symbols.items.len == 8192) return error.SymbolLimit;
+        try self.indices.put(name, self.symbols.items.len);
         try self.symbols.append(self.a, .{ .name = name, .value = v });
     }
-    fn unresolved(self: *Assembly) anyerror {
-        var expression = self.pending.items[0].expression;
-        for (0..self.pending.items.len + 1) |_| {
-            self.diag.focus(self.source, expression);
-            var end = expression.len;
-            for (expression[1..], 1..) |c, k| if (c == '+' or c == '-') {
-                end = k;
-                break;
-            };
-            const name = lex.trim(expression[0..end]);
-            var next: ?[]const u8 = null;
-            for (self.pending.items) |p| if (std.mem.eql(u8, p.name, name)) {
-                next = p.expression;
-                break;
-            };
-            expression = next orelse return error.UndefinedSymbol;
+    /// Each constant has at most one dependency. Iterative DFS visits it once.
+    fn resolvePending(self: *Assembly) !void {
+        var path: std.ArrayList(usize) = .empty;
+        defer path.deinit(self.a);
+        for (0..self.pending.items.len) |root| {
+            if (self.pending.items[root].status == 2) continue;
+            var current = root;
+            while (true) {
+                const p = &self.pending.items[current];
+                self.diag.focus(self.source, p.expression);
+                if (p.status == 1) return error.CyclicConstant;
+                if (p.status == 2) break;
+                p.status = 1;
+                try path.append(self.a, current);
+                const expression = lex.trim(p.expression);
+                var end = expression.len;
+                for (expression[1..], 1..) |c, k| if (c == '+' or c == '-') {
+                    end = k;
+                    break;
+                };
+                const dependency = lex.trim(expression[0..end]);
+                if (self.pending_indices.get(dependency)) |next| {
+                    current = next;
+                } else break;
+            }
+            while (path.pop()) |index| {
+                const p = &self.pending.items[index];
+                const v = try self.value(p.expression);
+                self.symbols.items[self.indices.get(p.name).?].value = v;
+                p.status = 2;
+            }
         }
-        self.diag.focus(self.source, self.pending.items[0].expression);
-        return error.CyclicConstant;
     }
     fn emit(self: *Assembly, b: u8) !void {
         if (self.pc >= 65536) return error.RomOverflow;
@@ -156,8 +173,8 @@ const Assembly = struct {
                     const resolved = self.value(p.items[1]) catch |err| switch (err) {
                         error.UndefinedSymbol => {
                             try self.symbol(p.items[0], 0);
-                            _ = self.symbols.pop();
-                            try self.pending.append(self.a, .{ .name = p.items[0], .expression = p.items[1], .line = self.line_number });
+                            try self.pending_indices.put(p.items[0], self.pending.items.len);
+                            try self.pending.append(self.a, .{ .name = p.items[0], .expression = p.items[1] });
                             return;
                         },
                         else => return err,
@@ -278,7 +295,19 @@ pub fn assemble(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Re
 fn assembleInner(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Result {
     diag.* = .{};
     if (source.len > 1024 * 1024) return error.SourceTooLarge;
-    var state: Assembly = .{ .a = a, .source = source, .diag = diag };
+    if (!std.unicode.utf8ValidateSlice(source)) return error.InvalidUtf8;
+    var starts: std.ArrayList(usize) = .empty;
+    defer starts.deinit(a);
+    try starts.append(a, 0);
+    for (source, 0..) |c, k| if (c == '\n') {
+        if (starts.items.len == 32768) return error.LineLimit;
+        try starts.append(a, k + 1);
+    };
+    diag.line_starts = starts.items;
+    defer diag.line_starts = &.{};
+    var state: Assembly = .{ .a = a, .source = source, .diag = diag, .indices = .init(a), .pending_indices = .init(a) };
+    defer state.indices.deinit();
+    defer state.pending_indices.deinit();
     defer state.locations.deinit(a);
     defer state.symbols.deinit(a);
     defer state.pending.deinit(a);
@@ -301,32 +330,12 @@ fn assembleInner(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !R
             state.line(line) catch |err| return err;
             if (pass == 1 and state.pc > before) {
                 var span: Diagnostic = .{};
+                span.line_starts = starts.items;
                 span.focus(source, lex.code(text));
                 try state.locations.append(a, .{ .address = @intCast(before), .length = state.pc - before, .line = span.line, .column = span.column, .source = lex.code(text) });
             }
         }
-        if (pass == 0) {
-            while (state.pending.items.len > 0) {
-                var progress = false;
-                var k: usize = 0;
-                while (k < state.pending.items.len) {
-                    const sym = state.pending.items[k];
-                    const value = state.value(sym.expression) catch |err| switch (err) {
-                        error.UndefinedSymbol => {
-                            k += 1;
-                            continue;
-                        },
-                        else => return err,
-                    };
-                    _ = state.pending.orderedRemove(k);
-                    try state.symbol(sym.name, value);
-                    progress = true;
-                }
-                if (!progress) {
-                    return state.unresolved();
-                }
-            }
-        }
+        if (pass == 0) try state.resolvePending();
     }
     const entry: i64 = if (state.entry) |e| try state.value(e) else @intCast(state.first orelse return error.NoEntry);
     if (entry < 0xe000 or entry >= 0xe000 + state.length or @mod(entry, 2) != 0) return error.BadEntry;
@@ -410,4 +419,52 @@ test "listing contains addresses bytes and original source" {
     try writeListing(&text.writer, r);
     try std.testing.expect(std.mem.indexOf(u8, text.written(), "e000: 00 22 34 12") != null);
     try std.testing.expect(std.mem.indexOf(u8, text.written(), "1:3 LDI R1") != null);
+}
+
+/// Bounded recovery for editor clients. Mask a failed source line and retry;
+/// subsequent messages may be cascades after an invalid definition is removed.
+/// Spans always refer to the original source. Existing assemble remains fail-fast.
+pub const Diagnostics = struct { items: [32]Diagnostic = undefined, len: usize = 0 };
+pub fn diagnose(a: std.mem.Allocator, source: []const u8) !Diagnostics {
+    if (source.len > 1024 * 1024) return error.SourceTooLarge;
+    const copy = try a.dupe(u8, source);
+    defer a.free(copy);
+    var result: Diagnostics = .{};
+    while (result.len < result.items.len) {
+        var d: Diagnostic = .{};
+        if (assemble(a, copy, &d)) |r| {
+            r.deinit();
+            break;
+        } else |err| {
+            if (err == error.OutOfMemory) return err;
+            const offset = @min(d.offset, source.len);
+            d.token = source[offset..][0..@min(d.length, source.len - offset)];
+            result.items[result.len] = d;
+            result.len += 1;
+            var start = offset;
+            while (start > 0 and copy[start - 1] != '\n') start -= 1;
+            var end = offset;
+            while (end < copy.len and copy[end] != '\n') end += 1;
+            if (start == end or std.mem.allEqual(u8, copy[start..end], ' ')) break;
+            @memset(copy[start..end], ' ');
+        }
+    }
+    return result;
+}
+test "deep constant chains are iterative, bounded, indexed and leak free" {
+    const a = std.testing.allocator;
+    var source: std.Io.Writer.Allocating = .init(a);
+    defer source.deinit();
+    for (0..4096) |k| try source.writer.print(".equ s{d}, s{d} + 1\n", .{ k, k + 1 });
+    try source.writer.writeAll(".equ s4096, 0\nLDI R0, s0\nHALT\n");
+    var d: Diagnostic = .{};
+    const r = try assemble(a, source.written(), &d);
+    defer r.deinit();
+    try std.testing.expectEqual(4096, std.mem.readInt(u16, r.image[34..36], .little));
+    try std.testing.expectError(error.InvalidUtf8, assemble(a, "HALT\n\xff", &d));
+    const errors = try diagnose(a, "LDI R8, 1\nLDI R9, 2\nHALT");
+    try std.testing.expectEqual(2, errors.len);
+    try std.testing.expectEqual(1, errors.items[0].line);
+    try std.testing.expectEqual(2, errors.items[1].line);
+    try std.testing.expectEqualStrings("R9", errors.items[1].token);
 }

@@ -54,3 +54,8 @@ test {
     _ = @import("fuzz_tests.zig");
 }
 pub const version = @import("version.zig").string;
+
+pub const project = @import("asm/project.zig");
+test {
+    _ = project;
+}

@@ -15,14 +15,17 @@ fn run(init: std.process.Init) !void {
     }
     if (args.len < 2) return error.Usage_n16asm_SOURCE_out_PATH;
     if (std.mem.eql(u8, args[1], "--help")) {
-        try std.Io.File.stdout().writeStreamingAll(init.io, "n16asm SOURCE --out PATH [--symbols LEGACY_MAP] [--debug-symbols JSON_MAP]\n  [--listing PATH] [--diagnostics text|json]\n");
+        try std.Io.File.stdout().writeStreamingAll(init.io, "n16asm SOURCE --out PATH [--symbols LEGACY_MAP] [--debug-symbols JSON_MAP]\n  [--listing PATH] [--project-root DIR] [--diagnostics text|json|rich|json2]\n");
         return;
     }
+    var project_root: ?[]const u8 = null;
     var out: ?[]const u8 = null;
     var sym: ?[]const u8 = null;
     var debug: ?[]const u8 = null;
     var listing: ?[]const u8 = null;
     var json = false;
+    var rich = false;
+    var json2 = false;
     var seen = std.StringHashMap(void).init(a);
     defer seen.deinit();
     var k: usize = 2;
@@ -32,17 +35,45 @@ fn run(init: std.process.Init) !void {
         const value = args[k + 1];
         if (seen.contains(opt)) return error.DuplicateOption;
         try seen.put(opt, {});
-        if (std.mem.eql(u8, opt, "--out")) out = value else if (std.mem.eql(u8, opt, "--symbols")) sym = value else if (std.mem.eql(u8, opt, "--debug-symbols")) debug = value else if (std.mem.eql(u8, opt, "--listing")) listing = value else if (std.mem.eql(u8, opt, "--diagnostics")) {
-            if (std.mem.eql(u8, value, "json")) json = true else if (!std.mem.eql(u8, value, "text")) return error.InvalidDiagnosticFormat;
+        if (std.mem.eql(u8, opt, "--project-root")) project_root = value else if (std.mem.eql(u8, opt, "--out")) out = value else if (std.mem.eql(u8, opt, "--symbols")) sym = value else if (std.mem.eql(u8, opt, "--debug-symbols")) debug = value else if (std.mem.eql(u8, opt, "--listing")) listing = value else if (std.mem.eql(u8, opt, "--diagnostics")) {
+            if (std.mem.eql(u8, value, "json")) json = true else if (std.mem.eql(u8, value, "json2")) json2 = true else if (std.mem.eql(u8, value, "rich")) rich = true else if (!std.mem.eql(u8, value, "text")) return error.InvalidDiagnosticFormat;
         } else return error.UnknownOption;
     }
     if (out == null) return error.MissingOutput;
-    const source = try std.Io.Dir.cwd().readFileAlloc(init.io, args[1], a, .limited(1024 * 1024));
+    const expanded = try n.project.load(a, init.io, project_root orelse std.fs.path.dirname(args[1]) orelse ".", args[1]);
+    defer expanded.deinit();
+    const source = expanded.source;
     var d: n.assembler.Diagnostic = .{};
     const result = n.assembler.assemble(a, source, &d) catch {
+        if (d.line <= expanded.lines.len) d.line = expanded.lines[d.line - 1].line;
         var error_text: std.Io.Writer.Allocating = .init(a);
         defer error_text.deinit();
-        if (json) {
+        if (rich or json2) {
+            const errors = try n.assembler.diagnose(a, source);
+            if (json2) try error_text.writer.writeAll("{\"schema_version\":2,\"diagnostics\":[");
+            for (errors.items[0..errors.len], 0..) |raw, index| {
+                var item = raw;
+                const origin = expanded.lines[@min(item.line - 1, expanded.lines.len - 1)];
+                item.line = origin.line;
+                const filename = if (expanded.files.len == 1) args[1] else origin.file;
+                var start = item.offset;
+                while (start > 0 and source[start - 1] != '\n') start -= 1;
+                var end = item.offset;
+                while (end < source.len and source[end] != '\n') end += 1;
+                const suggestion: ?[]const u8 = if (std.mem.eql(u8, item.code, "ExpectedRegister")) "Use R0 through R7" else null;
+                if (json2) {
+                    if (index > 0) try error_text.writer.writeByte(',');
+                    try std.json.Stringify.value(.{ .category = "assembly", .file = filename, .code = item.code, .message = item.reason, .line = item.line, .column = item.column, .offset = item.offset, .length = item.length, .excerpt = source[start..end], .suggestion = suggestion }, .{}, &error_text.writer);
+                } else {
+                    try error_text.writer.print("{s}:{d}:{d}: {s}: {s}\n{s}\n", .{ filename, item.line, item.column, item.code, item.reason, source[start..end] });
+                    for (1..item.column) |_| try error_text.writer.writeByte(' ');
+                    for (0..@min(@max(item.length, 1), 120)) |_| try error_text.writer.writeByte('^');
+                    try error_text.writer.writeByte('\n');
+                    if (suggestion) |hint| try error_text.writer.print("help: {s}\n", .{hint});
+                }
+            }
+            if (json2) try error_text.writer.writeAll("]}\n");
+        } else if (json) {
             try std.json.Stringify.value(.{ .schema_version = @as(u16, 1), .file = args[1], .code = d.code, .message = d.reason, .line = d.line, .column = d.column, .offset = d.offset, .length = d.length, .token = d.token }, .{}, &error_text.writer);
             try error_text.writer.writeByte('\n');
         } else try error_text.writer.print("{s}:{d}:{d}: {s}: {s}: {s}\n", .{ args[1], d.line, d.column, d.code, d.reason, d.token });
@@ -50,23 +81,29 @@ fn run(init: std.process.Init) !void {
         return error.DiagnosticReported;
     };
     defer result.deinit();
-    try std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = out.?, .data = result.image });
+    for (result.locations) |*loc| {
+        const origin = expanded.lines[loc.line - 1];
+        loc.file = origin.file;
+        loc.line = origin.line;
+    }
+    const outputs = @import("outputs.zig");
+    var artifacts: std.ArrayList(outputs.Artifact) = .empty;
+    defer artifacts.deinit(a);
+    try artifacts.append(a, .{ .path = out.?, .bytes = result.image });
     if (sym) |path| {
         var text: std.Io.Writer.Allocating = .init(a);
-        defer text.deinit();
         for (result.symbols) |s| try text.writer.print("{x:0>4} {s}\n", .{ s.value, s.name });
-        try std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = path, .data = text.written() });
+        try artifacts.append(a, .{ .path = path, .bytes = try text.toOwnedSlice() });
     }
     if (debug) |path| {
         var text: std.Io.Writer.Allocating = .init(a);
-        defer text.deinit();
         try n.symbol_map.write(&text.writer, a, result, args[1]);
-        try std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = path, .data = text.written() });
+        try artifacts.append(a, .{ .path = path, .bytes = try text.toOwnedSlice() });
     }
     if (listing) |path| {
         var text: std.Io.Writer.Allocating = .init(a);
-        defer text.deinit();
         try n.assembler.writeListing(&text.writer, result);
-        try std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = path, .data = text.written() });
+        try artifacts.append(a, .{ .path = path, .bytes = try text.toOwnedSlice() });
     }
+    try outputs.publish(a, init.io, args[1], artifacts.items);
 }

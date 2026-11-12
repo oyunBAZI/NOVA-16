@@ -45,3 +45,24 @@ JSON schema 2 with ROM payload CRC32, named symbols and address/source spans.
 schemas. `--symbols program.sym` retains the unchanged legacy two-column format;
 legacy maps have no checksum and cannot prove association with a ROM. All ROM
 bytes and previously valid assembly syntax remain V1 compatible.
+
+## Bounded assembly and diagnostics v2
+Source is limited to 1 MiB, 32,768 lines and 8,192 symbols. UTF-8 must be valid;
+ASCII token/whitespace rules are unchanged. Constant dependencies use an indexed,
+iterative walk, with deterministic cycle detection and no recursive call stack.
+Source span lookup uses indexed line starts. `scripts/symbol_benchmark.py`
+reproduces a reverse-chain workload; run against the desired built assembler.
+
+Existing text and `--diagnostics json` (schema 1) remain unchanged. Opt into
+`--diagnostics rich` for excerpts/carets or `--diagnostics json2` for schema 2:
+a diagnostics array containing category, stable error code, file, byte-based
+line/column/offset/length, excerpt and optional suggestion. Recovery masks one
+failed line per retry, up to 32 diagnostics. Errors after removed definitions
+may be cascades; this is bounded recovery, not a claim of arbitrary parser repair.
+
+Assembly finishes before any output is staged. All output paths and parent
+folders are preflighted; source aliases, duplicate destinations and non-files
+are rejected. All artifacts are staged before replacing destinations; ROM is
+replaced last. Each replacement is atomic where the host supports it. A crash
+or replacement-time filesystem failure is not a cross-file transaction; the
+ROM is the commit marker and checksum-bound maps reject stale ROM associations.

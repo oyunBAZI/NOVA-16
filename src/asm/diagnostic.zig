@@ -1,5 +1,6 @@
 const std = @import("std");
 pub const Diagnostic = struct {
+    line_starts: []const usize = &.{},
     line: usize = 1,
     column: usize = 1,
     offset: usize = 0,
@@ -14,6 +15,17 @@ pub const Diagnostic = struct {
         self.offset = ptr - base;
         self.length = token.len;
         self.token = token;
+        if (self.line_starts.len > 0) {
+            var low: usize = 0;
+            var high = self.line_starts.len;
+            while (low + 1 < high) {
+                const mid = low + (high - low) / 2;
+                if (self.line_starts[mid] <= self.offset) low = mid else high = mid;
+            }
+            self.line = low + 1;
+            self.column = self.offset - self.line_starts[low] + 1;
+            return;
+        }
         self.line = 1;
         self.column = 1;
         for (source[0..self.offset]) |c| {

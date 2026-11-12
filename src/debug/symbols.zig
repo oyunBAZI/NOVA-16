@@ -5,7 +5,7 @@ pub const Map = struct { schema_version: u16 = 2, rom_checksum: u32, symbols: []
 pub fn write(w: *std.Io.Writer, a: std.mem.Allocator, result: asm16.Result, file: []const u8) !void {
     const locations = try a.alloc(Source, result.locations.len);
     defer a.free(locations);
-    for (result.locations, locations) |s, *d| d.* = .{ .address = s.address, .length = s.length, .line = s.line, .column = s.column, .file = file };
+    for (result.locations, locations) |s, *d| d.* = .{ .address = s.address, .length = s.length, .line = s.line, .column = s.column, .file = if (s.file.len > 0) s.file else file };
     const map: Map = .{ .rom_checksum = std.mem.readInt(u32, result.image[12..16], .little), .symbols = result.symbols, .locations = locations };
     try std.json.Stringify.value(map, .{}, w);
     try w.writeByte('\n');
