@@ -75,3 +75,38 @@ N16C remains V1/single-unit, all guest library linking remains unchanged. No
 compiler/linker optimization, NOVA Studio, V3, FPGA or host-filesystem device is
 claimed. V2 uses the reviewed8KiB ROM and128×96 display. No published V2 release
 or merge is implied by branch verification.
+
+
+## Fetch/memory hot-path and coverage-build correction
+
+Review found that the standalone kcov build bypasses build.zig and therefore
+needed the explicit `v2-contract` module too. CI43251806451's coverage job confirmed
+that missing-module failure; the corrected exact LLVM command compiles locally.
+The workflow retains coverage measurement and its assertions; no gate is bypassed.
+
+Measured V1 slowdown from per-byte device dispatch motivated a shared RAM/ROM
+fetch fast path and aligned ordinary-memory word paths. Executable addresses
+cannot be MMIO; these paths preserve permissions, fault precedence and byte-write
+notifications. Latest Debug/ReleaseSafe116/116, every acceptance suite, genuine
+SDL tests, package reproducibility and extracted V1/V2 checks pass after this change.
+Commands/results: reliability/v2-fastpath.json. The final Linux SDK comparison
+also passed with source frozen, as before.
+
+Same-host sequential three-sample ReleaseSafe/znver4 benchmark,500,000 requested
+instructions per sample, original a25afb5 vs V2 working source:
+
+| Metric | Original V1 | V2-capable core |
+|---|---:|---:|
+|Synthetic CPU instruction|38.69ns|10.41ns|
+|Headless V1 frame|0.764ms|0.185ms|
+|RAM word pair|29.78ns|8.34ns|
+|Full-state history step|1.581µs|1.683µs|
+|Maximum32-state history bytes|2,101,248|2,157,824|
+
+Raw per-sample data and host/compiler fields: benchmarks/v2-linux-comparison.json.
+Earlier measurements taken while builds/fuzzing overlapped were discarded from
+this comparison. These synthetic same-host measurements are not a universal
+performance claim. Full-copy history's extra56,576bytes and measured copy cost
+remain acceptable for its bounded use. Capture-only lower-bound timings do not
+justify replacing exact restore with an unimplemented delta/checkpoint design.
+Native CI for the follow-up commit remains the final outstanding completion gate.

@@ -22,7 +22,9 @@ pub const Bus = struct {
     pub fn fetch(self: *Bus, a: u16) Fault!u16 {
         if (a & 1 != 0) return error.Unaligned;
         if (!isa.executable(a)) return error.ExecuteDenied;
-        return self.read16(a);
+        // Executable addresses are aligned RAM/ROM pairs, never MMIO. Avoid
+        // re-entering device permission/read-clear dispatch for instruction fetch.
+        return std.mem.readInt(u16, self.bytes[a..][0..2], .little);
     }
     pub fn validate(a: u16, write: bool) Fault!void {
         if (a >= isa.rom_base and write) return error.WriteDenied;
@@ -33,13 +35,14 @@ pub const Bus = struct {
         return if (write) error.WriteDenied else error.ReadDenied;
     }
     fn validateAccess(self: *const Bus, a: u16, write: bool) Fault!void {
+        if (a < isa.mmio_base or a >= isa.rom_base) return validate(a, write);
         if (self.profile == .v2 and (Audio.permitted(a, write) or Interrupts.permitted(a, write))) return;
         return validate(a, write);
     }
     /// Debugger reads do not acknowledge read-clear device registers.
     pub fn peek(self: *const Bus, a: u16) Fault!u8 {
         try self.validateAccess(a, false);
-        if (self.profile == .v2) {
+        if (a >= 0xd900 and a <= 0xd968 and self.profile == .v2) {
             if (Audio.permitted(a, false)) return self.audio.read(a);
             if (Interrupts.permitted(a, false)) return self.irq.read(a);
         }
@@ -66,6 +69,8 @@ pub const Bus = struct {
         try self.validateAccess(a + 1, write);
     }
     pub fn read16(self: *Bus, a: u16) Fault!u16 {
+        if (a & 1 != 0) return error.Unaligned;
+        if (a < isa.mmio_base or a >= isa.rom_base) return std.mem.readInt(u16, self.bytes[a..][0..2], .little);
         try self.validateWord(a, false);
         return @as(u16, try self.read8(a)) | (@as(u16, try self.read8(a + 1)) << 8);
     }
@@ -85,6 +90,22 @@ pub const Bus = struct {
         }
     }
     pub fn write16(self: *Bus, a: u16, v: u16) Fault!void {
+        if (a & 1 != 0) return error.Unaligned;
+        if (a < isa.mmio_base) {
+            // An aligned writable-memory pair cannot cross into MMIO. Keep
+            // byte-ordered write notifications identical to the general path.
+            for (0..2) |i| {
+                const address = a + @as(u16, @intCast(i));
+                const value: u8 = @truncate(v >> @as(u4, @intCast(i * 8)));
+                const old = self.bytes[address];
+                self.bytes[address] = value;
+                if (self.write_count < 6) {
+                    self.writes[self.write_count] = .{ .address = address, .old = old, .new = value };
+                    self.write_count += 1;
+                }
+            }
+            return;
+        }
         try self.validateWord(a, true);
         if (self.profile == .v2 and a >= 0xd900 and a <= 0xd968) return self.writeDevice(a, v, 2);
         // Preflight both bytes before any device side effect.
