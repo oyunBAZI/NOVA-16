@@ -15,9 +15,10 @@ fn run(init: std.process.Init) !void {
     }
     if (args.len < 2) return error.Usage_n16asm_SOURCE_out_PATH;
     if (std.mem.eql(u8, args[1], "--help")) {
-        try std.Io.File.stdout().writeStreamingAll(init.io, "n16asm SOURCE --out PATH [--symbols LEGACY_MAP] [--debug-symbols JSON_MAP]\n  [--listing PATH] [--project-root DIR] [--diagnostics text|json|rich|json2]\n");
+        try std.Io.File.stdout().writeStreamingAll(init.io, "n16asm SOURCE --out PATH [--symbols LEGACY_MAP] [--debug-symbols JSON_MAP]\n  [--architecture nova16-v1|nova16-v2] [--listing PATH] [--project-root DIR] [--diagnostics text|json|rich|json2]\n");
         return;
     }
+    var profile: n.isa.Profile = .v1;
     var project_root: ?[]const u8 = null;
     var out: ?[]const u8 = null;
     var sym: ?[]const u8 = null;
@@ -35,7 +36,7 @@ fn run(init: std.process.Init) !void {
         const value = args[k + 1];
         if (seen.contains(opt)) return error.DuplicateOption;
         try seen.put(opt, {});
-        if (std.mem.eql(u8, opt, "--project-root")) project_root = value else if (std.mem.eql(u8, opt, "--out")) out = value else if (std.mem.eql(u8, opt, "--symbols")) sym = value else if (std.mem.eql(u8, opt, "--debug-symbols")) debug = value else if (std.mem.eql(u8, opt, "--listing")) listing = value else if (std.mem.eql(u8, opt, "--diagnostics")) {
+        if (std.mem.eql(u8, opt, "--architecture")) profile = try n.isa.Profile.parse(value) else if (std.mem.eql(u8, opt, "--project-root")) project_root = value else if (std.mem.eql(u8, opt, "--out")) out = value else if (std.mem.eql(u8, opt, "--symbols")) sym = value else if (std.mem.eql(u8, opt, "--debug-symbols")) debug = value else if (std.mem.eql(u8, opt, "--listing")) listing = value else if (std.mem.eql(u8, opt, "--diagnostics")) {
             if (std.mem.eql(u8, value, "json")) json = true else if (std.mem.eql(u8, value, "json2")) json2 = true else if (std.mem.eql(u8, value, "rich")) rich = true else if (!std.mem.eql(u8, value, "text")) return error.InvalidDiagnosticFormat;
         } else return error.UnknownOption;
     }
@@ -44,7 +45,7 @@ fn run(init: std.process.Init) !void {
     defer expanded.deinit();
     const source = expanded.source;
     var d: n.assembler.Diagnostic = .{};
-    const result = n.assembler.assemble(a, source, &d) catch {
+    const result = n.assembler.assembleProfile(a, source, &d, profile) catch {
         const first_origin = expanded.lines[@min(d.line - 1, expanded.lines.len - 1)];
         const diagnostic_file = if (expanded.files.len == 1) args[1] else first_origin.file;
         d.line = first_origin.line;
@@ -52,7 +53,7 @@ fn run(init: std.process.Init) !void {
         var error_text: std.Io.Writer.Allocating = .init(a);
         defer error_text.deinit();
         if (rich or json2) {
-            const errors = try n.assembler.diagnose(a, source);
+            const errors = try n.assembler.diagnoseProfile(a, source, profile);
             if (json2) try error_text.writer.writeAll("{\"schema_version\":2,\"diagnostics\":[");
             for (errors.items[0..errors.len], 0..) |raw, index| {
                 var item = raw;

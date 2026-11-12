@@ -4,19 +4,27 @@ const Input = @import("../devices/input.zig").Input;
 const video = @import("../devices/video.zig");
 const Fault = @import("traps.zig").Fault;
 pub const Write = struct { address: u16, old: u8, new: u8 };
+pub const Audio = @import("../devices/audio.zig").Audio;
+pub const Interrupts = @import("../devices/interrupts.zig").Interrupts;
 pub const Bus = struct {
+    profile: isa.Profile = .v1,
+    audio: Audio = .{},
+    irq: Interrupts = .{},
+    device_address: u16 = 0,
     bytes: [65536]u8 = @splat(0),
     input: Input = .{},
     palette: [48]u8 = video.default_palette,
     frame: u16 = 0,
     enabled: bool = true,
     vblank: bool = false,
-    writes: [2]Write = undefined,
-    write_count: u2 = 0,
+    writes: [6]Write = undefined,
+    write_count: u3 = 0,
     pub fn fetch(self: *Bus, a: u16) Fault!u16 {
         if (a & 1 != 0) return error.Unaligned;
         if (!isa.executable(a)) return error.ExecuteDenied;
-        return self.read16(a);
+        // Executable addresses are aligned RAM/ROM pairs, never MMIO. Avoid
+        // re-entering device permission/read-clear dispatch for instruction fetch.
+        return std.mem.readInt(u16, self.bytes[a..][0..2], .little);
     }
     pub fn validate(a: u16, write: bool) Fault!void {
         if (a >= isa.rom_base and write) return error.WriteDenied;
@@ -26,9 +34,18 @@ pub const Bus = struct {
         if (a >= 0xd800 and a <= 0xd805 and !write) return;
         return if (write) error.WriteDenied else error.ReadDenied;
     }
+    fn validateAccess(self: *const Bus, a: u16, write: bool) Fault!void {
+        if (a < isa.mmio_base or a >= isa.rom_base) return validate(a, write);
+        if (self.profile == .v2 and (Audio.permitted(a, write) or Interrupts.permitted(a, write))) return;
+        return validate(a, write);
+    }
     /// Debugger reads do not acknowledge read-clear device registers.
     pub fn peek(self: *const Bus, a: u16) Fault!u8 {
-        try validate(a, false);
+        try self.validateAccess(a, false);
+        if (a >= 0xd900 and a <= 0xd968 and self.profile == .v2) {
+            if (Audio.permitted(a, false)) return self.audio.read(a);
+            if (Interrupts.permitted(a, false)) return self.irq.read(a);
+        }
         return switch (a) {
             0xd800 => self.input.held,
             0xd801 => self.input.pressed,
@@ -46,17 +63,20 @@ pub const Bus = struct {
         if (a == 0xd805) self.vblank = false;
         return v;
     }
-    fn validateWord(a: u16, write: bool) Fault!void {
+    fn validateWord(self: *const Bus, a: u16, write: bool) Fault!void {
         if (a & 1 != 0) return error.Unaligned;
-        try validate(a, write);
-        try validate(a + 1, write);
+        try self.validateAccess(a, write);
+        try self.validateAccess(a + 1, write);
     }
     pub fn read16(self: *Bus, a: u16) Fault!u16 {
-        try validateWord(a, false);
+        if (a & 1 != 0) return error.Unaligned;
+        if (a < isa.mmio_base or a >= isa.rom_base) return std.mem.readInt(u16, self.bytes[a..][0..2], .little);
+        try self.validateWord(a, false);
         return @as(u16, try self.read8(a)) | (@as(u16, try self.read8(a + 1)) << 8);
     }
     pub fn write8(self: *Bus, a: u16, v: u8) Fault!void {
-        try validate(a, true);
+        try self.validateAccess(a, true);
+        if (self.profile == .v2 and a >= 0xd900 and a <= 0xd968) return self.writeDevice(a, v, 1);
         if (a == 0xd804 and v & 0xfe != 0) return error.ReservedBits;
         const old = try self.peek(a);
         switch (a) {
@@ -64,17 +84,58 @@ pub const Bus = struct {
             0xd820...0xd84f => self.palette[a - 0xd820] = v,
             else => self.bytes[a] = v,
         }
-        if (self.write_count < 2) {
+        if (self.write_count < 6) {
             self.writes[self.write_count] = .{ .address = a, .old = old, .new = v };
             self.write_count += 1;
         }
     }
     pub fn write16(self: *Bus, a: u16, v: u16) Fault!void {
-        try validateWord(a, true);
+        if (a & 1 != 0) return error.Unaligned;
+        if (a < isa.mmio_base) {
+            // An aligned writable-memory pair cannot cross into MMIO. Keep
+            // byte-ordered write notifications identical to the general path.
+            for (0..2) |i| {
+                const address = a + @as(u16, @intCast(i));
+                const value: u8 = @truncate(v >> @as(u4, @intCast(i * 8)));
+                const old = self.bytes[address];
+                self.bytes[address] = value;
+                if (self.write_count < 6) {
+                    self.writes[self.write_count] = .{ .address = address, .old = old, .new = value };
+                    self.write_count += 1;
+                }
+            }
+            return;
+        }
+        try self.validateWord(a, true);
+        if (self.profile == .v2 and a >= 0xd900 and a <= 0xd968) return self.writeDevice(a, v, 2);
         // Preflight both bytes before any device side effect.
         if (a == 0xd804 and v & 0xfe != 0) return error.ReservedBits;
         try self.write8(a, @truncate(v));
         try self.write8(a + 1, @truncate(v >> 8));
+    }
+    fn writeDevice(self: *Bus, a: u16, value: u16, width: u2) Fault!void {
+        var audio = self.audio;
+        var irq = self.irq;
+        var old: [2]u8 = undefined;
+        for (0..width) |i| {
+            const address = a + @as(u16, @intCast(i));
+            self.device_address = address;
+            old[i] = try self.peek(address);
+            const byte: u8 = @truncate(value >> @as(u4, @intCast(i * 8)));
+            if (address < 0xd950) try audio.write(address, byte) else try irq.write(address, byte);
+        }
+        if (a < 0xd940 and audio.voices[(a - 0xd900) / 16].step > 0x80000000) {
+            self.device_address = a;
+            return error.DeviceValue;
+        }
+        if (a >= 0xd960 and a <= 0xd963) irq.remaining = irq.period;
+        self.audio = audio;
+        self.irq = irq;
+        for (0..width) |i| {
+            if (self.write_count == 6) break;
+            self.writes[self.write_count] = .{ .address = a + @as(u16, @intCast(i)), .old = old[i], .new = @truncate(value >> @as(u4, @intCast(i * 8))) };
+            self.write_count += 1;
+        }
     }
 };
 test "permissions across every region boundary" {

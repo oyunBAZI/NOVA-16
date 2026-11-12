@@ -32,7 +32,16 @@ def load(root):
     if len(raw) > 65536:
         raise ValueError('manifest limit')
     manifest = json.loads(raw)
-    if not isinstance(manifest, dict) or set(manifest) != {'schema_version', 'name', 'language', 'entry', 'files', 'tests'} or (type(manifest['schema_version']) is not int or manifest['schema_version'] != 1):
+    if not isinstance(manifest, dict) or type(manifest.get('schema_version')) is not int:
+        raise ValueError('unsupported project manifest')
+    fields = {'schema_version', 'name', 'language', 'entry', 'files', 'tests'}
+    if manifest['schema_version'] == 2:
+        fields.add('architecture')
+        if manifest.get('architecture') not in ('nova16-v1', 'nova16-v2') or manifest.get('language') != 'asm':
+            raise ValueError('manifest2 requires explicit assembly architecture')
+    elif manifest['schema_version'] != 1:
+        raise ValueError('unsupported project manifest')
+    if set(manifest) != fields:
         raise ValueError('unsupported project manifest')
     if not isinstance(manifest['name'], str) or not 1 <= len(manifest['name']) <= 64:
         raise ValueError('invalid name')
@@ -112,6 +121,8 @@ def build(root, bins):
             compiler = tool(bins, 'n16c')
         else:
             args += ['--project-root', source]
+            if manifest['schema_version'] == 2:
+                args += ['--architecture', manifest['architecture']]
             compiler = tool(bins, 'n16asm')
         try:
             execute(compiler, *args, capture=True)

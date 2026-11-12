@@ -42,6 +42,22 @@ zig build -Dtarget=aarch64-macos -Doptimize=ReleaseSafe
 `zig build test` executes tests on the build host, even during cross-compilation.
 Native CI supplies the corresponding target-OS execution evidence.
 
+## Profile2 development
+
+The `0.5.0-dev` branch implements explicit V2 ROMs, four programmable sound
+voices, timer/frame interrupts, EI/DI/IRET, portable snapshots and exact reverse
+history. Default assembly and all original V1 formats remain unchanged.
+
+```sh
+zig build
+zig-out/bin/nova16 run zig-out/demos/nova_sound.n16 --frames 180 --wav nova-sound.wav
+zig-out/bin/nova16 run zig-out/demos/interrupt_canvas.n16 --frames 180 --wav canvas.wav --screenshot canvas.ppm
+python3 scripts/v2_acceptance.py
+```
+
+See [V2 usage](docs/v2-implementation.md) and the [verification ledger](docs/v2-implementation-ledger.md).
+This development version is separate from the historical v0.4 release.
+
 ## Machine and tools
 
 - Eight 16-bit registers, separate PC/SP, Z/N/C/V; strict 2/4-byte ISA and traps.

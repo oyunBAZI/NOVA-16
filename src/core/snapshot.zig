@@ -1,11 +1,12 @@
-//! Portable N16S snapshot V1: explicit little-endian fields, no struct dumps.
+//! Portable N16S snapshots V1/V2: explicit little-endian fields, no struct dumps.
 const std = @import("std");
 const Machine = @import("machine.zig").Machine;
 const traps = @import("traps.zig");
 const isa = @import("../arch/isa.zig");
 pub const payload_size = 128 + 65536 + 48;
 pub const file_size = 32 + payload_size;
-const faults = [_]traps.Fault{ error.InvalidOpcode, error.Unaligned, error.ExecuteDenied, error.AddressOverflow, error.ReadDenied, error.WriteDenied, error.ReservedBits, error.StackUnderflow, error.StackOverflow, error.InvalidStack, error.InstructionLimit };
+pub const v2_file_size = 67680;
+const faults = [_]traps.Fault{ error.InvalidOpcode, error.Unaligned, error.ExecuteDenied, error.AddressOverflow, error.ReadDenied, error.WriteDenied, error.ReservedBits, error.StackUnderflow, error.StackOverflow, error.InvalidStack, error.InstructionLimit, error.InvalidInterruptState, error.InterruptNesting, error.ClockLimit, error.DeviceValue };
 fn put(comptime T: type, b: []u8, offset: usize, v: T) void {
     std.mem.writeInt(T, b[offset..][0..@sizeOf(T)], v, .little);
 }
@@ -13,6 +14,10 @@ fn get(comptime T: type, b: []const u8, offset: usize) T {
     return std.mem.readInt(T, b[offset..][0..@sizeOf(T)], .little);
 }
 pub fn encode(a: std.mem.Allocator, m: *const Machine) ![]u8 {
+    if (m.bus.profile == .v2) return encodeV2(a, m);
+    return encodeV1(a, m);
+}
+fn encodeV1(a: std.mem.Allocator, m: *const Machine) ![]u8 {
     const out = try a.alloc(u8, file_size);
     @memset(out, 0);
     @memcpy(out[0..4], "N16S");
@@ -56,10 +61,22 @@ pub fn encode(a: std.mem.Allocator, m: *const Machine) ![]u8 {
 /// Checked serialization for embedders; raw encode remains a forensic interface.
 pub fn encodeChecked(a: std.mem.Allocator, m: *const Machine) ![]u8 {
     try m.validateState();
+    if (m.bus.profile == .v1) if (m.cpu.trap) |trap| {
+        for (faults[11..]) |fault| if (fault == trap.kind) return error.InvalidV1State;
+    };
     return encode(a, m);
 }
 /// All validation completes in a bounded temporary machine before assignment.
 pub fn restore(target: *Machine, data: []const u8, expected_rom: ?u32) !void {
+    if (data.len >= 6 and get(u16, data, 4) == 2) {
+        if (target.bus.profile != .v2) return error.SnapshotProfile;
+        return restoreV2(target, data, expected_rom);
+    }
+    if (target.bus.profile != .v1) return error.SnapshotProfile;
+    if (data.len == file_size and data[32 + 47] > 11) return error.SnapshotState;
+    return restoreV1(target, data, expected_rom);
+}
+fn restoreV1(target: *Machine, data: []const u8, expected_rom: ?u32) !void {
     if (data.len != file_size) return error.SnapshotSize;
     if (!std.mem.eql(u8, data[0..4], "N16S")) return error.SnapshotMagic;
     if (get(u16, data, 4) != 1) return error.SnapshotVersion;
@@ -106,6 +123,145 @@ pub fn restore(target: *Machine, data: []const u8, expected_rom: ?u32) !void {
     m.validateState() catch return error.SnapshotState;
     target.* = m;
 }
+const Section = struct { tag: *const [4]u8, offset: usize, length: usize };
+const sections = [_]Section{
+    .{ .tag = "CPU2", .offset = 112, .length = 160 },
+    .{ .tag = "MEM1", .offset = 272, .length = 65584 },
+    .{ .tag = "AUD1", .offset = 65856, .length = 1696 },
+    .{ .tag = "IRQ1", .offset = 67552, .length = 128 },
+};
+fn encodeV2(a: std.mem.Allocator, m: *const Machine) ![]u8 {
+    const base = try encodeV1(a, m);
+    defer a.free(base);
+    const out = try a.alloc(u8, v2_file_size);
+    @memset(out, 0);
+    @memcpy(out[0..4], "N16S");
+    put(u16, out, 4, 2);
+    put(u32, out, 8, v2_file_size);
+    put(u16, out, 16, 2);
+    put(u16, out, 18, 4);
+    put(u32, out, 20, 32);
+    const cpu = out[112..272];
+    @memcpy(cpu[0..128], base[32..160]);
+    put(u64, cpu, 128, m.slots);
+    put(u64, cpu, 136, m.irq_entries);
+    put(u16, cpu, 144, @intCast(m.slots % 20000));
+    put(u16, cpu, 146, m.bus.audio.prefix);
+    cpu[148] = @intCast(m.slots % 25);
+    @memcpy(out[272..65856], base[160..]);
+    const audio = out[65856..67552];
+    const sound = &m.bus.audio;
+    audio[0] = @intFromBool(sound.enabled);
+    audio[1] = sound.gain;
+    put(u64, audio, 8, sound.generated);
+    for (sound.voices, 0..) |v, i| {
+        const offset = 32 + i * 16;
+        put(u32, audio, offset, v.step);
+        put(u32, audio, offset + 4, v.phase);
+        put(u16, audio, offset + 8, v.noise);
+        audio[offset + 10] = v.volume;
+        audio[offset + 11] = v.wave;
+        audio[offset + 12] = @intFromBool(v.enabled);
+    }
+    for (sound.pcm, 0..) |sample, i| put(i16, audio, 96 + i * 2, sample);
+    const irq = out[67552..];
+    const controller = &m.bus.irq;
+    irq[0] = controller.pending;
+    irq[1] = controller.mask;
+    irq[2] = @intFromBool(controller.ie);
+    irq[3] = controller.depth;
+    put(u32, irq, 4, controller.period);
+    put(u32, irq, 8, controller.remaining);
+    irq[12] = @intFromBool(controller.reload);
+    for (controller.frames, 0..) |frame, i| {
+        put(u16, irq, 16 + 12 * i, frame.top);
+        irq[18 + 12 * i] = frame.vector;
+    }
+    for (sections, 0..) |section, i| {
+        const d = out[32 + i * 20 ..][0..20];
+        @memcpy(d[0..4], section.tag);
+        put(u32, d, 4, @intCast(section.offset));
+        put(u32, d, 8, @intCast(section.length));
+        put(u32, d, 12, std.hash.Crc32.hash(out[section.offset..][0..section.length]));
+    }
+    put(u32, out, 12, std.hash.Crc32.hash(out[32..]));
+    return out;
+}
+fn zero(bytes: []const u8) !void {
+    for (bytes) |byte| if (byte != 0) return error.SnapshotReserved;
+}
+fn restoreV2(target: *Machine, data: []const u8, expected_rom: ?u32) !void {
+    if (data.len != v2_file_size) return error.SnapshotSize;
+    if (!std.mem.eql(u8, data[0..4], "N16S")) return error.SnapshotMagic;
+    if (get(u16, data, 6) != 0 or get(u32, data, 8) != v2_file_size or get(u16, data, 16) != 2 or get(u16, data, 18) != 4 or get(u32, data, 20) != 32) return error.SnapshotHeader;
+    try zero(data[24..32]);
+    if (std.hash.Crc32.hash(data[32..]) != get(u32, data, 12)) return error.SnapshotChecksum;
+    for (sections, 0..) |section, i| {
+        const d = data[32 + i * 20 ..][0..20];
+        if (!std.mem.eql(u8, d[0..4], section.tag) or get(u32, d, 4) != section.offset or get(u32, d, 8) != section.length) return error.SnapshotHeader;
+        try zero(d[16..20]);
+        if (get(u32, d, 12) != std.hash.Crc32.hash(data[section.offset..][0..section.length])) return error.SnapshotChecksum;
+    }
+    // Reuse the V1 metadata/memory validator without changing its wire bytes.
+    var base: [file_size]u8 = @splat(0);
+    @memcpy(base[0..4], "N16S");
+    put(u16, &base, 4, 1);
+    put(u32, &base, 8, payload_size);
+    @memcpy(base[32..160], data[112..240]);
+    @memcpy(base[160..], data[272..65856]);
+    put(u32, &base, 12, std.hash.Crc32.hash(base[32..]));
+    var m: Machine = .{};
+    try restoreV1(&m, &base, expected_rom);
+    if (m.rom_length == 0 or target.rom_length == 0 or m.checksum != target.checksum) return error.SnapshotRomMismatch;
+    m.bus.profile = .v2;
+    const cpu = data[112..272];
+    m.slots = get(u64, cpu, 128);
+    m.irq_entries = get(u64, cpu, 136);
+    if (get(u16, cpu, 144) != m.slots % 20000 or get(u16, cpu, 146) != (m.slots % 20000) / 25 or cpu[148] != m.slots % 25) return error.SnapshotState;
+    try zero(cpu[149..160]);
+    const audio = data[65856..67552];
+    if (audio[0] > 1) return error.SnapshotState;
+    try zero(audio[2..8]);
+    try zero(audio[16..32]);
+    const sound = &m.bus.audio;
+    sound.enabled = audio[0] != 0;
+    sound.gain = audio[1];
+    sound.generated = get(u64, audio, 8);
+    sound.prefix = get(u16, cpu, 146);
+    for (&sound.voices, 0..) |*v, i| {
+        const offset = 32 + i * 16;
+        v.step = get(u32, audio, offset);
+        v.phase = get(u32, audio, offset + 4);
+        v.noise = get(u16, audio, offset + 8);
+        v.volume = audio[offset + 10];
+        v.wave = audio[offset + 11];
+        if (audio[offset + 12] > 1) return error.SnapshotState;
+        v.enabled = audio[offset + 12] != 0;
+        try zero(audio[offset + 13 ..][0..3]);
+    }
+    for (&sound.pcm, 0..) |*sample, i| sample.* = get(i16, audio, 96 + i * 2);
+    const irq = data[67552..];
+    if (irq[2] > 1 or irq[12] > 1) return error.SnapshotState;
+    try zero(irq[13..16]);
+    try zero(irq[112..128]);
+    const controller = &m.bus.irq;
+    controller.pending = irq[0];
+    controller.mask = irq[1];
+    controller.ie = irq[2] != 0;
+    controller.depth = irq[3];
+    controller.period = get(u32, irq, 4);
+    controller.remaining = get(u32, irq, 8);
+    controller.reload = irq[12] != 0;
+    for (&controller.frames, 0..) |*frame, i| {
+        const offset = 16 + 12 * i;
+        frame.top = get(u16, irq, offset);
+        frame.vector = irq[offset + 2];
+        try zero(irq[offset + 3 ..][0..9]);
+    }
+    m.validateState() catch return error.SnapshotState;
+    target.* = m;
+}
+
 test "full-state snapshots roundtrip deterministically and malformed restore is atomic" {
     const a = std.testing.allocator;
     const rom = @import("../rom/format.zig");
@@ -160,7 +316,7 @@ test "snapshot at maximum retirement cannot overflow host counter" {
 
 test "every trap code and context roundtrips without native enum serialization" {
     const a = std.testing.allocator;
-    for (faults) |fault| {
+    for (faults[0..11]) |fault| {
         var m: Machine = .{};
         m.cpu.trap = .{ .kind = fault, .pc = 0xe001, .instruction = 0xffff, .address = -32, .access = .write };
         const bytes = try encode(a, &m);

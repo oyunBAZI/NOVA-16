@@ -1,7 +1,7 @@
 # Profile2 binary and transition contract — revision2
 
-Normative design awaiting separate implementation approval. No shipping loader,
-CPU, bus, assembler or debugger implements profile2. All integers below are
+Normative revision2 contract, authorized for implementation by the V2 mission.
+Profile2 implementation and verification status: v2-implementation-ledger.md. All integers below are
 little-endian, unsigned unless explicitly signed. Reserved bytes must be zero;
 unknown codes/versions/sections are errors. No host structs or implicit padding.
 The overview's ROM2/MMIO/oscillator tables apply with these exact refinements.
@@ -194,8 +194,9 @@ on failure; timer events can still latch pending. T overflow consumes no slot.
 SHA256s, PCM signed samples/hash, slot/timer traces and entry/IRET/atomic-reject
 examples. `scripts/v2_contract_vectors.py` constructs them with Python struct,
 zlib, integer arithmetic and hashlib, independent of Zig structs and mixer.
-Default checks equality to committed fixtures and verifies shipping V1 rejects
-ROM2/snapshot2 with state unchanged. `--write` is an explicit maintainer action,
+Default checks equality to committed fixtures, verifies ROM2 activation and
+V1 snapshot profile rejection with state unchanged. Runtime tests additionally
+produce these exact independent bytes from clocked device state. `--write` is an explicit maintainer action,
 never used by CI. These are reviewable specification fixtures, not evidence of
 a working V2 loader or hardware. Future implementation must consume these
 vectors unchanged or version the reviewed contract explicitly.

@@ -1,4 +1,6 @@
 const std = @import("std");
+pub const Profile = @import("profile.zig").Profile;
+pub const v2_system_names = [_][]const u8{ "EI", "DI", "IRET" };
 pub const ram_end = 0xc000;
 pub const vram_base = 0xc000;
 pub const mmio_base = 0xd800;
@@ -21,11 +23,14 @@ pub const Instruction = struct {
     len: u3 = 2,
 };
 pub fn decode(w: u16) error{InvalidOpcode}!Instruction {
+    return decodeProfile(w, .v1);
+}
+pub fn decodeProfile(w: u16, profile: Profile) error{InvalidOpcode}!Instruction {
     const major: u4 = @truncate(w >> 12);
     const sub: u4 = @truncate(w >> 8);
     var i: Instruction = .{ .word = w, .major = major, .sub = sub, .d = @truncate(w >> 9), .s = @truncate(w >> 6) };
     switch (major) {
-        0 => if (w > 5) return error.InvalidOpcode,
+        0 => if (w > (if (profile == .v2) @as(u16, 8) else 5)) return error.InvalidOpcode,
         1, 3...8 => if (w & 63 != 0) return error.InvalidOpcode,
         2 => {
             if (w & 511 != 0) return error.InvalidOpcode;

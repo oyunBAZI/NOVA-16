@@ -76,3 +76,8 @@ pub const compiler = @import("compiler/compiler.zig");
 test {
     _ = @import("compiler_tests.zig");
 }
+
+pub const audio = @import("devices/audio.zig");
+test {
+    _ = @import("v2_tests.zig");
+}

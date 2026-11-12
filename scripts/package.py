@@ -20,7 +20,7 @@ for exe in ('nova16', 'n16asm', 'n16dbg', 'n16c'):
 for path in sorted((root / 'zig-out/demos').glob('*')):
     if path.suffix in ('.n16', '.sym', '.sym2', '.json', '.asm'):
         files['demos/' + path.name] = path.read_bytes()
-for pattern in ('docs/**/*.md', 'docs/**/*.png', 'docs/**/*.json', 'docs/**/*.txt',
+for pattern in ('docs/**/*.md', 'docs/**/*.png', 'docs/**/*.json', 'docs/**/*.txt', 'docs/**/*.zig',
                 'examples/**/*.asm', 'examples/**/*.n16c', 'examples/**/*.json', 'examples/**/*.input', 'examples/sources.zig',
                 'guest/**/*.asm', 'guest/**/*.md', 'guest/**/*.zig', 'src/**/*.zig', 'src/**/*.c', 'src/**/*.h',
                 'scripts/*.py', 'scripts/*.json'):
@@ -38,10 +38,19 @@ for app in ('crates', 'pixel_studio'):
         packed = Path(temporary)/(app+'.zip')
         subprocess.run([sys.executable, str(root/'scripts/n16.py'), 'pack', str(project), '--out', str(packed)], check=True, timeout=120)
         files['applications/'+app+'.zip'] = packed.read_bytes()
+for demo in ('nova_sound', 'interrupt_canvas'):
+    import tempfile
+    with tempfile.TemporaryDirectory() as temporary:
+        wav = Path(temporary)/(demo+'.wav')
+        subprocess.run([str(root/'zig-out/bin'/('nova16.exe' if system == 'windows' else 'nova16')),
+                        'run', str(root/'zig-out/demos'/(demo+'.n16')), '--frames', '180', '--wav', str(wav)],
+                       check=True, capture_output=True, timeout=60)
+        files['demos/'+demo+'.wav'] = wav.read_bytes()
 build_info = json.loads(subprocess.check_output([str(root / 'zig-out/bin' / ('nova16.exe' if system == 'windows' else 'nova16')), '--build-info'], text=True))
 assert build_info['arch'] == arch and not build_info['gui'] and build_info['optimization'] == 'safe', 'package a native ReleaseSafe headless build'
 manifest = {'build_info': build_info, 'package_schema': 1, 'version': version, 'zig_version': '0.17.1',
             'isa_version': 1, 'rom_version': 1, 'snapshot_version': 1,
+            'supported_profiles': [1, 2], 'supported_rom_versions': [1, 2], 'supported_snapshot_versions': [1, 2],
             'os': system, 'arch': arch, 'frontend': 'headless',
             'source_dirty': subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'src', 'guest', 'build.zig', 'build.zig.zon', 'scripts', 'docs', 'examples', 'README.md', 'INSTALL.md'], cwd=root).returncode != 0 or bool(subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard', '--', 'src', 'guest', 'examples', 'scripts', 'docs'], cwd=root)),
             'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),

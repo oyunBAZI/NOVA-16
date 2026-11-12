@@ -3,6 +3,8 @@ const Cpu = @import("cpu.zig").Cpu;
 const Bus = @import("bus.zig").Bus;
 const rom = @import("../rom/format.zig");
 pub const Machine = struct {
+    slots: u64 = 0,
+    irq_entries: u64 = 0,
     cpu: Cpu = .{},
     bus: Bus = .{},
     checksum: u32 = 0,
@@ -28,6 +30,25 @@ pub const Machine = struct {
         if (c.trap == null) {
             if (c.pc & 1 != 0) return error.Unaligned;
             if (!c.halted and !c.paused and !isa.executable(c.pc)) return error.ExecuteDenied;
+        }
+        if (self.bus.profile == .v2) {
+            if (self.rom_length == 0 or c.retired > self.slots or self.irq_entries > self.slots - c.retired) return error.InvalidV2State;
+            if (self.bus.frame != @as(u16, @truncate(self.slots / 20000))) return error.InvalidV2State;
+            const audio = &self.bus.audio;
+            if (audio.generated != self.slots / 25 or audio.prefix != (self.slots % 20000) / 25) return error.InvalidV2State;
+            for (audio.voices) |v| if (v.step > 0x80000000 or v.wave > 3 or v.noise == 0) return error.InvalidV2State;
+            for (audio.pcm[audio.prefix..]) |sample| if (sample != 0) return error.InvalidV2State;
+            const irq = &self.bus.irq;
+            if (irq.depth > 8 or irq.pending > 3 or irq.mask > 3 or irq.remaining > irq.period) return error.InvalidV2State;
+            for (irq.frames, 0..) |record, i| {
+                if (i >= irq.depth) {
+                    if (record.top != 0 or record.vector != 0) return error.InvalidV2State;
+                } else {
+                    if (record.top & 1 != 0 or record.top > 0xbff8 or record.vector > 1) return error.InvalidV2State;
+                    if (i > 0 and @as(u32, record.top) + 6 > irq.frames[i - 1].top) return error.InvalidV2State;
+                }
+            }
+            if (irq.depth > 0 and c.sp > irq.frames[irq.depth - 1].top) return error.InvalidV2State;
         }
     }
     pub fn replaceCpu(self: *Machine, cpu: Cpu) !void {
@@ -63,6 +84,7 @@ pub const Machine = struct {
     pub fn load(self: *Machine, data: []const u8) !void {
         const image = try rom.parse(data);
         self.* = .{};
+        self.bus.profile = image.profile;
         @memcpy(self.bus.bytes[0xe000..][0..image.payload.len], image.payload);
         self.entry = image.entry;
         self.rom_length = @intCast(image.payload.len);
@@ -71,12 +93,19 @@ pub const Machine = struct {
     }
     pub fn reset(self: *Machine) void {
         const bytes = self.bus.bytes[0xe000..].*;
-        self.bus = .{};
+        const profile = self.bus.profile;
+        self.bus = .{ .profile = profile };
+        self.slots = 0;
+        self.irq_entries = 0;
         self.bus.bytes[0xe000..].* = bytes;
         self.cpu.reset(self.entry);
     }
     /// A host call completes one simplified frame even if HALT/BRK stops it early.
     pub fn frame(self: *Machine, input: u8, cap: u64) void {
+        if (self.bus.profile == .v2) {
+            _ = self.frameAudio(input, cap, null);
+            return;
+        }
         self.bus.input.inject(input);
         var count: u32 = 0;
         while (count < @import("../arch/isa.zig").frame_budget and self.cpu.retired < cap and !self.cpu.halted and !self.cpu.paused and self.cpu.trap == null) : (count += 1) self.step();
@@ -85,7 +114,62 @@ pub const Machine = struct {
     }
     pub fn step(self: *Machine) void {
         self.bus.write_count = 0;
-        self.cpu.step(&self.bus);
+        if (self.bus.profile == .v2) {
+            if (self.cpu.halted or self.cpu.paused or self.cpu.trap != null) return;
+            _ = self.transition(true, null);
+        } else self.cpu.step(&self.bus);
+    }
+    /// Completes the current logical frame, including idle/fault slots. `output`
+    /// receives exactly 800 samples by value; it is never retained by the machine.
+    pub fn frameAudio(self: *Machine, input: u8, cap: u64, output: ?*[800]i16) bool {
+        if (self.bus.profile != .v2) {
+            return false;
+        }
+        self.bus.input.inject(input);
+        const remaining = 20000 - self.slots % 20000;
+        for (0..remaining) |_| if (!self.transition(self.cpu.retired < cap, output)) return false;
+        return true;
+    }
+    /// Shared V2 scheduler for run, step, frame and debugger. False means no slot.
+    pub fn transition(self: *Machine, execute_cpu: bool, output: ?*[800]i16) bool {
+        if (self.bus.profile != .v2) return false;
+        const c = &self.cpu;
+        const b = &self.bus;
+        b.write_count = 0;
+        if (self.slots == std.math.maxInt(u64)) {
+            c.address = 0;
+            c.access = .decode;
+            c.instruction = 0;
+            c.trap = .{ .kind = error.ClockLimit, .pc = c.pc, .address = 0, .access = .decode };
+            return false;
+        }
+        if (execute_cpu and !c.halted and !c.paused and c.trap == null) {
+            if (b.irq.selected()) |vector| {
+                if (self.irq_entries == std.math.maxInt(u64)) {
+                    c.trap = .{ .kind = error.InstructionLimit, .pc = c.pc, .address = c.pc, .access = .fetch };
+                } else if (c.enterInterrupt(b, vector)) {
+                    self.irq_entries += 1;
+                } else |err| {
+                    c.trap = .{ .kind = err, .pc = c.pc, .address = c.address, .access = c.access, .instruction = 0 };
+                }
+            } else c.step(b);
+        }
+        b.irq.tick();
+        self.slots += 1;
+        if (self.slots % 25 == 0) {
+            b.audio.pcm[b.audio.prefix] = b.audio.sample();
+            b.audio.prefix += 1;
+            b.audio.generated += 1;
+        }
+        if (self.slots % 20000 == 0) {
+            b.frame +%= 1;
+            b.vblank = true;
+            b.irq.pending |= 1;
+            if (output) |out| out.* = b.audio.pcm;
+            b.audio.pcm = @splat(0);
+            b.audio.prefix = 0;
+        }
+        return true;
     }
 };
 test "raw encoded boot writes RAM and halts; reset clears writable state" {
