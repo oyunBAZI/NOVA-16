@@ -48,7 +48,7 @@ Native CI supplies the corresponding target-OS execution evidence.
 - 64 KiB bus, RAM execution, protected ROM, checked stack, palette/input MMIO.
 - 128×96 packed 4bpp display, headless PPM and unchanged State JSON schema 1.
 - Bounded indexed two-pass assembler: local includes/project roots, multi-error
-  rich/JSON v2 diagnostics, safely staged output files; forward symbols/constants, real spans, IDE JSON diagnostics,
+  rich/JSON v2 diagnostics, safely staged output files, forward constants,
   byte listings, legacy symbols and checksum-bound source maps.
 - Debugger: instructions/frames, input injection, break/watchpoints, disassembly,
   non-destructive device inspection, 128-entry trace, optional reverse history,
@@ -107,8 +107,8 @@ python3 scripts/game_acceptance.py
 ```
 
 Current [v0.3 milestone evidence](docs/v0.3-ledger.md) distinguishes local and
-native CI gates. V2 architectural extensions remain future work, separate from the unchanged
-V1 computer.
+native CI gates. The [V2 architecture proposal](docs/v2-architecture.md) and isolated arithmetic
+experiment are future design work; the V1 computer remains unchanged.
 
 ## Architecture and references
 

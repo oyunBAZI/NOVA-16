@@ -1,0 +1,219 @@
+# NOVA-16 V2 architecture proposal, revision 1
+
+Status: **design for separate approval**, not implemented virtual hardware.
+The shipped computer remains ISA V1. The only executable experiment is
+`src/experimental/audio_model.zig`, an isolated integer-math model with no CPU,
+MMIO, ROM loader, SDL output or interrupts. Run `zig build v2-model-test`.
+No emulator/tool executable imports it. Passing model tests does not deliver V2.
+
+## Compatibility and activation
+
+V1 files retain exact ISA, device denies, frame timing, State JSON V1 and N16S V1
+semantics. A newer executable loading N16R version 1 must select the V1 machine
+profile, including rejection of the new opcodes/MMIO below. Never autodetect
+extensions from opcode patterns or silently enable devices for an old ROM.
+
+Proposed N16R version 2 keeps the 32-byte little-endian envelope and 8 KiB limit:
+
+| Offset | Bytes | Proposed V2 field |
+|---|---:|---|
+|0|4|N16R|
+|4|2|2|
+|6|2|Even entry offset < payload length|
+|8|2|Payload length 1–8192|
+|10|2|Flags zero|
+|12|4|IEEE CRC32 of payload|
+|16|2|Machine profile 2|
+|18|2|Required features, sound=1 / interrupts=2; profile 2 requires 3|
+|20|12|Reserved zero|
+|32|length|Unchanged little-endian instruction/data payload at E000|
+
+Unknown version/profile/feature bits fail before changing state. A V1 loader
+continues returning BadVersion for V2. Assembler activation must be explicit
+(`--architecture nova16-v2` in a future tool); default is V1. Proposed EI, DI,
+IRET syntax is rejected in V1. No such option/instructions exist today.
+
+Proposed N16S V2 uses a separately versioned bounded section directory: CPU2,
+MEM1, AUD1 and IRQ1, each with little-endian widths and CRC. Publish a complete
+byte-offset specification and independent vectors **before implementation**.
+Validate version/length/uniqueness/reserved fields, ROM identity and every state
+invariant into temporary state before assignment. V1 snapshots continue using
+the existing encoder/restore path. Unknown sections are rejected, not ignored.
+State JSON V2 adds profile, transition/audio counts and IRQ state; V1 output is
+never extended implicitly. Debug/source-map formats version independently.
+
+## Deterministic device clock
+
+Profile 2 proposes 60 logical frames/second and 20,000 transition slots/frame
+(1,200,000 slots/second). An instruction or interrupt entry occupies one slot;
+retired instructions and accepted interrupt entries have separate counters.
+This distinction is explicitly new V2 timing. V1's retired-instruction frame
+budget stays unchanged. Timer/audio effects advance only on these slots.
+An idle halted/trapped CPU completes frame slots without retiring instructions
+when the host explicitly requests a frame. Host pause makes no frame request.
+BRK stepping advances only requested transitions; `frame` completes its frame.
+These details need approval because they affect V2 observability.
+
+At 48,000 mono PCM samples/second, exactly one sample occurs after every 25th
+slot: 800 samples/frame. Device writes commit before the slot-end sample event.
+No host timestamps or callback consumption affect phases, pending IRQs or guest
+execution. Stepping/debugging and replay use the same transition routine.
+Maintain a bounded frame buffer [800]i16 and a 0–24 remainder for partial frames;
+N16S V2 records that remainder, phases, LFSRs and pending partial PCM exactly.
+A caller-supplied sample sink has explicit ownership and never advances the VM.
+
+## Programmable sound device
+
+Four voices, integer phase accumulator u32 with wrapping addition. Step register
+encodes `floor(hertz * 2^32 / 48000)`; legal steps 0–80000000 hex (0–24 kHz).
+A zero step holds phase and may produce DC; disable a voice for silence.
+Waveforms: square, saw, triangle, deterministic 16-bit LFSR noise. Sample at
+current phase, then add step. Noise advances once per enabled sample using
+feedback XOR bits 0,2,3,5, shifted into bit 15; reset seed is nonzero
+`0xACE1 XOR voice_index`. No floating point, randomness or host entropy.
+
+For each voice: multiply signed waveform by 0–255 volume, divide by 255 toward
+zero; sum four i32 voices, divide by four toward zero, multiply by master gain
+and divide by 255. Result always fits signed i16. Square uses ±32767; saw is
+`(phase >> 16)-32768`; triangle is `2*h-32768` for h<32768, else `98303-2*h`.
+Noise uses ±32767 selected by the updated LFSR bit 0. These are simple chip
+waveforms with aliasing, not a bandlimited or analog-emulation audio engine.
+Disabled voices hold phase/LFSR; master mute preserves enabled oscillator time.
+
+| V2 range | Register and policy |
+|---|---|
+|D900–D93F|Four 16-byte voice blocks|
+|voice+0/+2|Phase step low/high aligned u16, RW|
+|voice+4|Volume u8, RW|
+|voice+5|Waveform u8 0–3, RW|
+|voice+6|Control: enable bit 0; reset-phase/LFSR write strobe bit 1|
+|voice+7|Reserved, denied|
+|voice+8..11|Current phase u32, byte/aligned-word reads only|
+|voice+12..13|LFSR u16, reads only|
+|voice+14..15|Reserved, denied|
+|D940|Master enable bit 0, reset-all strobe bit 1|
+|D941|Master gain u8, RW|
+|D942–D945|Read-only low 32 bits of generated sample count|
+|D946–D94F|Reserved, denied|
+
+High/low step writes are immediately visible; software wanting atomic changes
+must disable the voice, write both halves and re-enable. Every byte/word write
+preflights value and both permissions before committing. Reserved control bits
+and step > Nyquist trap atomically. Reading control returns enable only, never
+retains reset strobes. All these addresses remain denied under V1.
+
+The experiment verifies quarter-cycle vectors, frequency rejection, waveform
+bounds, a known LFSR sequence, exact slot/sample ratio and by-value continuation.
+It does not validate MMIO, snapshot bytes or audio hardware; those are future
+acceptance gates. The model's seed is caller-provided and not a finalized reset
+register implementation.
+
+## Optional host playback
+
+Use SDL2's queue mode (null audio callback), requested 48 kHz AUDIO_S16SYS mono
+with `allowed_changes=0`; start the initially paused device explicitly. SDL may
+perform host-device conversion; deterministic archived PCM remains the VM's
+48 kHz i16 stream, with little-endian WAV export independent of host endianness.
+Only one host thread queues audio. Cap the host queue to four frames (6,400
+bytes), inspect queued byte count and clear/drop host backlog on overrun.
+Underflow produces host silence; never accelerate or rewind the guest to repair
+playback. Clear queued samples on reset/restore. Mute or missing audio devices
+must not change machine state or prevent headless PCM export.
+
+Primary API references, researched for this proposal:
+https://wiki.libsdl.org/SDL2/SDL_OpenAudioDevice,
+https://wiki.libsdl.org/SDL2/SDL_QueueAudio,
+https://wiki.libsdl.org/SDL2/SDL_GetQueuedAudioSize.
+SDL queue size is not a precise measure of samples already played by hardware;
+it is used only for host buffering, never as a guest clock.
+
+## Interrupt architecture
+
+Proposed V2-only system words: 0006 EI, 0007 DI, 0008 IRET. Other V1 encodings
+and flags remain identical. IE is a new CPU bit, reset off; EI takes effect after
+its own instruction slot, DI disables before the next boundary. General
+registers are not automatically saved. Handler ABI must preserve what it uses.
+
+Eight vectors, little-endian u16 executable addresses at RAM 0040–004F.
+IRQ0=frame-complete, IRQ1=programmable slot timer; IRQ2–7 reserved/masked.
+V2 IRQ registers D950 pending bitmap (read/write-one-to-clear), D951 mask,
+D952 IE observation (read-only), D953 active vector (read-only, FF if none);
+D954–D95F reserved. Timer registers D960..D963 period u32 (0 disables),
+D964..D967 remaining read-only, D968 control bit0 reload; remaining range denied.
+Validate full values before committing; period and timer decrement semantics
+must receive separate vectors before code changes. External input initially
+remains polled and cannot introduce host-timed interrupts.
+
+At a transition boundary after scheduled device updates, select the lowest
+numbered pending unmasked IRQ when IE is true. Coalesce repeated events as one
+pending bit. Entry validates vector address/permission and capacity for three
+stack words before any write. Push old PC, old ZNCV word, old IE word using the
+existing descending checked stack; final top is IE, then flags, then PC. Only
+after successful pushes: clear selected pending bit, set active vector, clear
+IE and transfer PC. Entry consumes a transition slot, not an instruction retire.
+A vector/stack fault traps without consuming pending state or partially pushing.
+No automatic nested interrupts; a handler may explicitly EI after saving state.
+
+IRET preflights three words, validates flags/IE reserved bits and return target,
+then pops atomically and restores PC/flags/IE. IRET requires an active frame and
+current SP equal to that frame's recorded top; ordinary handler pushes/calls
+must be unwound first. Active-vector nesting bookkeeping
+needs a bounded internal stack (max eight); explicit nested acceptance beyond
+that traps before mutation. RET remains a one-word return and does not restore
+IE. A handler cannot recover from a corrupted interrupt frame by accidental
+partial pop. Debug traces/history record entry/return transitions and source
+context; snapshots capture IE/pending/mask/timer/nesting exactly.
+
+Priority vectors: simultaneous frame/timer chooses IRQ0; IRQ1 remains pending;
+DI leaves pending bits intact; W1C only acknowledges selected bits. Frame IRQ
+is raised at final frame-slot completion and can be entered at the next requested
+transition. CPU traps do not themselves generate IRQs or host exceptions.
+
+## Higher-level guest tools and libraries
+
+Build a small compiler targeting **existing V1 first**, independently of hardware
+approval. Initial language: u16/i16/bool, fixed arrays, structs, local variables,
+functions, if/while, explicit casts, fixed globals; no heap, GC, floating point,
+implicit host calls or downloads. Arithmetic semantics must match wrapping CPU
+operations; division lowers to a tested runtime routine. Array bounds failures
+call a guest-visible failure routine. The backend emits ordinary ISA assembly
+and checksum-bound maps with original language locations.
+
+Proposed ABI: R0–R3 arguments/results and caller-saved; R4–R6 callee-saved; R7
+frame pointer; stack word aligned, return value R0. Handwritten existing ROMs
+keep their own conventions. Reserve global RAM from 0100 upward to 7FFF and a
+16 KiB stack region in a tool-generated layout manifest; reject static overlap.
+A project-level profile selects this ABI, not the machine. Compiler input 1 MiB,
+AST <=32768 nodes, nesting <=64, bounded optimization passes and 8 KiB output.
+Keep a simple reference interpreter for differential compiler tests.
+
+Reusable V1 libraries should first provide rectangle/glyph drawing, sprites,
+button edge handling, frame waits and checked integer arithmetic through current
+includes. Export names use module prefixes; no implicit global constructor order.
+A future versioned object format may separate code/rodata/BSS and relocation
+records, but only after source inclusion proves insufficient. Define relocation
+width, signedness, addend/range checks and duplicate/undefined rules before a
+linker. Never silently grow ROM or alter RAM/VRAM layout to fit applications.
+
+## Approval and next milestone gates
+
+1. Review/approve this profile, clock, map, ROM and interrupt contracts. Resolve
+   whether V2 idle slots should advance sound on trapped/BRK CPUs before freezing.
+2. Publish complete N16S V2 section/byte layouts, trap-code table and independent
+   ROM/snapshot/audio vectors. Add profile dispatch tests proving V1 byte output
+   and device-denial behavior unchanged.
+3. Implement audio/MMIO and headless WAV export behind explicit V2 loading;
+   reject all malformed writes atomically, compare PCM hashes across three OSs,
+   fuzz restore/MMIO and verify muted/disabled/copy continuation behavior.
+4. Implement IRQ entry/IRET/timer with every stack/target/priority boundary,
+   simultaneous-event/replay tests and snapshot/reverse integration.
+5. Add bounded optional SDL audio queue tests. Do not make sound playback a
+   requirement for CPU testing. Publish an experimental V2 guest, never relabel
+   a V1 ROM or claim that this design alone implements architectural extensions.
+6. In parallel, build the V1 compiler/library prototype with source spans,
+   allocation-failure tests, interpreter comparisons and a complete guest app.
+
+Recommended immediate milestone after RC review: reusable V1 graphics/input
+libraries extracted from Breakout plus a tiny V1-only compiler experiment.
+Keep architectural audio/interrupt implementation blocked on the separate design
+review. Network/filesystem peripherals are explicitly out of this milestone.

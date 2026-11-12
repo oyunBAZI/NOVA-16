@@ -76,6 +76,9 @@ pub fn build(b: *std.Build) void {
     // `test` always executes native host tests. Native OS CI validates each target.
     const unit = b.addTest(.{ .root_module = host_core });
     b.step("test", "Run native build-host automated tests").dependOn(&b.addRunArtifact(unit).step);
+    // An isolated arithmetic design experiment; never linked into V1 tools.
+    const model = b.addTest(.{ .root_module = b.createModule(.{ .root_source_file = b.path("src/experimental/audio_model.zig"), .target = b.graph.host, .optimize = optimize }) });
+    b.step("v2-model-test", "Verify isolated V2 audio arithmetic experiment (no new guest hardware)").dependOn(&b.addRunArtifact(model).step);
     const fmt = b.addFmt(.{ .paths = &.{ b.path("build.zig"), b.path("src"), b.path("examples/sources.zig") }, .check = true });
     b.step("fmt", "Check formatting").dependOn(&fmt.step);
 }
