@@ -53,7 +53,26 @@ def main():
         assert 'initialize=' in session and '0100: 00 00' in session
         assert 'R1=002a' in session and 'HALT' in session
         assert snap.read_bytes() == restored.read_bytes()
-        entry = p/'first/main.asm' 
+        inspection = json.loads(run('nova16', 'inspect', p/'first.n16', '--json').stdout)
+        assert inspection['schema_version'] == 1 and inspection['entry_address'] == 0xe000
+        import sys, zipfile, hashlib
+        test = p/'counter-test.json'
+        test.write_text(json.dumps({'schema_version': 1, 'rom': 'first.n16', 'frames': 120,
+                                   'registers': {'1': 42}, 'halted': True}))
+        for script, arguments in [('rom_test.py', [test]),
+                                  ('guest_package.py', [p/'first', '--out', p/'guest.zip']),
+                                  ('guest_package.py', [p/'first', '--out', p/'guest-again.zip'])]:
+            subprocess.run([sys.executable, str(ROOT/'scripts'/script), *map(str, arguments)], check=True,
+                           capture_output=True, timeout=30, cwd=ROOT)
+        assert (p/'guest.zip').read_bytes() == (p/'guest-again.zip').read_bytes()
+        with zipfile.ZipFile(p/'guest.zip') as archive:
+            archive.extractall(p/'guest')
+        manifest = json.loads((p/'guest/guest-manifest.json').read_text())
+        for name, digest in manifest['files'].items():
+            assert hashlib.sha256((p/'guest'/name).read_bytes()).hexdigest() == digest
+        run('n16asm', p/'guest/src/main.asm', '--project-root', p/'guest/src', '--out', p/'rebuilt.n16')
+        assert (p/'rebuilt.n16').read_bytes() == (p/'guest/program.n16').read_bytes()
+        entry = p/'first/main.asm'  
         for text in ('.include "main.asm"', '.include "missing.asm"',
                      '.include "../outside.asm"', '.include "/absolute.asm"'):
             entry.write_text(text)

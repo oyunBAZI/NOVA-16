@@ -27,7 +27,7 @@ fn run(init: std.process.Init) !void {
         return;
     }
     if (args.len == 1 or eq(args[1], "--help")) {
-        try std.Io.File.stdout().writeStreamingAll(init.io, "nova16 inspect ROM\nnova16 run ROM [--headless|--gui] [--frames N] [--max-instructions N]\n  [--screenshot PATH] [--state-json PATH] [--input SCHEDULE] [--scale N]\n");
+        try std.Io.File.stdout().writeStreamingAll(init.io, "nova16 inspect ROM [--json]\nnova16 run ROM [--headless|--gui] [--frames N] [--max-instructions N]\n  [--screenshot PATH] [--state-json PATH] [--input SCHEDULE] [--scale N]\n");
         return;
     }
     if (args.len < 3) return error.MissingRomPath;
@@ -35,11 +35,15 @@ fn run(init: std.process.Init) !void {
     var m: n.Machine = .{};
     try m.load(data);
     if (eq(args[1], "inspect")) {
-        if (args.len != 3) return error.UnexpectedOption;
+        const json = args.len == 4 and eq(args[3], "--json");
+        if (args.len != 3 and !json) return error.UnexpectedOption;
         var out: std.Io.Writer.Allocating = .init(a);
         defer out.deinit();
         const image = try n.rom.parse(data);
-        try out.writer.print("N16R v1 payload={d} entry=0x{x:0>4} crc32={x:0>8}\n", .{ image.payload.len, m.cpu.pc, image.checksum });
+        if (json) {
+            try std.json.Stringify.value(.{ .schema_version = @as(u16, 1), .format = "N16R", .rom_version = @as(u16, 1), .isa_version = @as(u16, 1), .payload_bytes = image.payload.len, .entry_offset = image.entry, .entry_address = m.cpu.pc, .crc32 = image.checksum }, .{}, &out.writer);
+            try out.writer.writeByte('\n');
+        } else try out.writer.print("N16R v1 payload={d} entry=0x{x:0>4} crc32={x:0>8}\n", .{ image.payload.len, m.cpu.pc, image.checksum });
         try std.Io.File.stdout().writeStreamingAll(init.io, out.written());
         return;
     }
