@@ -1,5 +1,7 @@
 const std = @import("std");
 pub fn build(b: *std.Build) void {
+    const v = @import("builtin").zig_version;
+    if (v.major != 0 or v.minor != 17 or v.patch != 1) @compileError("NOVA-16 requires Zig 0.17.1");
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const gui = b.option(bool, "gui", "Enable optional SDL2 frontend") orelse false;
@@ -36,6 +38,6 @@ pub fn build(b: *std.Build) void {
     }
     const unit = b.addTest(.{ .root_module = core });
     b.step("test", "Run automated tests").dependOn(&b.addRunArtifact(unit).step);
-    const fmt = b.addFmt(.{ .paths = &.{ b.path("build.zig"), b.path("src"), b.path("tests") }, .check = true });
+    const fmt = b.addFmt(.{ .paths = &.{ b.path("build.zig"), b.path("src"), b.path("examples/sources.zig") }, .check = true });
     b.step("fmt", "Check formatting").dependOn(&fmt.step);
 }

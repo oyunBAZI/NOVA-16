@@ -12,7 +12,8 @@ pub const Cpu = struct {
     trap: ?traps.Trap = null,
     retired: u64 = 0,
     depth: u16 = 0,
-    address: u16 = 0,
+    address: i32 = 0,
+    instruction: u16 = 0,
     access: traps.Access = .fetch,
     pub fn reset(self: *Cpu, entry: u16) void {
         self.* = .{ .pc = isa.rom_base + entry };
@@ -21,16 +22,18 @@ pub const Cpu = struct {
         if (self.halted or self.paused or self.trap != null) return;
         const old = self.pc;
         self.execute(bus) catch |err| {
-            self.trap = .{ .kind = err, .pc = old, .address = self.address, .access = self.access };
+            self.trap = .{ .kind = err, .pc = old, .address = self.address, .access = self.access, .instruction = self.instruction };
             self.pc = old;
             return;
         };
         self.retired += 1;
     }
     fn execute(self: *Cpu, bus: *Bus) traps.Fault!void {
+        self.instruction = 0;
         self.address = self.pc;
         self.access = .fetch;
         const w = try bus.fetch(self.pc);
+        self.instruction = w;
         self.access = .decode;
         const i = try isa.decode(w);
         self.access = .fetch;
@@ -80,7 +83,7 @@ pub const Cpu = struct {
                 const off: i6 = @bitCast(@as(u6, @truncate(w)));
                 const addr: i32 = @as(i32, y) + off;
                 self.access = if (i.major == 10 or i.major == 12) .write else .read;
-                self.address = @truncate(@as(u32, @bitCast(addr)));
+                self.address = addr;
                 if (addr < 0 or addr > 65535) return error.AddressOverflow;
                 const ea: u16 = @intCast(addr);
                 switch (i.major) {

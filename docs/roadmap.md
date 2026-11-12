@@ -1,6 +1,6 @@
 # Milestone ledger
 
-Phases 0–10: pending verification. No completion claims before successful gates.
+Phases 0–10 passed local acceptance gates. Evidence follows. GitHub CI status is tracked separately from local validation.
 
 ## Phase 0 — passed
 Zig 0.17.1: `zig build`, `zig build test`, and `zig-out/bin/nova16`
@@ -65,3 +65,39 @@ passes guest boot integration, golden splash/diagnostic SHA-256, deterministic
 motion/input, paint draw/erase/clear/bounds and forced diagnostic failure tests.
 Splash now includes a ROM-font wordmark and corrected packed multicolor tiles;
 its current hash supersedes the phase 5 image, documented in video.md.
+
+## Phase 10 — passed locally
+A clean indexed source export to `/tmp/nova16-final-check` with no build cache
+or generated ROMs passed the following commands under Zig 0.17.1 on Linux x86_64:
+
+- `zig build fmt`: exit 0.
+- `zig build`: exit 0; three native executables and four ROM/symbol pairs.
+- `zig build test --summary all`: **44/44 tests passed**, exit 0.
+- `zig build demos`: exit 0.
+- `python3 scripts/acceptance.py`: all four boot/debug/PPM checks and negative
+  CLI/source/ROM/debugger checks passed; deterministic replay and cap checks passed.
+- `zig build -Doptimize=ReleaseSafe` plus acceptance again: exit 0.
+- `zig build -Dgui=true --search-prefix /tmp/nova-host`: exit 0 using installed
+  SDL2 runtime through local development symlink, described in gui.md.
+- SDL dummy-driver runs of splash, ball and paint, six presentations each: exit 0.
+  Real desktop display, motion and physical keyboard paint already passed phase 7.
+
+Conformance includes independent arithmetic/shift oracles, all ALU register
+pairs and critical operands, exhaustive decoder masks and legal round trips,
+CPU rejection of every invalid encoding, all condition/flag combinations,
+stack overflow/underflow and invalid RET/CALL atomicity, MMIO whitelist/word
+preflight, read-clear semantics, malformed/randomized inputs and bounded random
+machine execution. Forward constants and cyclic rejection are covered.
+
+Documentation includes executable reproduction steps, stable ROM/JSON formats,
+manual vectors, architectural decisions, tested platform limitations and release
+packaging. CI has headless and SDL2/Xvfb jobs, with exact toolchain checksum.
+Headless executable is statically linked (`ldd`: not a dynamic executable).
+
+Implementation is approximately 2,737 lines of Zig, assembly, and black-box
+Python acceptance checks. This is below the illustrative budget; no padding or
+duplicated implementations were introduced to inflate it. Core and tools are Zig.
+
+No remaining V1 acceptance work is known after these checks. macOS/Windows,
+code signing and installers were not tested or claimed. CI execution on GitHub
+is independent evidence and must be checked after publishing the workflow.

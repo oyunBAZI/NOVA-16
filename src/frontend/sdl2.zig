@@ -49,7 +49,7 @@ pub fn run(m: *Machine, scale: u32, max_frames: u64, cap: u64) !void {
     var frame: u64 = 0;
     while (frame < max_frames and m.cpu.retired < cap) : (frame += 1) {
         const start = SDL_GetTicks64();
-        var event: Event = undefined;
+        var event: Event align(8) = undefined;
         while (SDL_PollEvent(&event) != 0) {
             if (event.kind == 0x100) return;
             if (event.kind == 0x300 and event.padding[9] == 0) {

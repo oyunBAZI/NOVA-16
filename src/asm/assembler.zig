@@ -18,6 +18,8 @@ pub const Result = struct {
 const Assembly = struct {
     a: std.mem.Allocator,
     symbols: std.ArrayList(Symbol) = .empty,
+    pending: std.ArrayList(struct { name: []const u8, expression: []const u8, line: usize }) = .empty,
+    line_number: usize = 1,
     bytes: [8192]u8 = @splat(0),
     pc: usize = 0xe000,
     length: usize = 0,
@@ -47,6 +49,7 @@ const Assembly = struct {
     fn symbol(self: *Assembly, name: []const u8, v: i64) !void {
         if (!lex.identifier(name)) return error.InvalidSymbol;
         for (self.symbols.items) |sym| if (std.mem.eql(u8, name, sym.name)) return error.DuplicateSymbol;
+        for (self.pending.items) |sym| if (std.mem.eql(u8, name, sym.name)) return error.DuplicateSymbol;
         try self.symbols.append(self.a, .{ .name = name, .value = v });
     }
     fn emit(self: *Assembly, b: u8) !void {
@@ -114,7 +117,18 @@ const Assembly = struct {
                 }
             } else if (std.ascii.eqlIgnoreCase(n, ".equ")) {
                 try count(p, 2);
-                if (self.pass == 0) try self.symbol(p.items[0], try self.value(p.items[1]));
+                if (self.pass == 0) {
+                    const resolved = self.value(p.items[1]) catch |err| switch (err) {
+                        error.UndefinedSymbol => {
+                            try self.symbol(p.items[0], 0);
+                            _ = self.symbols.pop();
+                            try self.pending.append(self.a, .{ .name = p.items[0], .expression = p.items[1], .line = self.line_number });
+                            return;
+                        },
+                        else => return err,
+                    };
+                    try self.symbol(p.items[0], resolved);
+                }
             } else if (std.ascii.eqlIgnoreCase(n, ".byte") or std.ascii.eqlIgnoreCase(n, ".word")) {
                 if (p.len == 0) return error.OperandCount;
                 for (p.items[0..p.len]) |v| {
@@ -220,8 +234,12 @@ fn number(s: []const u8) !i64 {
     return std.fmt.parseInt(i64, s, 0) catch return error.InvalidNumber;
 }
 pub fn assemble(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Result {
+    errdefer if (diag.reason.len == 0) {
+        diag.reason = "invalid entry or image layout";
+    };
     var state: Assembly = .{ .a = a };
     defer state.symbols.deinit(a);
+    defer state.pending.deinit(a);
     for (0..2) |pass| {
         state.pass = @intCast(pass);
         state.pc = 0xe000;
@@ -231,6 +249,7 @@ pub fn assemble(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Re
         var line_no: usize = 0;
         while (lines.next()) |text| {
             line_no += 1;
+            state.line_number = line_no;
             diag.* = .{ .line = line_no, .token = lex.code(text) };
             const line = parser.parse(text) catch |err| {
                 diag.reason = @errorName(err);
@@ -240,6 +259,29 @@ pub fn assemble(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Re
                 diag.reason = @errorName(err);
                 return err;
             };
+        }
+        if (pass == 0) {
+            while (state.pending.items.len > 0) {
+                var progress = false;
+                var k: usize = 0;
+                while (k < state.pending.items.len) {
+                    const sym = state.pending.items[k];
+                    const value = state.value(sym.expression) catch |err| switch (err) {
+                        error.UndefinedSymbol => {
+                            k += 1;
+                            continue;
+                        },
+                        else => return err,
+                    };
+                    _ = state.pending.orderedRemove(k);
+                    try state.symbol(sym.name, value);
+                    progress = true;
+                }
+                if (!progress) {
+                    diag.* = .{ .line = state.pending.items[0].line, .token = state.pending.items[0].expression, .reason = "UndefinedOrCyclicConstant" };
+                    return error.UndefinedOrCyclicConstant;
+                }
+            }
         }
     }
     const entry: i64 = if (state.entry) |e| try state.value(e) else @intCast(state.first orelse return error.NoEntry);
@@ -273,4 +315,13 @@ test "directives expressions and negative diagnostics" {
             try std.testing.expect(d.line > 0);
         }
     }
+}
+test "forward constants depend on forward labels or constants and cycles reject" {
+    const a = std.testing.allocator;
+    var d: Diagnostic = .{};
+    const r = try assemble(a, ".equ here, later - 2\n.equ next, end + 2\n.equ end, 0xe000\nLDI R0, here\nlater: HALT", &d);
+    defer r.deinit();
+    try std.testing.expectEqual(0xe002, std.mem.readInt(u16, r.image[34..36], .little));
+    try std.testing.expectError(error.UndefinedOrCyclicConstant, assemble(a, ".equ a, b\n.equ b, a\nHALT", &d));
+    try std.testing.expectEqual(1, d.line);
 }

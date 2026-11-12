@@ -58,6 +58,8 @@ fn run(init: std.process.Init) !void {
         if (eq(opt, "--frames")) frames = try std.fmt.parseInt(u64, v, 0) else if (eq(opt, "--max-instructions")) cap = try std.fmt.parseInt(u64, v, 0) else if (eq(opt, "--scale")) scale = try std.fmt.parseInt(u32, v, 0) else if (eq(opt, "--screenshot")) shot = v else if (eq(opt, "--state-json")) state = v else if (eq(opt, "--input")) input = v else return error.UnknownOption;
     }
     if (scale == 0 or scale > 32 or frames > 1_000_000 or cap == 0) return error.InvalidLimit;
+    if (gui and input != null) return error.InputScheduleRequiresHeadless;
+    if (!gui and seen.contains("--scale")) return error.ScaleRequiresGui;
     if (gui) {
         if (comptime options.gui) {
             try n.sdl.run(&m, scale, frames, cap);

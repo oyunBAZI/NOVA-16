@@ -36,3 +36,6 @@ pub const Debugger = @import("debug/debugger.zig").Debugger;
 test {
     _ = Debugger;
 }
+test {
+    _ = @import("conformance_tests.zig");
+}

@@ -6,7 +6,7 @@ are case insensitive. A semicolon outside a quoted string starts a comment.
 
 Expressions: decimal, 0x hex, 0b binary, signed literals, symbols, and a single
 `+ numeric` or `- numeric` suffix. Constants use `.equ name, expression` and
-must be defined before use in layout directives. Forward instruction/data
+must be resolvable before use in layout directives. Forward constant chains, instruction/data
 references and `.entry label` are resolved in pass two. No macros/includes.
 
 ```
