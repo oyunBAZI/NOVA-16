@@ -7,3 +7,4 @@ nova16-tests
 nova16-tests.o
 
 .sdl-sdk/
+__pycache__/

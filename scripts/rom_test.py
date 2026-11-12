@@ -18,6 +18,15 @@ def main():
     frames = spec.get('frames', 120)
     if type(frames) is not int or not 0 <= frames <= 10000:
         raise ValueError('invalid frame limit')
+    if 'halted' in spec and type(spec['halted']) is not bool:
+        raise ValueError('halted must be boolean')
+    for index, value in spec.get('registers', {}).items():
+        if index not in tuple(map(str, range(8))) or type(value) is not int or not 0 <= value <= 65535:
+            raise ValueError('invalid register expectation')
+    if 'ppm_sha256' in spec:
+        import re
+        if not isinstance(spec['ppm_sha256'], str) or not re.fullmatch('[0-9a-f]{64}', spec['ppm_sha256']):
+            raise ValueError('invalid framebuffer SHA256')
     root = args.spec.resolve().parent
     with tempfile.TemporaryDirectory() as directory:
         shot = pathlib.Path(directory)/'output.ppm'

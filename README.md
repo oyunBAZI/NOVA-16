@@ -12,8 +12,9 @@ and responds to input. No external emulator core or host-rendered demo shortcuts
 
 Get a native headless package from [Releases](https://github.com/oyunBAZI/NOVA-16/releases)
 and follow [INSTALL.md](INSTALL.md). Packages include emulator, assembler,
-debugger, four ROMs and assembly sources, manuals, checksums and license.
-The 0.2.0-rc.1 engineering release is explicitly a prerelease.
+debugger, five ROMs including guest-native Breakout, modular assembly sources,
+manuals, checksums and license. v0.3.0-rc.1 is the developer-platform release
+candidate; published versions and verification records are listed in Releases.
 
 Or install the exact Zig release from [ziglang.org](https://ziglang.org/download/)
 and build without third-party dependencies:
@@ -46,12 +47,15 @@ Native CI supplies the corresponding target-OS execution evidence.
 - Eight 16-bit registers, separate PC/SP, Z/N/C/V; strict 2/4-byte ISA and traps.
 - 64 KiB bus, RAM execution, protected ROM, checked stack, palette/input MMIO.
 - 128×96 packed 4bpp display, headless PPM and unchanged State JSON schema 1.
-- Two-pass assembler: forward symbols/constants, real spans, IDE JSON diagnostics,
+- Bounded indexed two-pass assembler: local includes/project roots, multi-error
+  rich/JSON v2 diagnostics, safely staged output files; forward symbols/constants, real spans, IDE JSON diagnostics,
   byte listings, legacy symbols and checksum-bound source maps.
 - Debugger: instructions/frames, input injection, break/watchpoints, disassembly,
   non-destructive device inspection, 128-entry trace, optional reverse history,
-  validated portable N16S snapshots and deterministic restoration.
-- Four guest ROMs: geometric splash/wordmark, bouncing ball, paint and diagnostics.
+  validated portable N16S snapshots, source breakpoints/statement stepping,
+  symbolic inspection and deterministic restoration.
+- Five guest ROMs: splash, bouncing ball, paint, diagnostics and complete
+  [Breakout](docs/breakout.md) with title, score/lives, collisions and win/loss/restart.
 - Exhaustive encodings/round trips, independent stateful differential tests,
   golden frames, malformed-input tests, guided fuzzing and published source coverage.
 - Component benchmarks, native packages, SHA256 manifests and gated release CI.
@@ -75,7 +79,8 @@ zig build gui-test -Dgui=true
 zig-out/bin/nova16 run zig-out/demos/paint.n16 --gui --scale 4 --frames 100000 --max-instructions 1000000000
 ```
 
-macOS/Homebrew: add `--search-prefix "$(brew --prefix sdl2)"` to both build commands.
+macOS: run `python3 scripts/setup_sdl.py` (CMake required), then add
+`--search-prefix .sdl-sdk` to both build commands. This uses pinned genuine SDL2.
 Windows/vcpkg: pass its `installed/x64-windows` prefix and put its `bin` directory
 on PATH. Linux CI uses system SDL2 and Xvfb. [GUI dependency/test details](docs/gui.md).
 
@@ -89,6 +94,21 @@ on PATH. Linux CI uses system SDL2 and Xvfb. [GUI dependency/test details](docs/
 The resizable high-DPI window uses nearest integer scaling. A guest frame is
 **20,000 retired instructions**, independent of host time. Runners have finite
 default limits; long sessions need explicit larger frame/instruction caps.
+
+## Develop your own guest software
+
+Follow the [developer guide](docs/developer-guide.md) to create a multi-file
+program, build, inspect, debug by file/line, replay tests and distribute sources.
+
+```sh
+zig-out/bin/n16asm examples/projects/breakout/main.asm --out zig-out/game.n16 --debug-symbols zig-out/game.sym2
+zig-out/bin/n16dbg zig-out/game.n16 --symbols zig-out/game.sym2
+python3 scripts/game_acceptance.py
+```
+
+Current [v0.3 milestone evidence](docs/v0.3-ledger.md) distinguishes local and
+native CI gates. V2 architectural extensions remain future work, separate from the unchanged
+V1 computer.
 
 ## Architecture and references
 

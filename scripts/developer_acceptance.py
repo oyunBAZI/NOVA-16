@@ -72,6 +72,15 @@ def main():
                                   ('guest_package.py', [p/'first', '--out', p/'guest-again.zip'])]:
             subprocess.run([sys.executable, str(ROOT/'scripts'/script), *map(str, arguments)], check=True,
                            capture_output=True, timeout=30, cwd=ROOT)
+        for invalid in ({'registers': {'8': 1}}, {'registers': {'0': -1}}, {'halted': 'yes'}, {'ppm_sha256': 'bad'}):
+            test.write_text(json.dumps({'schema_version': 1, 'rom': 'first.n16', **invalid}))
+            failed = subprocess.run([sys.executable, str(ROOT/'scripts/rom_test.py'), str(test)],
+                                    capture_output=True, timeout=30, cwd=ROOT)
+            assert failed.returncode != 0
+        prior = (p/'first/main.asm').read_bytes()
+        failed = subprocess.run([sys.executable, str(ROOT/'scripts/guest_package.py'), str(p/'first'),
+                                 '--out', str(p/'first/main.asm')], capture_output=True, timeout=30, cwd=ROOT)
+        assert failed.returncode != 0 and (p/'first/main.asm').read_bytes() == prior
         assert (p/'guest.zip').read_bytes() == (p/'guest-again.zip').read_bytes()
         with zipfile.ZipFile(p/'guest.zip') as archive:
             archive.extractall(p/'guest')

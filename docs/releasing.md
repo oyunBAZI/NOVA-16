@@ -34,8 +34,19 @@ also publishes package artifacts for ordinary commits without creating releases.
 
 Only the publication job has contents:write; other jobs default to read-only
 and checkout does not persist credentials. Manifests and GitHub source targeting
-provide traceability; cryptographic build attestations and code signing are not
-configured. Repository rulesets were not changed. Administrators may require
+provide traceability. v0.3's release job additionally generates SHA-pinned
+`actions/attest` Sigstore provenance for the native ZIPs and verifies every ZIP
+with `gh attestation verify` before publication. Its detached bundle is a release
+asset. This binds the archive digests to the tested source/workflow identity;
+it is not OS executable signing, notarization or independent third-party review.
+Only claim attestations after the actual release gate succeeds. Repository rulesets were not changed. Administrators may require
 CI jobs in branch protection; no protection bypass is part of this workflow.
 Promoting an RC to stable requires explicit review of the complete evidence and
 known limitations, not merely changing the label.
+
+
+Provenance procedure follows the primary GitHub documentation:
+https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations
+and https://github.com/actions/attest. OIDC/attestation write permissions are scoped
+to the release job. Other jobs remain read-only. No repository protection or
+signing key configuration is modified.

@@ -23,10 +23,24 @@ def main():
         rom, symbols = temp/'program.n16', temp/'program.sym2'
         subprocess.run([args.assembler, str(entry), '--project-root', str(root), '--out', str(rom), '--debug-symbols', str(symbols)], check=True, timeout=30)
         files = {'program.n16': rom.read_bytes(), 'program.sym2': symbols.read_bytes()}
-        for path in sorted(root.rglob('*.asm')):
+        source_bytes = 0
+        sources = []
+        for path in root.rglob('*.asm'):
+            if len(sources) == 128:
+                raise ValueError('guest source file limit')
+            sources.append(path)
+        sources.sort()
+        for path in sources:
             if path.is_symlink() or not path.resolve().is_relative_to(root):
                 raise ValueError('non-local source')
-            files['src/'+path.relative_to(root).as_posix()] = path.read_bytes()
+            if path.resolve() == args.out.resolve():
+                raise ValueError('package output aliases source')
+            with path.open('rb') as source:
+                data = source.read(1024*1024+1)
+            source_bytes += len(data)
+            if source_bytes > 1024*1024:
+                raise ValueError('guest source byte limit')
+            files['src/'+path.relative_to(root).as_posix()] = data
         manifest = {'schema_version': 1, 'entry': args.entry, 'isa_version': 1, 'rom_version': 1,
                     'files': {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}}
         files['guest-manifest.json'] = (json.dumps(manifest, indent=2, sort_keys=True)+'\n').encode()

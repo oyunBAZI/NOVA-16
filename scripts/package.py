@@ -30,7 +30,7 @@ assert build_info['arch'] == arch and not build_info['gui'] and build_info['opti
 manifest = {'build_info': build_info, 'package_schema': 1, 'version': version, 'zig_version': '0.17.1',
             'isa_version': 1, 'rom_version': 1, 'snapshot_version': 1,
             'os': system, 'arch': arch, 'frontend': 'headless',
-            'source_dirty': subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'src', 'build.zig', 'build.zig.zon', 'scripts', 'docs'], cwd=root).returncode != 0,
+            'source_dirty': subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'src', 'build.zig', 'build.zig.zon', 'scripts', 'docs', 'examples', 'README.md', 'INSTALL.md'], cwd=root).returncode != 0 or bool(subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard', '--', 'src', 'examples', 'scripts', 'docs'], cwd=root)),
             'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
             'files': {name: {'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data)} for name, data in sorted(files.items())}}
 files['manifest.json'] = (json.dumps(manifest, indent=2, sort_keys=True) + '\n').encode()

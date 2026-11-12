@@ -118,6 +118,8 @@ jobs:
     permissions:
       contents: write
       actions: read
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -127,6 +129,21 @@ jobs:
           pattern: packages-*
           merge-multiple: true
           path: release-assets
+      - name: Attest tested release archives
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: release-assets/*.zip
+          create-storage-record: false
+      - name: Verify provenance before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+        run: |
+          cp "$BUNDLE" release-assets/provenance.sigstore.json
+          for package in release-assets/*.zip; do
+            gh attestation verify "$package" --repo "$GITHUB_REPOSITORY" --bundle "$BUNDLE"
+          done
       - name: Publish tested prerelease and immutable source target
         env:
           GH_TOKEN: ${{ github.token }}

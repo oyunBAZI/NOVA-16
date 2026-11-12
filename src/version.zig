@@ -1,1 +1,1 @@
-pub const string = "0.2.0-rc.1";
+pub const string = "0.3.0-rc.1";

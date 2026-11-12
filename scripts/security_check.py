@@ -22,3 +22,13 @@ version = re.search(r'\.version\s*=\s*"([^"]+)"', (root / 'build.zig.zon').read_
 assert f'"{version}"' in (root / 'src/version.zig').read_text()
 assert 'eol=lf' in (root / '.gitattributes').read_text()
 print('Workflow pin/trigger/permissions, toolchain SHA256, version and source checkout policy passed')
+
+ci = (root/'.github/workflows/ci.yml').read_text()
+ordinary, release = ci.split('\n  release:\n', 1)
+assert 'id-token: write' not in ordinary and 'attestations: write' not in ordinary
+assert 'id-token: write' in release and 'attestations: write' in release
+assert 'gh attestation verify' in release and 'provenance.sigstore.json' in release
+sdk = (root/'scripts/setup_sdl.py').read_text()
+assert "https://www.libsdl.org/release/SDL2-2.32.4.tar.gz" in sdk
+assert re.search(r"SHA256 = '[0-9a-f]{64}'", sdk)
+print('Release-only OIDC/attestation permissions and pinned genuine SDL2 source passed')

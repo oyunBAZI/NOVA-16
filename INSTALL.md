@@ -26,3 +26,24 @@ On macOS the binaries are unsigned. Follow your organization's policy for
 unsigned open-source CLI tools or build from source; code signing is not claimed.
 The platform matrix and compatibility policy are in docs/platforms.md and
 CONTRIBUTING.md. RC versions are prereleases, not a stability guarantee.
+
+To build the included multi-file game from an extracted package:
+
+```sh
+./bin/n16asm examples/projects/breakout/main.asm --out game.n16 --debug-symbols game.sym2
+./bin/nova16 inspect game.n16 --json
+./bin/n16dbg game.n16 --symbols game.sym2
+```
+
+Inside the debugger use `input 64`, `frame 1`, `input 0`, `frame 5`,
+`mem score 2`, `break game.asm:49`, `continue`. Headless replays need no SDL.
+Python helpers in scripts/ accept explicit `--emulator bin/nova16` or
+`--assembler bin/n16asm`; use `.exe` on Windows. For source-build examples in
+the developer guide, replace `zig-out/bin/` with `bin/` in an extracted package
+and create the output directory `zig-out` once.
+
+When a release includes provenance.sigstore.json, verify an archive using
+`gh attestation verify FILE.zip --repo oyunBAZI/NOVA-16 --bundle provenance.sigstore.json`.
+This verifies workflow provenance; it does not provide macOS notarization or
+Windows Authenticode signing. Publication is blocked if CI provenance verification
+fails. Older releases without a bundle make no attestation claim.
