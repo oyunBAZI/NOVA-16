@@ -25,6 +25,25 @@ pub const Diagnostic = struct {
     }
     pub fn explain(self: *Diagnostic, err: anyerror) void {
         self.code = @errorName(err);
-        self.reason = if (err == error.UndefinedSymbol) "symbol is not defined" else if (err == error.DuplicateSymbol) "symbol is already defined" else if (err == error.ExpectedRegister) "expected register R0 through R7" else if (err == error.Width) "expression exceeds the allowed numeric range" else if (err == error.BranchRange) "branch target must be within -128 to +127 instruction words" else if (err == error.CyclicConstant) "constant depends on a cyclic chain" else if (err == error.OperandCount) "instruction or directive has the wrong number of operands" else if (err == error.InvalidNumber) "invalid or overflowing numeric literal" else if (err == error.ExpectedExpression) "expected a literal or symbol, optionally followed by + or - and a number" else @errorName(err);
+        self.reason = switch (err) {
+            error.UndefinedSymbol => "symbol is not defined",
+            error.DuplicateSymbol => "symbol is already defined",
+            error.ExpectedRegister => "expected register R0 through R7",
+            error.ExpectedMemory => "expected [base register +/- byte displacement]",
+            error.DisplacementRange => "memory displacement must be -32 through +31 bytes",
+            error.InvalidTarget => "control target must be an even executable RAM or ROM address",
+            error.BadEntry => "entry must be even and inside the emitted ROM payload",
+            error.BadAlignment => ".align requires a positive power of two",
+            error.UnknownMnemonic => "unknown ISA V1 instruction mnemonic",
+            error.UnknownDirective => "unknown assembly directive",
+            error.Syntax => "unbalanced quotes/brackets, empty operand or invalid punctuation",
+            error.Width => "expression exceeds the allowed numeric range",
+            error.BranchRange => "branch target must be within -128 to +127 instruction words",
+            error.CyclicConstant => "constant depends on a cyclic chain",
+            error.OperandCount => "instruction or directive has the wrong number of operands",
+            error.InvalidNumber => "invalid or overflowing numeric literal",
+            error.ExpectedExpression => "expected a literal or symbol, optionally followed by + or - and a number",
+            else => @errorName(err),
+        };
     }
 };

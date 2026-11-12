@@ -129,4 +129,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(python3 -c 'import re; print(re.search(r"\.version\s*=\s*\"([^\"]+)\"", open("build.zig.zon").read()).group(1))')
-          gh release create "v$version" --target "$GITHUB_SHA" --prerelease --title "NOVA-16 $version" --notes-file CHANGELOG.md release-assets/*
+          cp CHANGELOG.md "$RUNNER_TEMP/release-notes.md"
+          printf '\nVerification: https://github.com/%s/actions/runs/%s\nSource revision: %s\n' "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_SHA" >> "$RUNNER_TEMP/release-notes.md"
+          gh release create "v$version" --target "$GITHUB_SHA" --prerelease --title "NOVA-16 $version" --notes-file "$RUNNER_TEMP/release-notes.md" release-assets/*

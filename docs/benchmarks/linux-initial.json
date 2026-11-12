@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "zig_version": "0.17.1",
+  "optimization": "safe",
+  "os": "linux",
+  "arch": "x86_64",
+  "cpu_model": "emeraldrapids",
+  "guard": 13706816780,
+  "samples": [
+    {
+      "name": "cpu_instruction",
+      "operations": 2000000,
+      "nanoseconds": 98886440
+    },
+    {
+      "name": "headless_frame",
+      "operations": 100,
+      "nanoseconds": 113235513
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 20951210
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 25898174
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 2897746
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 101818259
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 4484483
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 13372238
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 2000000,
+      "nanoseconds": 115745730
+    },
+    {
+      "name": "headless_frame",
+      "operations": 100,
+      "nanoseconds": 112476787
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 28496593
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 26451935
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 2106057
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 108649008
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 5258778
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 13237240
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 2000000,
+      "nanoseconds": 109295271
+    },
+    {
+      "name": "headless_frame",
+      "operations": 100,
+      "nanoseconds": 99723262
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 20543841
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 27372411
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 2846379
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 115099396
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 4554837
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 16769040
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 2000000,
+      "nanoseconds": 104456376
+    },
+    {
+      "name": "headless_frame",
+      "operations": 100,
+      "nanoseconds": 118619001
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 20404432
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 27621913
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 3578447
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 112282660
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 3642543
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 14592135
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 2000000,
+      "nanoseconds": 107613372
+    },
+    {
+      "name": "headless_frame",
+      "operations": 100,
+      "nanoseconds": 105601126
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 20968972
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 27627317
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 2635136
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 111885996
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 3464595
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 14630763
+    }
+  ],
+  "host": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "hardware_cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+  "source_dirty": false,
+  "binary_sha256": "36ea50d785eb0d86d4633a2c8b523097110a635f1980c287742fdf91fb8e0af2",
+  "peak_rss_kib": 13312.0,
+  "median_ns_per_operation": {
+    "cpu_instruction": 53.806686,
+    "headless_frame": 1124767.87,
+    "initialize": 2095.121,
+    "reset": 2737.2411,
+    "rom_load": 2846.379,
+    "assemble_splash": 1118859.96,
+    "bus_word_pair": 44.84483,
+    "video_rgb_frame": 14592.135
+  },
+  "local_commit": "99ad3ab8c52258499e856b2882891a0991216f46",
+  "commit": "9ef57b3a77e6d0df309a05a2aa487a18655b6b6b",
+  "source_tree": "2a3bbae78b12e3c0cdbbc03e171492522f556214",
+  "publication_note": "Local measurement and published API commit have the identical Git tree; commit metadata differs."
+}

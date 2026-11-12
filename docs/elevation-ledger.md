@@ -144,3 +144,28 @@ Two local package runs produced identical ZIP SHA256; extracted binaries really
 assembled and booted all four sources and ran the debugger without Zig or SDL.
 Native package CI and actual release publication remain open until those run.
 The distribution is explicitly 0.2.0-rc.1; no stable-release label is claimed.
+
+### Phase 8 native package gate — passed
+CI run 43142616597 passed native package creation, checksum/extraction, assembly,
+boot and debugger execution on Linux x86_64, Windows x86_64 and macOS aarch64,
+alongside the complete build/test/graphics/fuzz/coverage/security/benchmark DAG.
+Publication was correctly skipped because that commit was not a Release checkpoint.
+
+## Phase 9 — precise architecture, maintenance and compatibility documentation
+Updated README/development/platforms, state invariants/ownership, snapshot vector,
+format and integration references, testing/coverage scope, measured raw benchmark,
+release/maintenance process and prioritized V1.1/V2 roadmap. Preserved original V1
+milestone history as historical evidence. All current/future functionality and
+unsupported platforms are distinguished. Assembler explanations were clarified.
+
+An independently constructed Python struct/zlib N16S byte vector now matches the
+Zig serializer and is asserted in native tests. Local `zig build test` passed
+60/60; formatting, ReleaseSafe baseline build, CLI acceptance, package verification,
+policy checks and YAML parsing passed. Original ROM/golden hashes are unchanged.
+
+Remaining limitations: unsigned RC/headless distribution, graphical source-build
+SDL dependencies, native macOS x86_64 not claimed, no configured repository
+rulesets/cryptographic attestations, and future parser complexity/accessor work
+listed in future-roadmap.md. None is represented as implemented or silently
+bypassed. The final Release checkpoint must rerun the complete DAG and publish
+its tested commit; actual publication is reported only after that succeeds.

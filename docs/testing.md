@@ -34,3 +34,25 @@ regression cases rather than optimizing tests merely to increase percentages.
 Regression policy: every confirmed defect gets an executable reproducer;
 never update golden hashes just to make CI green. Timeouts/fuzzer crashes fail
 CI. Seeds and bounded counts are fixed/reported so failures can be reproduced.
+
+| Suite | Main coverage |
+|---|---|
+|arch/isa + debug/disasm|All 65536 first words and all legal round trips|
+|core/cpu + conformance_tests|Flags, control flow, stack, permissions and faults|
+|sequence_tests|32×300 independent mixed-state comparisons, RAM self-modification|
+|core/bus + devices|Region/MMIO boundaries, latches, packed pixels/palette|
+|rom/format|Header/payload corruption, length/entry/CRC rejection|
+|asm/assembler + debug/symbols|Spans, constants, listings, schemas/ROM identity|
+|debug/debugger + core/snapshot|Frame/input, trace/undo, complete restore/atomicity|
+|integration_tests|All ROM boots, original golden outputs and input replay|
+|fuzz_tests|Guided/deterministic malformed inputs and allocation-failure paths|
+|scripts/acceptance + verify_package|Real CLIs and extracted native distributions|
+|frontend/selfTest|Actual SDL events, controls, resize and all-pixel readback|
+
+The N16S byte protocol also has an independently encoded struct/zlib SHA256
+vector in snapshots.md, asserted on every native OS/backend. Code-coverage and
+performance artifacts remain diagnostics with explicit methods and limitations.
+Source coverage is measured on the linked unit/integration test binary; unused
+CLI entrypoints and the separate C/SDL frontend are not included in that binary's
+line totals. Their executable behavior is verified by black-box/native graphical
+acceptance. The coverage report is not presented as a whole-product percentage.

@@ -113,6 +113,10 @@ test "full-state snapshots roundtrip deterministically and malformed restore is 
     m.bus.input.pressed = 3;
     const saved = try encode(a, &m);
     defer a.free(saved);
+    // Byte-protocol vector independently encoded with Python struct/zlib.
+    var hash: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(saved, &hash, .{});
+    try std.testing.expectEqualStrings("6509420edf13f7d12f32eb26a6940e120f9c1b9685ecb10685be456fb04532af", &std.fmt.bytesToHex(hash, .lower));
     var restored: Machine = .{};
     try restore(&restored, saved, m.checksum);
     const again = try encode(a, &restored);

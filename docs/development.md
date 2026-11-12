@@ -1,69 +1,71 @@
-# Development and release reproduction
+# Development and reproduction
 
-Pin Zig 0.17.1. The build rejects other compiler release versions. The Linux
-x86_64 archive SHA-256 was checked against the official download index:
-`3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a`.
-No package dependencies are fetched by the Zig build.
-
-From a fresh clone:
+Pin Zig 0.17.1. No package fetch occurs during the Zig build. Official archive
+URLs/checksums for CI platforms are committed in scripts/toolchains.json;
+scripts/setup_zig.py verifies the archive before extraction.
 
 ```
 zig build fmt
 zig build
-zig build test
+zig build test --test-timeout 2m
 zig build demos
 python3 scripts/acceptance.py
-zig build -Doptimize=ReleaseSafe
+zig build -Doptimize=ReleaseSafe -Dstrip=true -Dcpu=baseline
 python3 scripts/acceptance.py
+zig build test -Doptimize=ReleaseSafe --fuzz=1K --test-timeout 5m
+python3 scripts/security_check.py
 ```
 
-For SDL2 install the platform development package, then:
+Cross-compile distribution binaries without executing them on the host:
 
 ```
-zig build -Dgui=true
-zig build test -Dgui=true
-SDL_VIDEODRIVER=dummy zig-out/bin/nova16 run zig-out/demos/boot_splash.n16 --gui --frames 6
+zig build -Dtarget=x86_64-windows -Doptimize=ReleaseSafe
+zig build -Dtarget=aarch64-macos -Doptimize=ReleaseSafe
+zig build -Dtarget=x86_64-macos -Doptimize=ReleaseSafe
+python3 scripts/cross_acceptance.py
 ```
 
-For a visible Linux smoke test use Xvfb or the actual desktop. A dummy-driver
-smoke exercises texture/event/presentation code but does not replace the recorded
-real desktop keyboard/display validation. Platform evidence is in gui.md.
+Host assembler always targets b.graph.host; distributable executables target the
+selected platform. Native tests execute on the host. Native OS CI tests target
+binaries, including package extraction, on their own OS. Platform evidence is in
+platforms.md. This distinction is part of the build contract.
 
-## Modules
-`arch/isa.zig` owns instruction metadata/constants and strict decoding.
-`core/` owns CPU, bus, traps, machine reset/frame execution and input schedules.
-`devices/` owns input state and deterministic RGB rendering. `rom/format.zig`
-validates/packs containers. `asm/` separates source lexing, parsing, operand
-encoding and two-pass symbol/emission logic. `debug/` is a core debugger API
-plus canonical disassembly. `cli/` owns host I/O and command-line policies.
-`frontend/sdl2.zig` is the isolated C ABI adapter.
+For SDL2, install development libraries and use `zig build -Dgui=true` and
+`zig build gui-test -Dgui=true`. A prefix can supply headers/import libraries.
+The C adapter is built only for graphical executables. Default builds/tests
+remain SDL-free. Native event/readback tests and original desktop validation
+are described in gui.md.
 
-Tests live beside their subsystem, plus integration_tests.zig and
-conformance_tests.zig. Golden images are generated from real assembly, never
-fixtures substituted by the renderer. Avoid changing expected hashes unless
-you understand the guest-visible change; explain it in the milestone ledger.
+## Modules and ownership
+`arch/isa.zig`: constants, opcode tables and strict decoding.
+`core/`: CPU, bus, traps, reset/frame machine, input schedules, snapshot encoding.
+`devices/`: input and deterministic RGB conversion.
+`rom/format.zig`: checked N16R packing/loading.
+`asm/`: lexing, parsing, spans/diagnostics, symbols, two passes and emission.
+`debug/`: disassembly, checked source maps, command engine, trace/undo recorder.
+`frontend/`: header-compiled SDL2 adapter and host orchestration.
+`cli/`: host I/O and command policies, graphical acceptance and benchmarks.
 
-## Distribution
-`zig build -Doptimize=ReleaseSafe` produces native `zig-out/bin/{nova16,n16asm,n16dbg}`
-and `zig-out/demos/`. Package these with LICENSE and docs. The default headless
-binaries need no SDL. A GUI build dynamically requires SDL2 on the destination.
-GitHub Actions uploads the Linux headless binaries/ROMs as a workflow artifact.
-No installer or code-signing claim is made. macOS/Windows builds are unverified;
-cross-target demo generation currently requires a host assembler/native build.
+Machine owns CPU, bus/memory/devices and loaded ROM metadata. Caller supplies
+allocators for serialized outputs/toolchain results. Assembly result names/source
+slices borrow the source text; keep it alive until the result is released.
+Loaded JSON symbol maps own parsed data until deinit; legacy map names borrow
+the map text. Debugger deinit releases optional undo storage. All format loaders
+validate before committing live state.
+
+Tests live beside their subsystem, with dedicated conformance, sequence,
+integration and fuzz suites. Never change a golden hash without a reviewed guest-
+visible reason. Current elevation preserved every original V1 ROM image/hash.
 
 ## Troubleshooting
-- Compiler/API errors: verify `zig version` is exactly 0.17.1.
-- SDL2 library missing: install its development package, or supply a valid
-  library search prefix. The headless build never needs SDL2.
-- `GuiDisabled`: rebuild with `-Dgui=true`.
-- Window disappears: default 120 presentations is about two seconds; increase
-  `--frames` and, for long-running guests, `--max-instructions`.
-- Guest stops without HALT: inspect paused/trapped status and instruction budget.
-- Debugger repeats a breakpoint: use step or delete before continue.
-- PPM unsupported by image viewer: open in GIMP/ImageMagick, or convert to PNG.
-- Assembly layout error: align instruction addresses and define layout constants
-  before their use; instruction/data label references may be forward.
+- Compiler/API error: `zig version` must be 0.17.1.
+- Default fuzz backend zero-PC coverage: use documented ReleaseSafe/LLVM mode.
+- SDL missing: install development headers/library or supply a search prefix.
+- GUI binary starts then exits: defaults are finite; increase explicit limits.
+- Debugger repeats a breakpoint: step or delete before continue.
+- Source/snapshot identity mismatch: use the files from the same ROM build.
+- Source layout error: align instructions and resolve layout constants beforehand.
+- macOS unsigned CLI restriction: build from source or follow local signing policy.
 
-Core invariants: never consult host time, never bypass bus validation for guest
-accesses, never clear read-latched devices during debugger inspection, and never
-let malformed ROM/assembly/debugger inputs panic the host.
+See releasing.md for archive generation, checksums, native verification and
+publication gates. Repository rulesets/code signing are not silently configured.

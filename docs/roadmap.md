@@ -1,4 +1,9 @@
-# Milestone ledger
+# Original V1 milestone ledger
+
+Current engineering work: [elevation ledger](elevation-ledger.md). Planned work:
+[prioritized V1.1/V2 roadmap](future-roadmap.md). This document preserves the
+original V1 checkpoints; historical platform limitations are superseded by
+platforms.md when new native evidence exists.
 
 Phases 0–10 passed local acceptance gates. Evidence follows. GitHub CI status is tracked separately from local validation.
 

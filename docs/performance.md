@@ -46,3 +46,8 @@ CI publishes per-commit performance-baseline JSON. Compare like hardware,
 optimization, workload, samples and environment; review large changes rather
 than failing portable correctness gates on a noisy shared-runner threshold.
 Release evaluation retains the raw baseline artifact so regressions remain visible.
+
+The full second five-sample measurement is retained in
+[benchmarks/linux-initial.json](benchmarks/linux-initial.json), including raw
+samples, hardware, source tree and the corresponding public commit. Differences
+from the first timing table illustrate normal shared-host variance.

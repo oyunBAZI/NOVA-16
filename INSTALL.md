@@ -18,7 +18,7 @@ From the extracted folder on Linux/macOS:
 ./bin/n16dbg splash.n16
 ```
 
-On Windows use `\.\bin\nova16.exe` (and the corresponding n16asm/n16dbg `.exe`)
+On Windows use `.\bin\nova16.exe` (and the corresponding n16asm/n16dbg `.exe`)
 with the same arguments. Use `help` inside the debugger, then `regs`, `step`,
 `frame`, `input`, `trace`, `savesnap` and `loadsnap` as needed.
 

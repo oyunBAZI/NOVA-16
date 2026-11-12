@@ -4,11 +4,11 @@
 |---|---|---|---|
 |Linux x86_64, Ubuntu 24.04 CI|Passed|Passed under Xvfb|Passed|
 |Windows x86_64, Server 2022 CI|Passed|Passed on native desktop|Passed|
-|macOS 15 native CI architecture|Passed|Passed on native desktop|x86_64 + aarch64 passed|
+|macOS 15 aarch64|Passed|Passed on native desktop|x86_64 + aarch64 passed|
 
 Native headless/graphical gate evidence: CI run 43140210006. It executes actual
 binaries and all component, golden ROM, replay, snapshot and CLI checks.
-Architecture-specific release filenames and executable build info identify the
+Native macOS package extraction has passed for aarch64. Architecture-specific release filenames and executable build info identify the
 actual native runner architecture; cross-compiling the other macOS architecture
 is not presented as native execution of that architecture. Other OS versions,
 CPUs and SDL backends are unverified. No universal macOS binary is claimed.

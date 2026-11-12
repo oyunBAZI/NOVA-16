@@ -20,13 +20,13 @@ for exe in ('nova16', 'n16asm', 'n16dbg'):
 for path in sorted((root / 'zig-out/demos').glob('*')):
     if path.suffix in ('.n16', '.sym'):
         files['demos/' + path.name] = path.read_bytes()
-for pattern in ('docs/*.md', 'docs/*.png', 'examples/*.asm'):
+for pattern in ('docs/**/*.md', 'docs/**/*.png', 'docs/benchmarks/*.json', 'examples/*.asm'):
     for path in sorted(root.glob(pattern)):
         files[path.relative_to(root).as_posix()] = path.read_bytes()
 for filename in ('README.md', 'INSTALL.md', 'LICENSE', 'CHANGELOG.md', 'SECURITY.md', 'CONTRIBUTING.md'):
     files[filename] = (root / filename).read_bytes()
 build_info = json.loads(subprocess.check_output([str(root / 'zig-out/bin' / ('nova16.exe' if system == 'windows' else 'nova16')), '--build-info'], text=True))
-assert build_info['arch'] == arch and not build_info['gui'], 'package a native headless build'
+assert build_info['arch'] == arch and not build_info['gui'] and build_info['optimization'] == 'safe', 'package a native ReleaseSafe headless build'
 manifest = {'build_info': build_info, 'package_schema': 1, 'version': version, 'zig_version': '0.17.1',
             'isa_version': 1, 'rom_version': 1, 'snapshot_version': 1,
             'os': system, 'arch': arch, 'frontend': 'headless',
