@@ -1,0 +1,53 @@
+{
+  "release_commit": "1316575f4789ebe6c566d655b4237a837e89b916",
+  "sha256": {
+    "nova16-0.3.0-rc.1-linux-x86_64.zip": "8b5be81a43dcfc37e2ca0c20d8f59109a8d6dbc40fb4e3880bbb8ecffce1274f",
+    "nova16-0.3.0-rc.1-windows-x86_64.zip": "4f3b82fad3395f347eba6352e609a8945e9f71e4e637dcc4a2537375f413caae",
+    "nova16-0.3.0-rc.1-macos-aarch64.zip": "a65800be3cdfeb226cf982f9a3e7e0ff8d00c59191b4df19561cf4718d77220e"
+  },
+  "bundle_sha256": "cb14f879ef3a6a92840fb931fbe4f8c2934a492a76c4ca9d2685eacae9b28901",
+  "schema_version": 1,
+  "version": "0.3.0-rc.1",
+  "prerelease": true,
+  "ci_run": 43168396493,
+  "ci_conclusion": "success",
+  "ci_jobs_passed": 15,
+  "attestation_url": "https://github.com/oyunBAZI/NOVA-16/attestations/66570112",
+  "release_url": "https://github.com/oyunBAZI/NOVA-16/releases/tag/v0.3.0-rc.1",
+  "core_tests": 72,
+  "isolated_model_tests": 3,
+  "native_platforms": [
+    "linux-x86_64",
+    "windows-x86_64",
+    "macos-aarch64"
+  ],
+  "fuzz": {
+    "runs": 10505,
+    "unique": 500,
+    "covered_feedback_pcs": 1109,
+    "total_feedback_pcs": 16308,
+    "test_id": "6d25f6a811da3344",
+    "build_seed": "0x4e313603"
+  },
+  "source_coverage": {
+    "artifact_id": 13921475767,
+    "scope": "kcov linked core/unit/integration test binary; excludes unlinked CLIs/frontend and isolated model",
+    "snapshot_lines": [
+      162,
+      162
+    ],
+    "project_lines": [
+      93,
+      93
+    ],
+    "assembler_lines": [
+      351,
+      353
+    ],
+    "debugger_lines": [
+      299,
+      308
+    ]
+  },
+  "public_download_checks": "All three archive SHA256 values match published checksums, clean source manifests and attestation subjects; downloaded Linux package executed extracted acceptance successfully. Cryptographic provenance was verified in release CI."
+}
