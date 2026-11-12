@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "release": "v0.4.0-rc.1",
+  "source_commit": "bd503b2b74ac7c574ab17004e1b9975950581cf6",
+  "release_id": 442757065,
+  "release_url": "https://github.com/oyunBAZI/NOVA-16/releases/tag/v0.4.0-rc.1",
+  "run_id": 43194911022,
+  "run_url": "https://github.com/oyunBAZI/NOVA-16/actions/runs/43194911022",
+  "jobs": [
+    {
+      "id": 131103252541,
+      "name": "security",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103252858,
+      "name": "native (macos-15, Debug)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103252859,
+      "name": "sdl2 (macos-15)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103252951,
+      "name": "sdl2 (ubuntu-24.04)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103252986,
+      "name": "native (ubuntu-24.04, ReleaseSafe)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103253008,
+      "name": "cross",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103253019,
+      "name": "native (windows-2022, ReleaseSafe)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103253030,
+      "name": "sdl2 (windows-2022)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103253051,
+      "name": "reliability / coverage",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103253095,
+      "name": "native (macos-15, ReleaseSafe)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103253099,
+      "name": "reliability / fuzz",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103253124,
+      "name": "native (windows-2022, Debug)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103253150,
+      "name": "benchmark",
+      "conclusion": "success"
+    },
+    {
+      "id": 131103253280,
+      "name": "native (ubuntu-24.04, Debug)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131106192844,
+      "name": "release",
+      "conclusion": "success"
+    }
+  ],
+  "unit_tests_per_native_mode": 94,
+  "isolated_audio_math_tests": 4,
+  "v1_hardware_only": true,
+  "fuzz": {
+    "seed": "0x4e313603",
+    "runs": 10491,
+    "unique": 483,
+    "feedback_pcs_covered": 1286,
+    "feedback_pcs_total": 19657,
+    "scope": "feedback PCs, not source-line coverage"
+  },
+  "source_coverage": {
+    "covered_lines": 3705,
+    "total_lines": 3822,
+    "percent": 96.94,
+    "scope": "linked native test binary only; not whole product"
+  },
+  "assets": [
+    {
+      "name": "nova16-0.4.0-rc.1-linux-x86_64.zip",
+      "size": 1047579,
+      "digest": "sha256:0f0d6af71a71988e5e5ec53d6c3b5280b6ef0b572b5aaf9caf17336e5e74d830"
+    },
+    {
+      "name": "nova16-0.4.0-rc.1-linux-x86_64.zip.sha256",
+      "size": 101,
+      "digest": "sha256:146cbafa17f8b4a778560359431642eb38ea830667ec1e121c05a82e687ff7f7"
+    },
+    {
+      "name": "nova16-0.4.0-rc.1-macos-aarch64.zip",
+      "size": 940975,
+      "digest": "sha256:0201089bde61bff148e3ad284eb3c3d2b3c21ca3b34d7bde3c98fb8d697dc9d9"
+    },
+    {
+      "name": "nova16-0.4.0-rc.1-macos-aarch64.zip.sha256",
+      "size": 102,
+      "digest": "sha256:c487acafd87b5ec31c767b66ba8d90312762088110ece8d6ca6f3b4854461c72"
+    },
+    {
+      "name": "nova16-0.4.0-rc.1-windows-x86_64.zip",
+      "size": 1257381,
+      "digest": "sha256:7d6ef4408603bd6731962eb8de670e471b9fa464e7d54f7ea56e9a005b8f113b"
+    },
+    {
+      "name": "nova16-0.4.0-rc.1-windows-x86_64.zip.sha256",
+      "size": 104,
+      "digest": "sha256:a04b645a464064e692a2c42c12cbdc64e870806d4b10cdc5ac4e84a76feadb24"
+    },
+    {
+      "name": "provenance.sigstore.json",
+      "size": 10919,
+      "digest": "sha256:233a11974bbe7bcd46c8a43fc606d8841fe66f3cc3c53a1edfdb0470d1453c76"
+    }
+  ],
+  "provenance": "Release job generated and verified Sigstore bundle before publication; no OS signing/notarization claimed"
+}

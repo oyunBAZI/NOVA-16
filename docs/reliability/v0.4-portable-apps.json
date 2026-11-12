@@ -1,0 +1,14 @@
+{
+  "macos": {
+    "crates": "adda2d3376932176a11afbd357b2940616844cea573eab86eabd7dae50bc2ed4",
+    "pixel_studio": "4ac5f2b1fd892347df184bc946c8e99069b14fa736a313c868a688660c839373"
+  },
+  "windows": {
+    "crates": "adda2d3376932176a11afbd357b2940616844cea573eab86eabd7dae50bc2ed4",
+    "pixel_studio": "4ac5f2b1fd892347df184bc946c8e99069b14fa736a313c868a688660c839373"
+  },
+  "linux": {
+    "crates": "adda2d3376932176a11afbd357b2940616844cea573eab86eabd7dae50bc2ed4",
+    "pixel_studio": "4ac5f2b1fd892347df184bc946c8e99069b14fa736a313c868a688660c839373"
+  }
+}
