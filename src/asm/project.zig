@@ -55,7 +55,7 @@ const Loader = struct {
             const source_offset = offset;
             offset += line.len + 1;
             const code = lex.code(line);
-            if (std.mem.startsWith(u8, code, ".include") and (code.len == 8 or code[8] == ' ' or code[8] == '\t')) {
+            if (code.len >= 8 and std.ascii.eqlIgnoreCase(code[0..8], ".include") and (code.len == 8 or code[8] == ' ' or code[8] == '\t')) {
                 const name = lex.trim(code[8..]);
                 if (name.len < 3 or name[0] != '"' or name[name.len - 1] != '"') return error.IncludeSyntax;
                 const sub = name[1 .. name.len - 1];

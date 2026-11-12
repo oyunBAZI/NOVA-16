@@ -31,6 +31,8 @@ def main():
         assert errors['diagnostics'][1]['excerpt'] == 'LDI R9, 0'
         assert rom.read_bytes() == previous
         assert '^' in run('n16asm', source, '--out', rom, '--diagnostics', 'rich', ok=False).stderr
+        source.write_text('\tLDI R8, 0\nHALT')
+        assert '\n\t    ^^' in run('n16asm', source, '--out', rom, '--diagnostics', 'rich', ok=False).stderr
         # Reproducible maps/ROMs across unrelated absolute checkout paths.
         import shutil
         for name in ('first', 'second'):
@@ -39,6 +41,11 @@ def main():
                 '--out', p/(name+'.n16'), '--debug-symbols', p/(name+'.sym2'))
         assert (p/'first.n16').read_bytes() == (p/'second.n16').read_bytes()
         assert (p/'first.sym2').read_bytes() == (p/'second.sym2').read_bytes()
+        entry_text = (p/'first/main.asm').read_text()
+        (p/'first/main.asm').write_text(entry_text.replace('.include', '.INCLUDE'))
+        run('n16asm', p/'first/main.asm', '--out', p/'case.n16')
+        assert (p/'case.n16').read_bytes() == (p/'first.n16').read_bytes()
+        (p/'first/main.asm').write_text(entry_text)
         mapping = json.loads((p/'first.sym2').read_text())
         assert 'lib/input.asm' in {x['file'] for x in mapping['locations']}
         state = json.loads(run('nova16', 'run', p/'first.n16').stdout)

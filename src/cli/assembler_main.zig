@@ -70,7 +70,7 @@ fn run(init: std.process.Init) !void {
                     try std.json.Stringify.value(.{ .category = "assembly", .file = filename, .code = item.code, .message = item.reason, .line = item.line, .column = item.column, .offset = reported_offset, .length = item.length, .excerpt = source[start..end], .suggestion = suggestion }, .{}, &error_text.writer);
                 } else {
                     try error_text.writer.print("{s}:{d}:{d}: {s}: {s}\n{s}\n", .{ filename, item.line, item.column, item.code, item.reason, source[start..end] });
-                    for (1..item.column) |_| try error_text.writer.writeByte(' ');
+                    for (source[start..][0 .. item.column - 1]) |c| try error_text.writer.writeByte(if (c == '\t') '\t' else ' ');
                     for (0..@min(@max(item.length, 1), 120)) |_| try error_text.writer.writeByte('^');
                     try error_text.writer.writeByte('\n');
                     if (suggestion) |hint| try error_text.writer.print("help: {s}\n", .{hint});
