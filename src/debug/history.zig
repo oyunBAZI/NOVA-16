@@ -2,7 +2,7 @@ const std = @import("std");
 const Machine = @import("../core/machine.zig").Machine;
 const Cpu = @import("../core/cpu.zig").Cpu;
 const Write = @import("../core/bus.zig").Write;
-pub const Trace = struct { before: Cpu, after: Cpu, writes: [2]Write, count: u2, word: u16, immediate: u16, length: u3 };
+pub const Trace = struct { irq_entry: ?u8 = null, profile: @import("../arch/isa.zig").Profile = .v1, slots: u64 = 0, before: Cpu, after: Cpu, writes: [6]Write, count: u3, word: u16, immediate: u16, length: u3 };
 pub const Recorder = struct {
     allocator: std.mem.Allocator = std.heap.page_allocator,
     trace: [128]Trace = undefined,
@@ -43,8 +43,9 @@ pub const Recorder = struct {
         const pc: usize = before.pc;
         const word: u16 = if (pc <= 65534) @as(u16, m.bus.bytes[pc]) | (@as(u16, m.bus.bytes[pc + 1]) << 8) else 0;
         const immediate: u16 = if (pc <= 65532) @as(u16, m.bus.bytes[pc + 2]) | (@as(u16, m.bus.bytes[pc + 3]) << 8) else 0;
+        const entries = m.irq_entries;
         m.step();
-        self.trace[self.trace_next] = .{ .before = before, .after = m.cpu, .writes = m.bus.writes, .count = m.bus.write_count, .word = word, .immediate = immediate, .length = if (@import("../arch/isa.zig").decode(word)) |i| i.len else |_| 2 };
+        self.trace[self.trace_next] = .{ .irq_entry = if (m.irq_entries != entries) m.bus.irq.active() else null, .profile = m.bus.profile, .slots = m.slots, .before = before, .after = m.cpu, .writes = m.bus.writes, .count = m.bus.write_count, .word = word, .immediate = immediate, .length = if (@import("../arch/isa.zig").decodeProfile(word, m.bus.profile)) |i| i.len else |_| 2 };
         self.trace_next = (self.trace_next + 1) % self.trace.len;
         self.trace_count = @min(self.trace_count + 1, self.trace.len);
     }
@@ -61,6 +62,8 @@ pub const Recorder = struct {
         const count = @min(requested, self.trace_count);
         for (0..count) |k| {
             const t = &self.trace[(self.trace_next + self.trace.len - count + k) % self.trace.len];
+            if (t.profile == .v2) try w.print("slot={d} ", .{t.slots});
+            if (t.irq_entry) |vector| try w.print("IRQ{d} entry ", .{vector});
             try w.print("{x:0>4}: opcode={x:0>4}", .{ t.before.pc, t.word });
             if (t.length == 4) try w.print(" word1={x:0>4}", .{t.immediate});
             try w.print(" PC->{x:0>4} flags {x}->{x}", .{ t.after.pc, t.before.flags, t.after.flags });

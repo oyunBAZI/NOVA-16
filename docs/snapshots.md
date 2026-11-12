@@ -61,3 +61,11 @@ snapshots formerly accepted by v0.3 now fail SnapshotState atomically. Encodings
 and all valid golden bytes remain unchanged. Stopped aligned next-PCs and fault
 PCs are retained for diagnosis; public raw host fields still require disciplined
 use. Prefer encodeChecked for snapshots intended for subsequent restoration.
+
+## N16S2
+
+Explicit ROM2 machines encode the exact 67,680-byte revision2 directory format
+in [v2-binary-contract.md](v2-binary-contract.md). Decode validates all envelope
+and section checksums, reserved fields and cross-field invariants in a candidate
+before committing. Restores require an already selected matching ROM2; no
+snapshot activates another machine profile. V1 bytes remain unchanged.

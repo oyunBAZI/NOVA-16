@@ -8,6 +8,10 @@ comptime {
     if (@sizeOf(Input) != 8 or @offsetOf(Input, "commands") != 4) @compileError("N16Input ABI mismatch");
 }
 extern fn n16_sdl_open(c_int) ?*Host;
+extern fn n16_sdl_audio_open(*Host) c_int;
+extern fn n16_sdl_audio_clear(*Host) void;
+extern fn n16_sdl_audio_queue(*Host, *const [800]i16) void;
+extern fn n16_sdl_audio_test(*Host) c_int;
 extern fn n16_sdl_close(*Host) void;
 extern fn n16_sdl_error() [*:0]const u8;
 extern fn n16_sdl_poll(*Host, *Input) void;
@@ -40,6 +44,7 @@ pub fn run(m: *Machine, scale: u32, max_frames: u64, cap: u64) !void {
     };
     defer n16_sdl_close(host);
     var pixels: [128 * 96 * 3]u8 = undefined;
+    if (m.bus.profile == .v2) _ = n16_sdl_audio_open(host);
     var controls: Controls = .{};
     var frame: u64 = 0;
     while (frame < max_frames and m.cpu.retired < cap) : (frame += 1) {
@@ -47,7 +52,13 @@ pub fn run(m: *Machine, scale: u32, max_frames: u64, cap: u64) !void {
         var input: Input = undefined;
         n16_sdl_poll(host, &input);
         if (controls.apply(m, input)) return;
-        if (!controls.paused and !m.cpu.halted and !m.cpu.paused and m.cpu.trap == null) m.frame(@intCast(input.held), cap);
+        if (input.commands & 3 != 0) n16_sdl_audio_clear(host);
+        if (!controls.paused) {
+            if (m.bus.profile == .v2) {
+                var pcm: [800]i16 = undefined;
+                if (m.frameAudio(@intCast(input.held), cap, &pcm)) n16_sdl_audio_queue(host, &pcm);
+            } else if (!m.cpu.halted and !m.cpu.paused and m.cpu.trap == null) m.frame(@intCast(input.held), cap);
+        }
         video.render(m.bus.bytes[0xc000..0xd800], &m.bus.palette, m.bus.enabled, &pixels);
         try check(n16_sdl_present(host, &pixels, 0));
         n16_sdl_pace(start);
@@ -144,6 +155,22 @@ pub fn selfTest(a: std.mem.Allocator) !void {
     try check(n16_sdl_test_event(host, -1, 0));
     n16_sdl_poll(host, &input);
     if (!controls.apply(&m, input)) return error.WindowClose;
+    // Real SDL queue API: exact format, bounded backlog, reset and underflow.
+    const before_audio = m;
+    try check(n16_sdl_audio_test(host));
+    const sound_rom = try assembler.assembleProfile(a, "LDI R0, 0xd902\nLDI R1, 0x4000\nSTW R1, [R0]\nLDI R1, 255\nSTB R1, [R0 + 2]\nLDI R1, 1\nSTB R1, [R0 + 4]\nLDI R0, 0xd940\nSTB R1, [R0]\nLDI R0, 0xc000\nLDI R1, 0xab\nSTB R1, [R0]\nHALT", &diagnostic, .v2);
+    defer sound_rom.deinit();
+    var sound_machine: Machine = .{};
+    try sound_machine.load(sound_rom.image);
+    var pcm: [800]i16 = undefined;
+    if (!sound_machine.frameAudio(0, 1000, &pcm) or sound_machine.cpu.trap != null) return error.GuestAudio;
+    if (std.mem.allEqual(i16, &pcm, 0) or sound_machine.bus.bytes[0xc000] != 0xab) return error.GuestAudio;
+    n16_sdl_audio_queue(host, &pcm);
+    video.render(sound_machine.bus.bytes[0xc000..0xd800], &sound_machine.bus.palette, sound_machine.bus.enabled, &pixels);
+    try check(n16_sdl_present(host, &pixels, 1));
+    n16_sdl_audio_clear(host);
+    try std.testing.expectEqualDeep(before_audio.cpu, m.cpu);
+    try std.testing.expectEqual(before_audio.slots, m.slots);
     n16_sdl_resize(host, 640, 512);
     n16_sdl_poll(host, &input);
     try check(n16_sdl_present(host, &pixels, 1));

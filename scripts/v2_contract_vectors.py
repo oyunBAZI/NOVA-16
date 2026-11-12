@@ -61,9 +61,9 @@ def main():
   with tempfile.TemporaryDirectory() as temp:
    directory=pathlib.Path(temp);rom=directory/'v2.n16';snap=directory/'v2.n16s';rom.write_bytes(base64.b64decode(fixtures['rom2_halt']['base64']));snap.write_bytes(base64.b64decode(fixtures['snapshot2_idle137']['base64']))
    bins=ROOT/'zig-out/bin' if (ROOT/'zig-out/bin').exists() else ROOT/'bin';suffix='.exe' if sys.platform=='win32' else ''
-   denied=subprocess.run([str(bins/('nova16'+suffix)),'inspect',str(rom)],capture_output=True,text=True,timeout=30);assert denied.returncode!=0 and 'BadVersion' in denied.stderr
+   denied=subprocess.run([str(bins/('nova16'+suffix)),'inspect',str(rom)],capture_output=True,text=True,timeout=30);assert denied.returncode==0 and 'N16R v2' in denied.stdout
    session=subprocess.run([str(bins/('n16dbg'+suffix)),str((ROOT/'zig-out/demos' if (ROOT/'zig-out/demos').exists() else ROOT/'demos')/'diagnostics.n16')],input=f'step 2\nregs\nloadsnap {snap}\nregs\nquit\n',capture_output=True,text=True,timeout=30)
-   assert session.returncode==0 and 'StreamTooLong' in session.stdout
+   assert session.returncode==0 and 'SnapshotProfile' in session.stdout
    pcs=re.findall(r'PC=.* SP=.*',session.stdout);assert len(pcs)==2 and pcs[0]==pcs[1]
-  print('V2 specification vectors, independent audio math, and shipping V1 atomic rejection passed (no V2 hardware)')
+  print('V2 specification vectors, independent audio math, and V2 ROM activation and V1 snapshot profile isolation passed')
 if __name__=='__main__':main()

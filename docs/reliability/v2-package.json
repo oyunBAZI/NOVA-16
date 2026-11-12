@@ -1,0 +1,20 @@
+[
+  {
+    "command": "python3 scripts/package.py",
+    "exit": 0,
+    "seconds": 2.483,
+    "output": "test 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\ntest 4: passed\ntest 5: passed\n/tmp/tmp3xzpxz_8/crates.zip\ntest 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\n/tmp/tmp4xefamy3/pixel_studio.zip\n/workspace/scratch/e983ae4eca3e/NOVA-16/dist/nova16-0.5.0-dev-linux-x86_64.zip\n"
+  },
+  {
+    "command": "python3 scripts/package_reproducibility.py",
+    "exit": 0,
+    "seconds": 2.681,
+    "output": "test 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\ntest 4: passed\ntest 5: passed\n/tmp/tmpumizvi04/crates.zip\ntest 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\n/tmp/tmpi99w5r9j/pixel_studio.zip\n/workspace/scratch/e983ae4eca3e/NOVA-16/dist/nova16-0.5.0-dev-linux-x86_64.zip\nNative SDK exact-byte reproducibility after project rebuilds passed\n"
+  },
+  {
+    "command": "python3 scripts/verify_package.py dist/nova16-0.5.0-dev-linux-x86_64.zip",
+    "exit": 0,
+    "seconds": 11.529,
+    "output": "All five original V1 ROM byte identities match the v0.3 baseline\nCompiler CLI: real V1 ROM, ordinary assembly reassembly, source map/debugger, limits and artifact retention passed\nProjects: create/build/run/debug/test, isolated includes, deterministic packages/rebuild, failed-build retention passed\ncrates/title: real ROM, framebuffer SHA and guest state passed\ncrates/win: real ROM, framebuffer SHA and guest state passed\ncrates/undo: real ROM, framebuffer SHA and guest state passed\ncrates/collision: real ROM, framebuffer SHA and guest state passed\ncrates/restart: real ROM, framebuffer SHA and guest state passed\ncrates/blocked: real ROM, framebuffer SHA and guest state passed\npixel_studio/blank: real ROM, framebuffer SHA and guest state passed\npixel_studio/drawing: real ROM, framebuffer SHA and guest state passed\npixel_studio/undo: real ROM, framebuffer SHA and guest state passed\npixel_studio/clear: real ROM, framebuffer SHA and guest state passed\nAll application replays passed\nV2 specification vectors, independent audio math, and V2 ROM activation and V1 snapshot profile isolation passed\nnova_sound: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\ninterrupt_canvas: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\nV2 black-box acceptance passed; complete original V1 gates remain separate\ntest 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\ntest 4: passed\ntest 5: passed\ntest 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\nPackage 0.5.0-dev linux/x86_64: checksums, assembly, boot and debugger passed\n"
+  }
+]

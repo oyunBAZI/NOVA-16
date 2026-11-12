@@ -1,10 +1,12 @@
 # NOVA-16 V2 architecture specification, revision 2
 
-Status: **design for separate approval**, not implemented virtual hardware.
-The shipped computer remains ISA V1. The only executable experiment is
-`src/experimental/audio_model.zig`, an isolated integer-math model with no CPU,
-MMIO, ROM loader, SDL output or interrupts. Run `zig build v2-model-test`.
-No emulator/tool executable imports it. Passing model tests does not deliver V2.
+Status: revision2 implementation authorized by the NOVA-16 V2 mission.
+Profile2 hardware is implemented on the V2 development branch. See
+[v2-implementation.md](v2-implementation.md) for interfaces and
+[v2-implementation-ledger.md](v2-implementation-ledger.md) for executed gates.
+The arithmetic experiment remains separate; runtime correctness is tested
+against the unchanged independent vectors. Architectural tables below remain
+normative; historical proposal wording describes the reviewed design.
 
 ## Compatibility and activation
 
@@ -31,7 +33,7 @@ Proposed N16R version 2 keeps the 32-byte little-endian envelope and 8 KiB limit
 Unknown version/profile/feature bits fail before changing state. A V1 loader
 continues returning BadVersion for V2. Assembler activation must be explicit
 (`--architecture nova16-v2` in a future tool); default is V1. Proposed EI, DI,
-IRET syntax is rejected in V1. No such option/instructions exist today.
+IRET syntax is rejected in V1. The assembler implements this explicit option and these instructions.
 
 N16S V2 has the exact bounded directory and section formats in
 [v2-binary-contract.md](v2-binary-contract.md). That contract also resolves slot,
@@ -174,7 +176,7 @@ The V1 compiler, ABI, guest library and project workflow are now specified in
 and guest/README.md. Those delivered contracts supersede revision1's tentative
 compiler/ABI limits. Crates and Pixel Studio demonstrate ordinary V1 execution.
 
-## Approval and next implementation gates
+## Original approval and implementation gates (historical)
 
 1. Separately approve profile2 and the finalized binary/timing/IRQ contract.
 2. Add explicit V2 ROM/profile dispatch and independent fixture validation while
@@ -185,6 +187,6 @@ compiler/ABI limits. Crates and Pixel Studio demonstrate ordinary V1 execution.
    snapshot/reverse replay and instruction/source diagnostics.
 5. Add optional bounded SDL playback queue tests and an explicitly V2 ROM.
 
-No V2 hardware is enabled or implicitly authorized by v0.4. The existing audio
+No V2 hardware was enabled or implicitly authorized by v0.4. The existing audio
 arithmetic model is an isolated experiment, not a delivered device. Network and
 filesystem devices are outside this contract.

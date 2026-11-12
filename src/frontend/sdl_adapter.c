@@ -12,6 +12,7 @@ struct N16Host {
     SDL_Renderer *renderer;
     SDL_Texture *texture;
     uint8_t held;
+    SDL_AudioDeviceID audio;
 };
 static const SDL_Scancode keys[] = {
     SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
@@ -21,6 +22,7 @@ static const SDL_Scancode keys[] = {
 const char *n16_sdl_error(void) { return SDL_GetError(); }
 void n16_sdl_close(N16Host *host) {
     if (!host) return;
+    if (host->audio) SDL_CloseAudioDevice(host->audio);
     if (host->texture) SDL_DestroyTexture(host->texture);
     if (host->renderer) SDL_DestroyRenderer(host->renderer);
     if (host->window) SDL_DestroyWindow(host->window);
@@ -149,4 +151,46 @@ void n16_sdl_resize(N16Host *host, int width, int height) {
        This test helper waits for host presentation; guest time never advances. */
     SDL_Delay(50);
     SDL_PumpEvents();
+}
+
+/* Optional presentation sink. Missing devices and queue failures never reach VM state. */
+int n16_sdl_audio_open(N16Host *host) {
+    if (host->audio) return 1;
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) return 0;
+    SDL_AudioSpec desired; SDL_zero(desired);
+    desired.freq = 48000;
+    desired.format = AUDIO_S16SYS;
+    desired.channels = 1;
+    desired.samples = 800;
+    desired.callback = NULL;
+    host->audio = SDL_OpenAudioDevice(NULL, 0, &desired, NULL, 0);
+    if (!host->audio) return 0;
+    SDL_PauseAudioDevice(host->audio, 0);
+    return 1;
+}
+void n16_sdl_audio_clear(N16Host *host) {
+    if (host->audio) SDL_ClearQueuedAudio(host->audio);
+}
+void n16_sdl_audio_queue(N16Host *host, const int16_t *samples) {
+    if (!host->audio) return;
+    if (SDL_GetQueuedAudioSize(host->audio) > 4800) SDL_ClearQueuedAudio(host->audio);
+    if (SDL_QueueAudio(host->audio, samples, 1600) < 0) {
+        SDL_CloseAudioDevice(host->audio);
+        host->audio = 0;
+    }
+}
+int n16_sdl_audio_test(N16Host *host) {
+    SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+    if (!n16_sdl_audio_open(host)) return -1;
+    SDL_PauseAudioDevice(host->audio, 1);
+    int16_t samples[800] = {0};
+    for (int i = 0; i < 10; ++i) {
+        n16_sdl_audio_queue(host, samples);
+        if (!host->audio || SDL_GetQueuedAudioSize(host->audio) > 6400) return -1;
+    }
+    n16_sdl_audio_clear(host);
+    if (SDL_GetQueuedAudioSize(host->audio) != 0) return -1;
+    SDL_PauseAudioDevice(host->audio, 0);
+    SDL_Delay(25); /* host underflow consumes no guest transitions */
+    return SDL_GetQueuedAudioSize(host->audio) == 0 ? 0 : -1;
 }

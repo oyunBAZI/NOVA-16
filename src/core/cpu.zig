@@ -58,6 +58,7 @@ pub const Cpu = struct {
         }
         const old = self.pc;
         self.execute(bus) catch |err| {
+            if (bus.profile == .v2 and (err == error.DeviceValue or err == error.ReservedBits) and self.access == .write and self.address >= 0xd900 and self.address <= 0xd968) self.address = bus.device_address;
             self.trap = .{ .kind = err, .pc = old, .address = self.address, .access = self.access, .instruction = self.instruction };
             self.pc = old;
             return;
@@ -71,7 +72,7 @@ pub const Cpu = struct {
         const w = try bus.fetch(self.pc);
         self.instruction = w;
         self.access = .decode;
-        const i = try isa.decode(w);
+        const i = try isa.decodeProfile(w, bus.profile);
         self.access = .fetch;
         if (@as(u32, self.pc) + i.len > 65535) return error.AddressOverflow;
         const next = self.pc + i.len;
@@ -95,6 +96,9 @@ pub const Cpu = struct {
                 },
                 4 => try self.push(bus, self.flags),
                 5 => self.flags = @truncate(try self.pop(bus)),
+                6 => bus.irq.ie = true,
+                7 => bus.irq.ie = false,
+                8 => target = try self.interruptReturn(bus),
                 else => unreachable,
             },
             1 => self.r[i.d] = y,
@@ -180,6 +184,49 @@ pub const Cpu = struct {
             },
         }
         self.pc = target;
+    }
+    /// One IRQ entry attempt; diagnostics may change on failure, architecture may not.
+    pub fn enterInterrupt(self: *Cpu, bus: *Bus, vector: u8) traps.Fault!void {
+        self.instruction = 0;
+        self.address = self.sp;
+        self.access = .stack;
+        if (bus.profile != .v2 or vector > 1) return error.InvalidInterruptState;
+        if (bus.irq.depth >= 8) return error.InterruptNesting;
+        const target = try bus.read16(0x40 + @as(u16, vector) * 2);
+        try self.validateTarget(target);
+        try self.checkStack();
+        self.address = @as(i32, self.sp) - 6;
+        if (self.sp < 6) return error.StackOverflow;
+        // All three writes target checked RAM; none can fail after this preflight.
+        try self.push(bus, self.pc);
+        try self.push(bus, self.flags);
+        try self.push(bus, @intFromBool(bus.irq.ie));
+        bus.irq.frames[bus.irq.depth] = .{ .top = self.sp, .vector = vector };
+        bus.irq.depth += 1;
+        bus.irq.pending &= ~(@as(u8, 1) << @as(u3, @intCast(vector)));
+        bus.irq.ie = false;
+        self.pc = target;
+    }
+    fn interruptReturn(self: *Cpu, bus: *Bus) traps.Fault!u16 {
+        self.address = self.sp;
+        self.access = .stack;
+        if (bus.irq.depth == 0 or self.sp != bus.irq.frames[bus.irq.depth - 1].top) return error.InvalidInterruptState;
+        try self.checkStack();
+        if (self.depth < 3) return error.InvalidInterruptState;
+        const ie = try bus.read16(self.sp);
+        if (ie > 1) return error.InvalidInterruptState;
+        self.address = @as(i32, self.sp) + 2;
+        const flags = try bus.read16(self.sp + 2);
+        if (flags > 15) return error.InvalidInterruptState;
+        const pc = try bus.read16(self.sp + 4);
+        try self.validateTarget(pc);
+        self.sp += 6;
+        self.depth -= 3;
+        self.flags = @intCast(flags);
+        bus.irq.ie = ie != 0;
+        bus.irq.depth -= 1;
+        bus.irq.frames[bus.irq.depth] = .{};
+        return pc;
     }
     fn validateTarget(self: *Cpu, t: u16) traps.Fault!void {
         self.address = t;

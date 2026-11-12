@@ -65,7 +65,7 @@ fn run(init: std.process.Init) !void {
                 std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = path, .data = bytes }) catch |err| try out.writer.print("error: {s}\n", .{@errorName(err)});
             },
             .loadsnap => |path| {
-                const bytes = std.Io.Dir.cwd().readFileAlloc(init.io, path, a, .limited(n.snapshot.file_size + 1)) catch |err| {
+                const bytes = std.Io.Dir.cwd().readFileAlloc(init.io, path, a, .limited(n.snapshot.v2_file_size + 1)) catch |err| {
                     try out.writer.print("error: {s}\n", .{@errorName(err)});
                     try std.Io.File.stdout().writeStreamingAll(init.io, out.written());
                     continue;

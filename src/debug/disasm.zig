@@ -1,7 +1,10 @@
 const std = @import("std");
 const isa = @import("../arch/isa.zig");
 pub fn instruction(wr: *std.Io.Writer, w: u16, imm: ?u16, pc: u16) !u3 {
-    const i = isa.decode(w) catch {
+    return instructionProfile(wr, w, imm, pc, .v1);
+}
+pub fn instructionProfile(wr: *std.Io.Writer, w: u16, imm: ?u16, pc: u16, profile: isa.Profile) !u3 {
+    const i = isa.decodeProfile(w, profile) catch {
         try wr.print(".word 0x{x:0>4}", .{w});
         return 2;
     };
@@ -10,7 +13,7 @@ pub fn instruction(wr: *std.Io.Writer, w: u16, imm: ?u16, pc: u16) !u3 {
         return 2;
     }
     switch (i.major) {
-        0 => try wr.writeAll(isa.system_names[w]),
+        0 => try wr.writeAll(if (w < 6) isa.system_names[w] else isa.v2_system_names[w - 6]),
         1, 3...8 => try wr.print("{s} R{d}, R{d}", .{ isa.major_names[i.major], i.d, i.s }),
         2 => try wr.print("LDI R{d}, 0x{x:0>4}", .{ i.d, imm.? }),
         9...12 => {

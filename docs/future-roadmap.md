@@ -24,9 +24,9 @@ The original v0.3 work and evidence remain in v0.3-ledger.md.
 6. Profile representative guest workloads on comparable hardware. Deeper reverse
    history requires measured exact delta/checkpoint tests, not capture-only timing.
 
-## V2 requires separate architectural approval
+## V2 implementation program
 
-Review [V2 revision2](v2-architecture.md) and its normative
+The V2 mission authorizes [V2 revision2](v2-architecture.md) and its normative
 [binary/transition contract](v2-binary-contract.md), with independent byte/PCM/
 timer/IRQ vectors. Approve explicit profile activation, idle/fault clocks, MMIO
 atomicity and interrupt frame semantics before implementation. Then implement
@@ -35,3 +35,6 @@ reverse; prove V1 isolation at every gate; add optional host playback last.
 The isolated arithmetic experiment is not a sound device. Networking/filesystem
 peripherals remain outside this milestone. The completed V1 platform does not
 implicitly authorize or claim V2 hardware.
+
+Current implementation and remaining release gates: [V2 ledger](v2-implementation-ledger.md).
+Compiler/linker work and NOVA Studio follow the complete V2 acceptance gate.

@@ -84,3 +84,15 @@ SDK extraction repeats typed project/debug/application checks without Zig, with
 nested verified application packages rebuilt using extracted n16c. Ten guided
 families now include compiler source and legacy/map2/map3 parsing. The independent
 V2 fixture/model checks validate specification math and V1 rejection only.
+
+## Profile2 implementation verification
+
+`src/v2_tests.zig` adds explicit-profile isolation, exact independent ROM/PCM/
+snapshot fixture production, slot/fault/idle/overflow boundaries, all new MMIO
+permissions, transaction rollback, timer oracle sequences, IRQ priority/nesting/
+entry/IRET faults, snapshot corruption/allocation ownership and exact debugger
+reverse checks. `scripts/v2_acceptance.py` uses only distributed executables for
+guest-generated PCM/graphics hashes, source breakpoints, undo and snapshots.
+Both are added to native CI; extracted SDKs repeat black-box V2 acceptance.
+The existing isolated arithmetic-model gate remains separate. No V1 golden is
+rewritten. See v2-implementation-ledger.md for measured counts and actual results.

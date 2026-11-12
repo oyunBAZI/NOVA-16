@@ -72,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix='nova16-package-') as temp:
         run('nova16', 'run', root/'demos/breakout.n16', '--frames', '1000', '--max-instructions', '20000000',
             '--input', root/'docs/gameplay'/schedule, '--screenshot', shot)
         assert hashlib.sha256(shot.read_bytes()).hexdigest() == hashes[scene]
-    for script in ('compatibility_acceptance.py', 'compiler_acceptance.py', 'project_acceptance.py', 'application_acceptance.py'):
+    for script in ('compatibility_acceptance.py', 'compiler_acceptance.py', 'project_acceptance.py', 'application_acceptance.py', 'v2_contract_vectors.py', 'v2_acceptance.py'):
         subprocess.run([sys.executable, str(root/'scripts'/script)], cwd=root, check=True, timeout=180)
     for app in ('crates', 'pixel_studio'):
         destination = root/(app+'-project')
