@@ -1,6 +1,7 @@
 """Real guest application ROM/replay/source-state/packaging acceptance."""
 import hashlib,json,pathlib,subprocess,tempfile
-ROOT=pathlib.Path(__file__).resolve().parents[1];BIN=ROOT/'zig-out/bin'
+ROOT=pathlib.Path(__file__).resolve().parents[1];BIN=(ROOT/'zig-out/bin' if (ROOT/'zig-out/bin').exists() else ROOT/'bin')
+DEMOS=ROOT/'zig-out/demos' if (ROOT/'zig-out/demos').exists() else ROOT/'demos'
 CASES=[('crates','title',30,{},None),('crates','win',460,{'state':4,'level':2,'moves':7},'win'),('crates','undo',100,{'player':13,'moves':0,'state':1},'undo'),('crates','collision',90,{'player':13,'moves':0},'collision'),('crates','restart',100,{'player':13,'moves':0,'level':0},'restart'),('crates','blocked',180,{'state':3},'blocked'),('pixel_studio','blank',30,{'edits':0},None),('pixel_studio','drawing',180,{'edits':6,'cursor':19,'ink':13},'drawing'),('pixel_studio','undo',100,{'edits':3,'undo_valid':0},'undo'),('pixel_studio','clear',120,{'edits':0,'confirm_clear':0},'clear')]
 def run(name,*args,stdin=None):
  p=subprocess.run([str(BIN/name),*map(str,args)],input=stdin,capture_output=True,text=True,timeout=60)
@@ -11,10 +12,10 @@ with tempfile.TemporaryDirectory() as temporary:
  for app in ('crates','pixel_studio'):
   rom=temp/(app+'.n16');source=ROOT/f'examples/projects/{app}/main.n16c'
   run('n16c',source,'--out',rom)
-  assert rom.read_bytes()==(ROOT/f'zig-out/demos/{app}.n16').read_bytes()
+  assert rom.read_bytes()==(DEMOS/f'{app}.n16').read_bytes()
   assert len(rom.read_bytes())<=8224
  for app,scene,frames,expected,replay in CASES:
-  rom=ROOT/f'zig-out/demos/{app}.n16';symbols=ROOT/f'zig-out/demos/{app}.map.json'
+  rom=DEMOS/f'{app}.n16';symbols=DEMOS/f'{app}.map.json'
   args=['run',rom,'--headless','--frames',frames,'--screenshot',temp/'frame.ppm']
   commands=[];current=0
   if replay:

@@ -15,7 +15,8 @@ python3 scripts/package.py
 python3 scripts/verify_package.py dist/nova16-VERSION-OS-ARCH.zip
 ```
 
-Archives contain three headless tools, all ROMs/symbols and assembly sources,
+Archives contain four headless tools, seven ROMs/maps, typed/assembly projects, guest libraries,
+complete source/tests and portable application packages,
 manuals, installation guide and licenses. Every file has a manifest SHA256;
 the ZIP has its own `.zip.sha256`. Manifest records the source commit, dirty
 state and executable-reported compiler/OS/architecture/CPU/optimization/GUI info.

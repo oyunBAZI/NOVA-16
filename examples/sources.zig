@@ -11,3 +11,5 @@ pub const breakout = @embedFile("projects/breakout/constants.asm") ++
     @embedFile("projects/breakout/font.asm");
 
 pub const abi = @embedFile("abi_conformance.asm");
+pub const crates_typed = @embedFile("projects/crates/main.n16c");
+pub const pixel_studio_typed = @embedFile("projects/pixel_studio/main.n16c");

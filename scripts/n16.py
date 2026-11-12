@@ -32,14 +32,14 @@ def load(root):
     if len(raw) > 65536:
         raise ValueError('manifest limit')
     manifest = json.loads(raw)
-    if set(manifest) != {'schema_version', 'name', 'language', 'entry', 'files', 'tests'} or manifest['schema_version'] != 1:
+    if not isinstance(manifest, dict) or set(manifest) != {'schema_version', 'name', 'language', 'entry', 'files', 'tests'} or (type(manifest['schema_version']) is not int or manifest['schema_version'] != 1):
         raise ValueError('unsupported project manifest')
     if not isinstance(manifest['name'], str) or not 1 <= len(manifest['name']) <= 64:
         raise ValueError('invalid name')
     if manifest['language'] not in ('n16c', 'asm'):
         raise ValueError('language must be n16c or asm')
     names = manifest['files']
-    if not isinstance(names, list) or not 1 <= len(names) <= 128 or len(set(names)) != len(names):
+    if not isinstance(names, list) or not 1 <= len(names) <= 128 or not all(isinstance(name, str) and name for name in names) or len({name.casefold() for name in names}) != len(names):
         raise ValueError('invalid file list')
     files = {}
     for name in names:
@@ -56,7 +56,7 @@ def load(root):
         files[name] = data
         if sum(map(len, files.values())) > LIMIT:
             raise ValueError('project byte limit')
-    if manifest['entry'] not in files:
+    if not isinstance(manifest['entry'], str) or manifest['entry'] not in files:
         raise ValueError('entry must be declared')
     tests = manifest['tests']
     if not isinstance(tests, list) or len(tests) > 64:
@@ -66,7 +66,7 @@ def load(root):
             raise ValueError('invalid test fields')
         if type(test.get('frames')) is not int or not 1 <= test['frames'] <= 10000:
             raise ValueError('test frame limit')
-        if 'input' in test and test['input'] not in files:
+        if 'input' in test and (not isinstance(test['input'], str) or test['input'] not in files):
             raise ValueError('test input must be declared')
         if 'halted' in test and type(test['halted']) is not bool:
             raise ValueError('invalid halted expectation')
@@ -113,7 +113,11 @@ def build(root, bins):
         else:
             args += ['--project-root', source]
             compiler = tool(bins, 'n16asm')
-        execute(compiler, *args, capture=True)
+        try:
+            execute(compiler, *args, capture=True)
+        except subprocess.CalledProcessError as failure:
+            failure.stderr = failure.stderr.replace(str(source), str(root))
+            raise
         outputs = {p.name:p.read_bytes() for p in stage.iterdir() if p.is_file()}
         outputs['build.json'] = json_bytes(dict(schema_version=1, compiler=execute(compiler, '--version', capture=True).stdout.strip(), sources={name:hashlib.sha256(data).hexdigest() for name,data in files.items()}, rom_bytes=len(outputs['program.n16'])-32))
         out.mkdir(exist_ok=True)
@@ -174,7 +178,7 @@ def package(root, destination, manifest, files, outputs):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--bin-dir', type=Path, default=Path(__file__).resolve().parents[1]/'zig-out/bin')
+    parser.add_argument('--bin-dir', type=Path, default=(Path(__file__).resolve().parents[1]/'zig-out/bin' if (Path(__file__).resolve().parents[1]/'zig-out/bin').exists() else Path(__file__).resolve().parents[1]/'bin'))
     commands = parser.add_subparsers(dest='command', required=True)
     for command in ('new', 'build', 'test', 'run', 'debug', 'pack'):
         sub = commands.add_parser(command)
@@ -211,5 +215,5 @@ if __name__ == '__main__':
         if failure.stderr:
             print(failure.stderr, end='', file=__import__('sys').stderr)
         raise SystemExit(failure.returncode)
-    except (ValueError, AssertionError, OSError, json.JSONDecodeError) as failure:
+    except (ValueError, AssertionError, OSError, RecursionError) as failure:
         raise SystemExit(str(failure))

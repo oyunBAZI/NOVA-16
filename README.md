@@ -12,9 +12,9 @@ and responds to input. No external emulator core or host-rendered demo shortcuts
 
 Get a native headless package from [Releases](https://github.com/oyunBAZI/NOVA-16/releases)
 and follow [INSTALL.md](INSTALL.md). Packages include emulator, assembler,
-debugger, five ROMs including guest-native Breakout, modular assembly sources,
-manuals, checksums and license. v0.3.0-rc.1 is the developer-platform release
-candidate; published versions and verification records are listed in Releases.
+debugger and typed compiler, seven V1 ROMs, guest libraries, complete project
+sources/tests, manuals and integrity manifests. See Releases for verified versions;
+v0.4 acceptance and publication status is tracked in [the ledger](docs/v0.4-ledger.md).
 
 Or install the exact Zig release from [ziglang.org](https://ziglang.org/download/)
 and build without third-party dependencies:
@@ -32,7 +32,7 @@ zig-out/bin/n16dbg zig-out/demos/paint.n16
 
 [Native Linux, Windows and macOS acceptance](docs/platforms.md) covers Debug and
 ReleaseSafe, actual SDL2 input/renderer output, ROM boot and extracted packages.
-Cross-builds for Windows and both macOS architectures use a separate host assembler:
+Cross-builds for Windows and both macOS architectures use native host asset tools:
 
 ```sh
 zig build -Dtarget=x86_64-windows -Doptimize=ReleaseSafe
@@ -106,9 +106,30 @@ zig-out/bin/n16dbg zig-out/game.n16 --symbols zig-out/game.sym2
 python3 scripts/game_acceptance.py
 ```
 
-Current [v0.3 milestone evidence](docs/v0.3-ledger.md) distinguishes local and
+Previous [v0.3 milestone evidence](docs/v0.3-ledger.md) distinguishes local and
 native CI gates. The [V2 architecture proposal](docs/v2-architecture.md) and isolated arithmetic
 experiment are future design work; the V1 computer remains unchanged.
+
+## Typed applications and reproducible projects
+
+```
+python3 scripts/n16.py new /path/my-app --language n16c
+python3 scripts/n16.py test /path/my-app
+python3 scripts/n16.py debug /path/my-app
+python3 scripts/n16.py pack /path/my-app --out /path/my-app.zip
+```
+
+Use `--language asm` for assembly. [Language](docs/language.md), [ABI](docs/guest-abi.md),
+[guest library](guest/README.md) and [project workflow](docs/projects.md) document
+the bounded interfaces. Python3.10+ is needed for project orchestration only.
+The actual compiler/core are Zig. Compiler maps support original-source breaks,
+statement stepping and `vars`; old assembly symbols/maps remain readable.
+
+[Crates and Pixel Studio](docs/apps/README.md) are entirely guest-native typed
+applications, with replayed screenshots/state tests and portable ROM packages.
+Run their manifest tests using `python3 scripts/n16.py test examples/projects/crates`
+or replace crates with pixel_studio. SDL2 builds can run their installed ROMs with
+`--gui`; headless replays need no SDL2. [v0.4 evidence](docs/v0.4-ledger.md).
 
 ## Architecture and references
 

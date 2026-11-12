@@ -28,6 +28,10 @@ pub fn main(init: std.process.Init) !void {
     try large.writer.writeAll(".equ s4096, 0\nLDI R0, s0\nHALT");
     const game = try n.assembler.assemble(a, @import("examples").breakout, &diagnostic);
     defer game.deinit();
+    const app_sources = [_][]const u8{ @import("examples").crates_typed, @import("examples").pixel_studio_typed };
+    var app_roms: [2]n.compiler.Result = undefined;
+    for (app_sources, 0..) |source, i| app_roms[i] = try n.compiler.compile(std.heap.smp_allocator, source, &diagnostic);
+    defer for (app_roms) |compiled| compiled.deinit();
     var results: std.ArrayList(Sample) = .empty;
     var guard: u64 = 0;
     for (0..samples) |_| {
@@ -129,6 +133,20 @@ pub fn main(init: std.process.Init) !void {
         for (0..200) |frame| m.frame(if (frame == 5) 64 else if (frame >= 6) 4 else 0, 4_000_000);
         if (m.cpu.trap != null or m.cpu.retired != 4_000_000) return error.GameBenchmarkMismatch;
         try results.append(a, .{ .name = "breakout_frame", .operations = 200, .nanoseconds = @intCast(now(init.io) - start) });
+        for (app_sources, 0..) |source, index| {
+            start = now(init.io);
+            for (0..10) |_| {
+                const compiled = try n.compiler.compile(std.heap.smp_allocator, source, &diagnostic);
+                guard +%= compiled.program.image.len;
+                compiled.deinit();
+            }
+            try results.append(a, .{ .name = if (index == 0) "compile_crates" else "compile_pixel_studio", .operations = 10, .nanoseconds = @intCast(now(init.io) - start) });
+            try m.load(app_roms[index].program.image);
+            start = now(init.io);
+            for (0..120) |frame| m.frame(if (frame == 32) 64 else if (frame == 64) 16 else 0, 2_400_000);
+            if (m.cpu.trap != null or m.cpu.paused or m.cpu.retired != 2_400_000) return error.ApplicationBenchmarkMismatch;
+            try results.append(a, .{ .name = if (index == 0) "crates_frame" else "pixel_studio_frame", .operations = 120, .nanoseconds = @intCast(now(init.io) - start) });
+        }
         var pixels: [128 * 96 * 3]u8 = undefined;
         start = now(init.io);
         for (0..1000) |index| {

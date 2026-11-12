@@ -3,7 +3,7 @@ import hashlib,json,pathlib,subprocess,sys,tempfile,zipfile
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 TOOL=ROOT/'scripts/n16.py'
 def run(*args,ok=True,stdin=None):
- p=subprocess.run([sys.executable,str(TOOL),*map(str,args)],capture_output=True,text=True,input=stdin,timeout=90)
+ p=subprocess.run([sys.executable,str(TOOL),'--bin-dir',str(ROOT/'zig-out/bin' if (ROOT/'zig-out/bin').exists() else ROOT/'bin'),*map(str,args)],capture_output=True,text=True,input=stdin,timeout=90)
  assert (p.returncode==0)==ok,(p.args,p.stdout,p.stderr)
  return p
 with tempfile.TemporaryDirectory() as temp:
@@ -40,4 +40,11 @@ with tempfile.TemporaryDirectory() as temp:
   manifest['files']=['../outside.asm'];manifest['entry']='../outside.asm'
   (project/'n16-project.json').write_text(json.dumps(manifest))
   run('build',project,ok=False)
+ # Adversarial manifests reject deterministically without executing retained ROMs.
+ project=root/'manifest-adversaries';run('new',project)
+ good=json.loads((project/'n16-project.json').read_text())
+ for change in ({'files':['']},{'files':[{}]},{'entry':[]},{'schema_version':True},{'files':['main.n16c','MAIN.n16c']},{'tests':[{'frames':1,'input':[]}]}):
+  (project/'n16-project.json').write_text(json.dumps(good|change))
+  failure=run('build',project,ok=False)
+  assert 'Traceback' not in failure.stderr
 print('Projects: create/build/run/debug/test, isolated includes, deterministic packages/rebuild, failed-build retention passed')

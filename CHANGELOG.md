@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.0-rc.1 — Developer Platform
+- Atomic active-PC snapshot validation and checked embedding state APIs.
+- Executed ABI1, namespaced guest arithmetic/memory/graphics/input/runtime library.
+- Native Zig n16c typed compiler with bounded parsing/types/layout/V1 codegen.
+- Independent pure interpreter/CPU differential campaign and source-variable maps.
+- Unified local project creation/build/run/debug/test/reproducible packaging.
+- Exact external input/frame undo and measured bounded reverse history.
+- Crates two-crate/three-level puzzle and Pixel Studio editor, entirely V1 guest code.
+- Expanded compiler/map fuzzing, native/extracted-package gates and workloads.
+- Final V2 byte/timing/audio/IRQ specification and independent vectors only.
+
+V1 ISA, memory/devices, ROM, snapshots and state JSON are unchanged. Assembly
+map2/legacy remain readable; typed maps explicitly use schema3. Project format
+is schema1. Audio/interrupt hardware remains subject to separate approval.
+Publication is gated by native Linux/Windows/macOS Debug/Safe/SDL and all existing
+release checks. No production stability or OS signing/notarization is claimed.
+
 ## 0.3.0-rc.1 — developer platform
 - Checked embedding transitions and atomic host memory patches.
 - Indexed, iterative constant resolution with bounded parsing and rich/multi-error diagnostics.

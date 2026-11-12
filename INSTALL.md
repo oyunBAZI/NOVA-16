@@ -4,8 +4,8 @@ Verify the ZIP with `sha256sum --check FILE.zip.sha256` on Linux,
 `shasum -a 256 FILE.zip` on macOS, or `Get-FileHash FILE.zip -Algorithm SHA256`
 in PowerShell and compare the published value. Extract the complete folder.
 
-Packages include native ReleaseSafe headless binaries, all ROMs and assembly
-sources, docs and MIT license. No Zig or SDL installation is needed to use them.
+Packages include native ReleaseSafe headless binaries, all seven ROMs, typed compiler, guest libraries, complete
+sources/tests, docs and MIT license. No Zig or SDL installation is needed to use them.
 The optional graphical frontend is built from source with SDL2 development
 libraries; these headless release binaries return an explanation for --gui.
 
@@ -47,3 +47,18 @@ When a release includes provenance.sigstore.json, verify an archive using
 This verifies workflow provenance; it does not provide macOS notarization or
 Windows Authenticode signing. Publication is blocked if CI provenance verification
 fails. Older releases without a bundle make no attestation claim.
+
+For typed/assembly projects, Python3.10+ is optional orchestration:
+
+```sh
+python3 scripts/n16.py new my-project
+python3 scripts/n16.py test my-project
+python3 scripts/n16.py debug my-project
+python3 scripts/n16.py pack my-project --out my-project.zip
+```
+
+The helper automatically finds extracted bin/ tools. Portable verified projects
+are also in applications/crates.zip and applications/pixel_studio.zip. Extract
+one and use the same test/debug workflow. Full source/test build inputs are
+included for rebuilding the SDK with Zig0.17.1; Zig is not needed to compile
+guest applications using the native n16c/n16asm binaries. See docs/apps/README.md.

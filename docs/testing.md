@@ -66,3 +66,21 @@ turn; snapshots cover every trap encoding and CRC-correct invalid state metadata
 Full Breakout winning/losing input paths execute guest instructions, and snapshot
 replay compares complete CPU/memory state. Feedback PC coverage is distinct from
 kcov's linked-test source line coverage; neither includes unlinked host CLIs.
+
+v0.4 adds ABI1/guest-library real-ROM tests, >=25 executable positive/negative
+compiler cases, an independent192-program seeded interpreter/CPU campaign,
+allocation/depth/layout failures and map3 variable validation. Native CI runs:
+
+```
+python scripts/compatibility_acceptance.py
+python scripts/compiler_acceptance.py
+python scripts/project_acceptance.py
+python scripts/application_acceptance.py
+python scripts/v2_contract_vectors.py
+```
+
+Both optimization modes run all of these, plus original developer/game suites.
+SDK extraction repeats typed project/debug/application checks without Zig, with
+nested verified application packages rebuilt using extracted n16c. Ten guided
+families now include compiler source and legacy/map2/map3 parsing. The independent
+V2 fixture/model checks validate specification math and V1 rejection only.

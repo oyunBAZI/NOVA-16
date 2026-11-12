@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory(prefix='nova16-package-') as temp:
                                 input=stdin, capture_output=True, text=True, check=True,
                                 cwd=root, timeout=30)
         return result.stdout
-    for exe in ('nova16', 'n16asm', 'n16dbg'):
+    for exe in ('nova16', 'n16asm', 'n16dbg', 'n16c'):
         assert run(exe, '--version').strip() == manifest['version']
     assert json.loads(run('nova16', '--build-info')) == manifest['build_info']
     for demo in ('boot_splash', 'bouncing_pixel', 'paint', 'diagnostics'):
@@ -72,4 +72,11 @@ with tempfile.TemporaryDirectory(prefix='nova16-package-') as temp:
         run('nova16', 'run', root/'demos/breakout.n16', '--frames', '1000', '--max-instructions', '20000000',
             '--input', root/'docs/gameplay'/schedule, '--screenshot', shot)
         assert hashlib.sha256(shot.read_bytes()).hexdigest() == hashes[scene]
+    for script in ('compatibility_acceptance.py', 'compiler_acceptance.py', 'project_acceptance.py', 'application_acceptance.py'):
+        subprocess.run([sys.executable, str(root/'scripts'/script)], cwd=root, check=True, timeout=180)
+    for app in ('crates', 'pixel_studio'):
+        destination = root/(app+'-project')
+        with zipfile.ZipFile(root/'applications'/(app+'.zip')) as project:
+            project.extractall(destination)
+        subprocess.run([sys.executable, str(root/'scripts/n16.py'), 'test', str(destination)], cwd=root, check=True, timeout=120)
     print(f"Package {manifest['version']} {manifest['os']}/{manifest['arch']}: checksums, assembly, boot and debugger passed")

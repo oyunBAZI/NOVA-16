@@ -9,7 +9,7 @@ const Debugger = @import("debug/debugger.zig").Debugger;
 const runtime = @import("core/runtime.zig");
 pub fn exercise(a: std.mem.Allocator, data: []const u8) !void {
     if (data.len == 0) return;
-    switch (data[0] % 8) {
+    switch (data[0] % 10) {
         0 => {
             _ = rom.parse(data[1..]) catch {};
         },
@@ -62,6 +62,23 @@ pub fn exercise(a: std.mem.Allocator, data: []const u8) !void {
         7 => {
             _ = assembler.diagnose(a, data[1..]) catch {};
         },
+        8 => {
+            var diagnostic: assembler.Diagnostic = .{};
+            const compiler = @import("compiler/compiler.zig");
+            if (compiler.compile(a, data[1..], &diagnostic)) |result| {
+                defer result.deinit();
+                var machine: Machine = .{};
+                try machine.load(result.program.image);
+                for (0..256) |_| {
+                    machine.step();
+                    if (machine.cpu.halted or machine.cpu.paused or machine.cpu.trap != null) break;
+                }
+            } else |_| {}
+        },
+        9 => {
+            const maps = @import("debug/symbols.zig");
+            if (maps.load(a, data[1..], 0)) |loaded| loaded.deinit() else |_| {}
+        },
         else => unreachable,
     }
 }
@@ -72,14 +89,14 @@ fn guided(_: void, smith: *std.testing.Smith) !void {
     try exercise(std.testing.allocator, data[0..len]);
 }
 test "coverage guided bounded machine toolchain and snapshot inputs" {
-    try std.testing.fuzz({}, guided, .{ .corpus = &.{ "\x01.entry missing\nHALT", "\x02frame 1", "\x03 0 16\n1 0", "\x04seed", "\x05\x01\x00" } });
+    try std.testing.fuzz({}, guided, .{ .corpus = &.{ "\x01.entry missing\nHALT", "\x02frame 1", "\x03 0 16\n1 0", "\x04seed", "\x05\x01\x00", "\x08fn main()->u16{return 7;}", "\x08fn main()->u16{var a:[2]u16;return a[3];}", "\x09{\"schema_version\":3}" } });
 }
-test "deterministic malformed input smoke across all eight target families" {
+test "deterministic malformed input smoke across all ten target families" {
     var random = std.Random.DefaultPrng.init(0x4e313653);
     var bytes: [256]u8 = undefined;
     for (0..1000) |k| {
         random.random().bytes(&bytes);
-        bytes[0] = @intCast(k % 8);
+        bytes[0] = @intCast(k % 10);
         try exercise(std.testing.allocator, bytes[0..random.random().intRangeAtMost(usize, 1, bytes.len)]);
     }
 }

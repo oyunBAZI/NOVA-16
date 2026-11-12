@@ -1,7 +1,7 @@
 """Native compiler CLI integrity and V1 execution acceptance."""
 import pathlib,subprocess,tempfile,json
 ROOT=pathlib.Path(__file__).resolve().parents[1]
-BIN=ROOT/'zig-out/bin'
+BIN=(ROOT/'zig-out/bin' if (ROOT/'zig-out/bin').exists() else ROOT/'bin')
 def run(exe,*args,ok=True,stdin=None):
  p=subprocess.run([str(BIN/exe),*map(str,args)],input=stdin,text=True,capture_output=True,timeout=30)
  assert (p.returncode==0)==ok,(p.args,p.stdout,p.stderr)
