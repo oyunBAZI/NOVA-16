@@ -83,6 +83,7 @@ pub const Debugger = struct {
                 if (!try self.runOne(out, false)) break;
                 if (self.breaks[self.machine.cpu.pc / 2]) break;
                 const current = self.sourceAt(self.machine.cpu.pc) orelse break;
+                if (std.mem.eql(u8, current.file, "<n16-runtime>")) continue;
                 if (current.line != origin.line or !std.mem.eql(u8, current.file, origin.file)) break;
             }
             try self.status(out);

@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "source_commit": "cb350a2cbeeb2666a188d4680eac4aed00beff6f",
+  "run_id": 43193201123,
+  "scope": "Pre-release native matrix; final source-next and package hardening requires fresh release gate",
+  "jobs": [
+    {
+      "id": 131097452326,
+      "name": "cross",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452636,
+      "name": "sdl2 (windows-2022)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452675,
+      "name": "sdl2 (ubuntu-24.04)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452785,
+      "name": "security",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452806,
+      "name": "native (ubuntu-24.04, Debug)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452810,
+      "name": "native (windows-2022, ReleaseSafe)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452850,
+      "name": "native (macos-15, ReleaseSafe)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452857,
+      "name": "native (macos-15, Debug)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452939,
+      "name": "sdl2 (macos-15)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452958,
+      "name": "reliability / coverage",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452977,
+      "name": "benchmark",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452978,
+      "name": "native (windows-2022, Debug)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097452994,
+      "name": "native (ubuntu-24.04, ReleaseSafe)",
+      "conclusion": "success"
+    },
+    {
+      "id": 131097453022,
+      "name": "reliability / fuzz",
+      "conclusion": "success"
+    },
+    {
+      "id": 131100562177,
+      "name": "release",
+      "conclusion": "skipped"
+    }
+  ]
+}

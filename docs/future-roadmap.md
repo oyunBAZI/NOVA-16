@@ -1,32 +1,37 @@
 # Maintenance and next milestones
 
-## Implemented for 0.3.0-rc.1
-V1 CPU/devices/ROM/snapshot/state compatibility; checked embedding operations;
-indexed bounded assembly, rich/multi-error diagnostics and staged output;
-root-bounded multi-file sources with reproducible maps; source/symbol debugging;
-a complete guest developer workflow and CPU-native Breakout; allocation-failure,
-differential, replay/fuzz/coverage checks; native package/GUI gates and measured
-component workloads. See v0.3-ledger.md for actual local/native/release status.
-A feature listing does not substitute for its pending platform/publication gate.
+## Delivered V1 Developer Platform
+
+v0.4 adds hardened persistent state/embedding, executable ABI1, guest arithmetic/
+memory/graphics/input/runtime library, bounded typed n16c compiler, independent
+AST/CPU differential checks, source variables and maps, reproducible local
+projects, exact event undo, Crates and Pixel Studio. It retains the original
+CPU/devices/ROM/snapshot/state formats and all five original ROM byte identities.
+See v0.4-ledger.md and GitHub CI/Releases for local/native/publication evidence.
+The original v0.3 work and evidence remain in v0.3-ledger.md.
 
 ## After release-candidate review
-1. Accumulate scheduled 100K fuzz evidence and preserve failures as regressions.
-2. Extract reusable graphics/input/number/font routines from Breakout with a
-   documented caller/callee register contract and independent guest tests.
-3. Build a small V1-only compiler experiment with bounded parsing, exact wrapping
-   arithmetic, source maps and reference-interpreter comparisons.
-4. Expand native OS/CPU runners where available; macOS x86_64 remains cross-only.
-5. Evaluate source-text/editor integration and explicit object/linker formats only
-   when current includes become insufficient; preserve old formats/readers.
-6. Review optional installers and OS signing/notarization separately. Workflow
-   provenance is distinct from executable signing. No branch rules are bypassed.
-7. Profile representative guest software on equivalent hardware before optimizing
-   dispatch or changing resource limits. Do not inflate code to meet a line count.
 
-## V2 requires separate design approval
-The concrete proposal is [V2 architecture revision 1](v2-architecture.md): explicit
-profile/format activation, deterministic audio, IRQ entry/return, compatibility
-vectors and phased acceptance. An isolated arithmetic experiment is available
-through `zig build v2-model-test`; it adds no guest hardware or sound output.
-Publish complete V2 snapshot/trap vectors before implementing architectural
-extensions. Networking/filesystem peripherals remain outside this milestone.
+1. Accumulate scheduled100K fuzz evidence; minimize failures as regressions.
+2. Extend language workloads and independent oracle seeds before optimization.
+   Evaluate unused-library elimination/compact codegen against current8KiB limits;
+   do not silently grow ROM or change ABI/ISA to accommodate applications.
+3. Expand native OS/CPU runners where available; macOS x86_64 remains cross-only.
+4. Evaluate editor/object/linker integration only when existing source projects
+   require it; version relocations/types/layout before introducing object files.
+5. Review installers and OS signing/notarization separately. Workflow provenance
+   does not provide executable signing; repository protection is not bypassed.
+6. Profile representative guest workloads on comparable hardware. Deeper reverse
+   history requires measured exact delta/checkpoint tests, not capture-only timing.
+
+## V2 requires separate architectural approval
+
+Review [V2 revision2](v2-architecture.md) and its normative
+[binary/transition contract](v2-binary-contract.md), with independent byte/PCM/
+timer/IRQ vectors. Approve explicit profile activation, idle/fault clocks, MMIO
+atomicity and interrupt frame semantics before implementation. Then implement
+profile dispatch, headless deterministic audio/WAV, timer/IRQ/IRET and snapshots/
+reverse; prove V1 isolation at every gate; add optional host playback last.
+The isolated arithmetic experiment is not a sound device. Networking/filesystem
+peripherals remain outside this milestone. The completed V1 platform does not
+implicitly authorize or claim V2 hardware.

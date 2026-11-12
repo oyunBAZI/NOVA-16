@@ -74,3 +74,9 @@ from application execution. It independently computes arithmetic with wide
 integers, global/frame layout and control flow. The seeded differential campaign
 executes the generated ROM on the unchanged V1 CPU and compares results. It is
 not a second application runtime and does not interpret device intrinsics.
+
+Source `next` skips `<n16-runtime>` implementation spans while keeping explicit
+breakpoints, traps and the instruction budget effective. It may enter other
+user functions at their mapped source locations; it is statement stepping, not
+a promise to skip all user calls. Instruction `step`/trace still expose library
+instructions. This distinction is verified on a real clear() call.

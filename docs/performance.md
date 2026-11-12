@@ -73,3 +73,37 @@ snapshot encode 167.3 µs/restore 154.2 µs, real Breakout frame 0.763 ms. All
 workloads validate real machine results; timers stay in host tooling. These are
 component wall-time measurements, not a sampling profiler or universal speed
 promise. Source fingerprint/dirty state, CPU and raw samples are preserved.
+
+## v0.4 developer workloads
+
+Raw: [benchmarks/v0.4-linux.json](benchmarks/v0.4-linux.json), public source
+cb350a2cbeeb2666a188d4680eac4aed00beff6f, clean measured source. Zig0.17.1
+ReleaseSafe/znver4, AMD EPYC9V74, three samples,2M instructions each, same CPU
+and base workload settings as v0.3. Component medians:
+
+| Operation | v0.4 |
+|---|---:|
+|Instruction|39.38ns|
+|Headless frame|0.791ms|
+|Splash assembly|36.88µs|
+|4097-symbol assembly|3.998ms|
+|Debugger command step|101.13ns|
+|Full history step|1.707µs|
+|32-entry exact history storage|2,101,248bytes|
+|Candidate capture-only lower bound|50.34ns|
+|Snapshot encode/restore|176.45/163.33µs|
+|Crates compilation|6.350ms|
+|Pixel Studio compilation|7.257ms|
+|Crates/Pixel Studio frame|0.949/0.927ms|
+|RGB full-frame conversion|14.84µs|
+|Isolated benchmark peak RSS|57,704KiB|
+
+Core CPU/frame timings are modestly higher than v0.3 (38.12ns/0.757ms), without
+an algorithm change to V1 execution. No speedup is claimed; shared-host timing
+variance and expanded process working set limit causal interpretation. The
+benchmark now retains two compiler contexts (16MiB private capacity each) and
+measures compiler/runtime workloads, so its RSS is intentionally not comparable
+to the former13,312KiB core-only benchmark as an emulator memory regression.
+History candidate excludes delta extraction/restore/checkpoint costs; it is not
+an implemented alternative or an end-to-end speed claim. See projects.md for
+the measured decision to retain opt-in bounded exact copies.

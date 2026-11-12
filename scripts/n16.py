@@ -168,6 +168,7 @@ def package(root, destination, manifest, files, outputs):
         with zipfile.ZipFile(staged, 'w') as archive:
             for name, data in sorted(archive_files.items()):
                 info = zipfile.ZipInfo(name, date_time=(1980,1,1,0,0,0))
+                info.create_system = 3
                 info.compress_type = zipfile.ZIP_DEFLATED
                 info.external_attr = 0o100644 << 16
                 archive.writestr(info, data)

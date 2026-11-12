@@ -40,6 +40,8 @@ jobs:
       - if: matrix.mode == 'ReleaseSafe'
         run: python scripts/package.py
       - if: matrix.mode == 'ReleaseSafe'
+        run: python scripts/package_reproducibility.py
+      - if: matrix.mode == 'ReleaseSafe'
         shell: bash
         run: for package in dist/*.zip; do python scripts/verify_package.py "$package"; done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

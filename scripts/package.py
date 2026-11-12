@@ -25,6 +25,8 @@ for pattern in ('docs/**/*.md', 'docs/**/*.png', 'docs/**/*.json', 'docs/**/*.tx
                 'guest/**/*.asm', 'guest/**/*.md', 'guest/**/*.zig', 'src/**/*.zig', 'src/**/*.c', 'src/**/*.h',
                 'scripts/*.py', 'scripts/*.json'):
     for path in sorted(root.glob(pattern)):
+        if '.n16' in path.relative_to(root).parts:
+            continue
         files[path.relative_to(root).as_posix()] = path.read_bytes()
 for filename in ('README.md', 'INSTALL.md', 'LICENSE', 'CHANGELOG.md', 'SECURITY.md', 'CONTRIBUTING.md', 'build.zig', 'build.zig.zon'):
     files[filename] = (root / filename).read_bytes()

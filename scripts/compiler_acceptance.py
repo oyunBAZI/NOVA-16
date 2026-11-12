@@ -34,6 +34,11 @@ with tempfile.TemporaryDirectory() as directory:
  run('n16c',source,'--out',rom,'--debug-symbols',symbols)
  session=run('n16dbg',rom,'--symbols',symbols,stdin='continue 1000\nregs\nquit\n').stdout
  assert 'trap' in session and 'main.n16c:2:' in session,session
+ # Source next skips generated guest-library implementation details.
+ source.write_text('fn main()->u16 {\n clear(0);\n return 42;\n}\n')
+ run('n16c',source,'--out',rom,'--debug-symbols',symbols)
+ session=run('n16dbg',rom,'--symbols',symbols,stdin='break main.n16c:2\ncontinue 1000\nnext 100000\nsource\nquit\n').stdout
+ assert 'at main.n16c:3:' in session,session
  # Restore the successful artifact for failed-build atomicity check below.
  first=rom.read_bytes()
  source.write_text('fn main()->u16 { return true; }')
