@@ -1,6 +1,7 @@
 # Original V1 milestone ledger
 
-Current engineering work: [v0.3 milestone ledger](v0.3-ledger.md).
+Current engineering work: [v0.4 milestone ledger](v0.4-ledger.md).
+Previous developer platform: [v0.3 milestone ledger](v0.3-ledger.md).
 Previous milestone: [elevation ledger](elevation-ledger.md). Planned work:
 [prioritized V1.1/V2 roadmap](future-roadmap.md). This document preserves the
 original V1 checkpoints; historical platform limitations are superseded by

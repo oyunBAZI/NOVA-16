@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "baseline_commit": "ea58a67e75a280543e3d0a942fff8fc0d3140b4d",
+  "release_commit": "1316575f4789ebe6c566d655b4237a837e89b916",
+  "rom_sha256": {
+    "boot_splash.n16": "3af6914318967f733523de4fc812245ff2c954baa22027c1a1a861b961ce9a25",
+    "bouncing_pixel.n16": "ac09305670f90b382be0e8aade0f20caa78a1601d73d59abeb8ebd4d82e04f91",
+    "breakout.n16": "b9f97e6e1675dfbd797f44399ab370237fa7e9e52639a4799cbee8c969f0c75b",
+    "diagnostics.n16": "4593efc4ad206c2a88494bcaf23d5271f8ce9edd67218d0e46d9801d551df2fb",
+    "paint.n16": "a9ae2cc9106e5a7dd7309d4d8ee8929f848de7a1fb4d8997ded7a272ea1123bd"
+  },
+  "snapshot_vector_sha256": "6509420edf13f7d12f32eb26a6940e120f9c1b9685ecb10685be456fb04532af",
+  "fuzz_runs": 10289,
+  "fuzz_unique": 146,
+  "fuzz_seed": "0x4e313603",
+  "fuzz_scope": "instrumented feedback PCs, not source coverage"
+}
