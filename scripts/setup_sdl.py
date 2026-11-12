@@ -20,7 +20,8 @@ with tempfile.TemporaryDirectory(prefix='nova16-sdl-') as directory:
             if size > 16*1024*1024:
                 raise ValueError('SDL archive exceeds bound')
             output.write(chunk)
-    assert hashlib.sha256(archive.read_bytes()).hexdigest() == SHA256, 'SDL checksum mismatch'
+    if not (hashlib.sha256(archive.read_bytes()).hexdigest() == SHA256):
+        raise ValueError('SDL checksum mismatch')
     with tarfile.open(archive) as source:
         source.extractall(temp, filter='data')
     subprocess.run(['cmake', '-S', str(temp/'SDL2-2.32.4'), '-B', str(temp/'build'),

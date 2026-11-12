@@ -24,7 +24,7 @@ def main():
         assert rom.read_bytes() == previous
         run('n16asm', source, '--out', source, ok=False)
         assert source.read_text().startswith('LDI')
-        source.write_text('LDI R8, 0\nLDI R9, 0\nHALT\n')
+        source.write_bytes(b'LDI R8, 0\r\nLDI R9, 0\r\nHALT\r\n')
         errors = json.loads(run('n16asm', source, '--out', rom, '--diagnostics', 'json2', ok=False).stderr)
         assert errors['schema_version'] == 2
         assert [d['line'] for d in errors['diagnostics']] == [1, 2]
@@ -84,6 +84,10 @@ def main():
             failed = subprocess.run([sys.executable, str(ROOT/'scripts/rom_test.py'), str(test)],
                                     capture_output=True, timeout=30, cwd=ROOT)
             assert failed.returncode != 0
+        test.write_text(json.dumps({'schema_version': 1, 'rom': 'first.n16', 'registers': {'1': 43}}))
+        optimized = subprocess.run([sys.executable, '-O', str(ROOT/'scripts/rom_test.py'), str(test)],
+                                   capture_output=True, timeout=30, cwd=ROOT)
+        assert optimized.returncode != 0
         prior = (p/'first/main.asm').read_bytes()
         failed = subprocess.run([sys.executable, str(ROOT/'scripts/guest_package.py'), str(p/'first'),
                                  '--out', str(p/'first/main.asm')], capture_output=True, timeout=30, cwd=ROOT)

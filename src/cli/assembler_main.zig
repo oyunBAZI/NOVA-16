@@ -64,6 +64,7 @@ fn run(init: std.process.Init) !void {
                 while (start > 0 and source[start - 1] != '\n') start -= 1;
                 var end = item.offset;
                 while (end < source.len and source[end] != '\n') end += 1;
+                if (end > start and source[end - 1] == '\r') end -= 1;
                 const suggestion: ?[]const u8 = if (std.mem.eql(u8, item.code, "ExpectedRegister")) "Use R0 through R7" else null;
                 if (json2) {
                     if (index > 0) try error_text.writer.writeByte(',');

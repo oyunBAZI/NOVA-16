@@ -15,7 +15,8 @@ root = Path(os.environ.get('RUNNER_TEMP', '.zig-toolchain')).resolve()
 root.mkdir(parents=True, exist_ok=True)
 archive = root / Path(release['tarball']).name
 urllib.request.urlretrieve(release['tarball'], archive)
-assert hashlib.sha256(archive.read_bytes()).hexdigest() == release['shasum'], 'Zig checksum mismatch'
+if not (hashlib.sha256(archive.read_bytes()).hexdigest() == release['shasum']):
+    raise ValueError('Zig checksum mismatch')
 if archive.suffix == '.zip':
     with zipfile.ZipFile(archive) as package:
         package.extractall(root)

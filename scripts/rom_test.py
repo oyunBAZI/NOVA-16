@@ -38,12 +38,15 @@ def main():
         if state['trapped']:
             raise AssertionError(state)
         for index, value in spec.get('registers', {}).items():
-            assert state['registers'][int(index)] == value, state
+            if state['registers'][int(index)] != value:
+                raise AssertionError(state)
         if 'halted' in spec:
-            assert state['halted'] == spec['halted'], state
+            if state['halted'] != spec['halted']:
+                raise AssertionError(state)
         digest = hashlib.sha256(shot.read_bytes()).hexdigest()
         if 'ppm_sha256' in spec:
-            assert digest == spec['ppm_sha256'], digest
+            if digest != spec['ppm_sha256']:
+                raise AssertionError(digest)
         print(json.dumps({'schema_version': 1, 'passed': True, 'ppm_sha256': digest, 'state': state}, sort_keys=True))
 if __name__ == '__main__':
     main()
