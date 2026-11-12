@@ -67,3 +67,7 @@ test {
 test {
     _ = @import("abi_tests.zig");
 }
+
+test {
+    _ = @import("guest_library_tests.zig");
+}

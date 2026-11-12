@@ -2,6 +2,7 @@ const std = @import("std");
 fn coreModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module {
     const core = b.createModule(.{ .root_source_file = b.path("src/root.zig"), .target = target, .optimize = optimize });
     core.addAnonymousImport("examples", .{ .root_source_file = b.path("examples/sources.zig") });
+    core.addAnonymousImport("guest", .{ .root_source_file = b.path("guest/sources.zig") });
     return core;
 }
 fn executable(b: *std.Build, name: []const u8, source: []const u8, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, core: *std.Build.Module, strip: bool) *std.Build.Step.Compile {
@@ -79,6 +80,6 @@ pub fn build(b: *std.Build) void {
     // An isolated arithmetic design experiment; never linked into V1 tools.
     const model = b.addTest(.{ .root_module = b.createModule(.{ .root_source_file = b.path("src/experimental/audio_model.zig"), .target = b.graph.host, .optimize = optimize }) });
     b.step("v2-model-test", "Verify isolated V2 audio arithmetic experiment (no new guest hardware)").dependOn(&b.addRunArtifact(model).step);
-    const fmt = b.addFmt(.{ .paths = &.{ b.path("build.zig"), b.path("src"), b.path("examples/sources.zig") }, .check = true });
+    const fmt = b.addFmt(.{ .paths = &.{ b.path("build.zig"), b.path("src"), b.path("examples/sources.zig"), b.path("guest/sources.zig") }, .check = true });
     b.step("fmt", "Check formatting").dependOn(&fmt.step);
 }

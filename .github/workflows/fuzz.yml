@@ -48,7 +48,7 @@ jobs:
           cmake --install "$RUNNER_TEMP/kcov-build"
           echo "$RUNNER_TEMP/kcov-install/bin" >> "$GITHUB_PATH"
       - name: Build standalone tests with debug information
-        run: zig test -fllvm --test-no-exec --dep examples -Mroot=src/root.zig -Mexamples=examples/sources.zig -femit-bin=nova16-tests
+        run: zig test -fllvm --test-no-exec --dep examples --dep guest -Mroot=src/root.zig -Mexamples=examples/sources.zig -Mguest=guest/sources.zig -femit-bin=nova16-tests
       - name: Measure source coverage
         run: kcov --include-path=${{ github.workspace }}/src coverage ./nova16-tests
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
