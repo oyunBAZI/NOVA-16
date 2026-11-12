@@ -16,6 +16,23 @@ pub fn build(b: *std.Build) void {
             exe.root_module.linkSystemLibrary("SDL2", .{});
         }
         b.installArtifact(exe);
+        if (std.mem.eql(u8, item[0], "n16asm")) {
+            const demos = b.step("demos", "Assemble all four guest ROMs");
+            inline for (.{ "boot_splash", "bouncing_pixel", "paint", "diagnostics" }) |name| {
+                const assemble = b.addRunArtifact(exe);
+                assemble.addFileArg(b.path("examples/" ++ name ++ ".asm"));
+                assemble.addArg("--out");
+                const image = assemble.addOutputFileArg(name ++ ".n16");
+                assemble.addArg("--symbols");
+                const symbols = assemble.addOutputFileArg(name ++ ".sym");
+                const install = b.addInstallFile(image, "demos/" ++ name ++ ".n16");
+                const install_symbols = b.addInstallFile(symbols, "demos/" ++ name ++ ".sym");
+                demos.dependOn(&install.step);
+                demos.dependOn(&install_symbols.step);
+                b.getInstallStep().dependOn(&install.step);
+                b.getInstallStep().dependOn(&install_symbols.step);
+            }
+        }
     }
     const unit = b.addTest(.{ .root_module = core });
     b.step("test", "Run automated tests").dependOn(&b.addRunArtifact(unit).step);

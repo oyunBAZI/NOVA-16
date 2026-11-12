@@ -58,3 +58,10 @@ The default headless build requires no SDL library. See gui.md for dependencies.
 pre-execution breakpoints, watch old/new values, BRK advance/resume, stack and
 reset. A piped n16dbg CLI session exercised help, regs, break, continue, step,
 mem, disasm with symbols, stack, watch, saveframe, reset and quit; exit 0.
+
+## Phase 9 — passed
+`zig build` assembles all four ROMs and symbol maps by default; `zig build test`
+passes guest boot integration, golden splash/diagnostic SHA-256, deterministic
+motion/input, paint draw/erase/clear/bounds and forced diagnostic failure tests.
+Splash now includes a ROM-font wordmark and corrected packed multicolor tiles;
+its current hash supersedes the phase 5 image, documented in video.md.

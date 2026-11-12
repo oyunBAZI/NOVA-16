@@ -21,7 +21,7 @@ test "splash assembles boots and produces golden PPM sha256" {
     try std.testing.expectEqual(36878, bytes.len);
     var hash: [32]u8 = undefined;
     std.crypto.hash.sha2.Sha256.hash(bytes, &hash, .{});
-    try std.testing.expectEqualStrings("1296533d29754dba185c619f8f87e4437b425deaf23f9297bbbcfffecb7771cb", &std.fmt.bytesToHex(hash, .lower));
+    try std.testing.expectEqualStrings("420c5fc58a7f204072d9dd257e24607f2d624f3b31a39c154cf5c8cb0152955c", &std.fmt.bytesToHex(hash, .lower));
 }
 test "frame runtime deterministic replay input and motion" {
     const a = std.testing.allocator;
@@ -55,4 +55,71 @@ test "frame runtime deterministic replay input and motion" {
             try std.testing.expect(!std.mem.eql(u8, m.bus.bytes[0xc000..0xd800], idle.bus.bytes[0xc000..0xd800]));
         }
     }
+}
+test "diagnostics ROM success register green frame and golden PPM" {
+    const a = std.testing.allocator;
+    var d: asm16.Diagnostic = .{};
+    const r = try asm16.assemble(a, examples.diagnostics, &d);
+    defer r.deinit();
+    var m: Machine = .{};
+    try m.load(r.image);
+    for (0..10) |_| {
+        m.frame(0, 200000);
+        if (m.cpu.halted) break;
+    }
+    try std.testing.expect(m.cpu.trap == null);
+    try std.testing.expect(m.cpu.halted);
+    try std.testing.expectEqual(0x600d, m.cpu.r[7]);
+    try std.testing.expectEqual(2, m.cpu.r[6]);
+    try std.testing.expectEqual(0xbffe, m.cpu.sp);
+    for (m.bus.bytes[0xc000..0xd800]) |v| try std.testing.expectEqual(0xbb, v);
+    const bytes = try video.ppm(a, m.bus.bytes[0xc000..0xd800], &m.bus.palette, true);
+    defer a.free(bytes);
+    var hash: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(bytes, &hash, .{});
+    try std.testing.expectEqualStrings("b46b81b0ff39fe8e0e92b2ffd76c0107835e577e17d2f1e050adfea043ea3df6", &std.fmt.bytesToHex(hash, .lower));
+    // Mutate the first arithmetic input, repack with a valid CRC, and verify failure path.
+    const payload = try a.dupe(u8, r.image[32..]);
+    defer a.free(payload);
+    payload[6] = 0;
+    const corrupt = try @import("rom/format.zig").pack(a, payload, 0);
+    defer a.free(corrupt);
+    try m.load(corrupt);
+    for (0..10) |_| {
+        m.frame(0, 200000);
+        if (m.cpu.halted) break;
+    }
+    try std.testing.expectEqual(0xdead, m.cpu.r[7]);
+    for (m.bus.bytes[0xc000..0xd800]) |v| try std.testing.expectEqual(0x66, v);
+}
+test "paint obeys draw erase clear and clamps cursor at all boundaries" {
+    const a = std.testing.allocator;
+    var d: asm16.Diagnostic = .{};
+    const r = try asm16.assemble(a, examples.paint, &d);
+    defer r.deinit();
+    var m: Machine = .{};
+    try m.load(r.image);
+    m.frame(0, 20_000_000);
+    m.frame(16, 20_000_000);
+    m.frame(0, 20_000_000);
+    try std.testing.expectEqual(15, m.cpu.r[6]);
+    m.frame(32, 20_000_000);
+    m.frame(0, 20_000_000);
+    try std.testing.expectEqual(0, m.cpu.r[6]);
+    for (0..150) |_| m.frame(24, 20_000_000);
+    try std.testing.expectEqual(127, m.cpu.r[0]);
+    m.frame(64, 20_000_000);
+    for (0..3) |_| m.frame(0, 20_000_000);
+    var nonzero: usize = 0;
+    for (m.bus.bytes[0xc000..0xd800]) |v| {
+        if (v != 0) nonzero += 1;
+    }
+    try std.testing.expectEqual(1, nonzero); // Only cursor overlay remains.
+    for (0..150) |_| m.frame(5, 20_000_000);
+    try std.testing.expectEqual(0, m.cpu.r[0]);
+    try std.testing.expectEqual(0, m.cpu.r[1]);
+    for (0..150) |_| m.frame(10, 20_000_000);
+    try std.testing.expectEqual(127, m.cpu.r[0]);
+    try std.testing.expectEqual(95, m.cpu.r[1]);
+    try std.testing.expect(m.cpu.trap == null);
 }

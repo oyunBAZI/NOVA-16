@@ -20,7 +20,9 @@ column:
     MOV R6, R0
     AND R6, R2
     XOR R5, R6
-    SHL R5, R4
+    SHR R5, R4
+    LDI R6, 0x11
+    MUL R5, R6
     ADDI R5, 0x22
     STB R5, [R0]
     INC R0
@@ -59,4 +61,45 @@ line2:
     ADDI R2, -2
     DEC R1
     B.NE lower
+; Render NOVA-16 using a compact ROM-resident 3x5 font, centered above diamond.
+; Each glyph occupies three bits of a row; each bit becomes a 2-pixel cell.
+    LDI R0, text
+    LDI R1, 0xc2d2
+    LDI R2, 7
+glyph:
+    PUSH R1
+    LDI R3, 5
+glyph_row:
+    LDB R4, [R0]
+    INC R0
+    LDI R5, 4
+    LDI R6, 3
+glyph_bit:
+    TEST R4, R5
+    B.EQ blank
+    LDI R7, 0xdd
+    STB R7, [R1]
+blank:
+    INC R1
+    PUSH R7
+    LDI R7, 1
+    SHR R5, R7
+    POP R7
+    DEC R6
+    B.NE glyph_bit
+    ADDI R1, 61
+    DEC R3
+    B.NE glyph_row
+    POP R1
+    ADDI R1, 4
+    DEC R2
+    B.NE glyph
     HALT
+text:
+    .byte 5,7,7,7,5 ; N
+    .byte 7,5,5,5,7 ; O
+    .byte 5,5,5,5,2 ; V
+    .byte 2,5,7,5,5 ; A
+    .byte 0,0,7,0,0 ; -
+    .byte 2,6,2,2,7 ; 1
+    .byte 7,4,7,5,7 ; 6
