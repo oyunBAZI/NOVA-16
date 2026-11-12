@@ -48,7 +48,7 @@ State JSON V1 output is unchanged; N16S is an independent versioned format.
 
 ## Portable byte vector
 The snapshot unit test loads payload FF D0 (B.AL to itself), runs 100 instructions
-in one frame with held=19, then sets pressed=3, palette byte 2=88 and VRAM[0]=12.
+in one frame with held=19, then sets pressed=3, palette byte 2=88 and VRAM[0]=0x12.
 PC/address=E000, opcode=D0FF, SP=BFFE, registers/flags/depth zero, no trap, enabled
 and VBLANK true, frame=1, payload length=2. An independent Python struct/zlib
 encoding of the table above yields SHA256:

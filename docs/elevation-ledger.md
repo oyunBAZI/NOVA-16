@@ -169,3 +169,15 @@ rulesets/cryptographic attestations, and future parser complexity/accessor work
 listed in future-roadmap.md. None is represented as implemented or silently
 bypassed. The final Release checkpoint must rerun the complete DAG and publish
 its tested commit; actual publication is reported only after that succeeds.
+
+## Release checkpoint — 0.2.0-rc.1
+A new public clone at 26b4414ec92dc92506cd64f55398bcd7aaa6b9f5 passed formatting,
+60/60 unit/conformance/property/integration tests, baseline-CPU ReleaseSafe build,
+all CLI acceptance, extracted package checks, workflow policy and actual SDL
+pixel/event/resize acceptance (dummy driver locally). This is independent of the
+working checkout and contains no prebuilt ROM cache. Original golden ROM hashes
+and independent N16S protocol vector pass. The publication job reruns native
+Linux/Windows/macOS package and GUI gates, fuzz/coverage, cross-build, benchmark
+and security against this Release commit. Its successful Actions record and
+release manifest identify the exact published code; no earlier pending claim
+is used as publication evidence.
