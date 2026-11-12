@@ -21,6 +21,14 @@ pub const Machine = struct {
         self.bus.bytes[0xe000..].* = bytes;
         self.cpu.reset(self.entry);
     }
+    /// A host call completes one simplified frame even if HALT/BRK stops it early.
+    pub fn frame(self: *Machine, input: u8, cap: u64) void {
+        self.bus.input.inject(input);
+        var count: u32 = 0;
+        while (count < 20000 and self.cpu.retired < cap and !self.cpu.halted and !self.cpu.paused and self.cpu.trap == null) : (count += 1) self.step();
+        self.bus.frame +%= 1;
+        self.bus.vblank = true;
+    }
     pub fn step(self: *Machine) void {
         self.bus.write_count = 0;
         self.cpu.step(&self.bus);

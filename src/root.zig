@@ -27,3 +27,7 @@ test {
 test {
     _ = @import("integration_tests.zig");
 }
+pub const runtime = @import("core/runtime.zig");
+test {
+    _ = runtime;
+}

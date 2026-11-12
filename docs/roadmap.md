@@ -37,3 +37,11 @@ Splash retires 70,481 instructions, HALTs, CRC32(VRAM)=249464469.
 PPM SHA-256 is recorded in video.md and asserted in the boot integration test.
 Nibble endpoints, palette changes, disable behavior, dimensions and deterministic
 PPM bytes pass. Frame scheduling is implemented in the next phase.
+
+## Phase 6 — passed
+`zig build test`, `zig build`, assembly of animation/paint and a 60-frame
+scripted CLI paint run returned exit 0. Both guests execute 140-frame
+replay tests with identical CPU/full memory state. Ball boundary reversal
+ends at x/2=16,y=44. Paint input differs from idle output. VBLANK read-clear,
+key edges and ordered input schedules pass. Frame budget is 20,000 retired
+instructions with an overall cap.

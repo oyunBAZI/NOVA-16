@@ -1,7 +1,7 @@
 # Video
 128×96, low nibble first for even X. 6144 guest-written bytes. No host-side
-font, drawing helpers, sprites or demo special cases. Palette: DB16 (David
-Brackeen's public 16-color RGB palette values), fixed in devices/video.zig.
+font, drawing helpers, sprites or demo special cases. Palette: DB16 (DawnBringer's
+16-color RGB palette values), fixed in devices/video.zig.
 Palette register bytes are RGB, 16 triples at D820–D84F. D804 bit 0 enables
 presentation; disabled output uses palette zero and preserves video RAM.
 

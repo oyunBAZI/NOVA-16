@@ -63,9 +63,16 @@ fn run(init: std.process.Init) !void {
             try n.sdl.run(&m, scale, frames, cap);
         } else return error.GuiDisabled_rebuild_with_Dgui_true;
     } else {
-        if (input != null) return error.InputScheduleNotYetEnabled;
-        var budget: u64 = 0;
-        while (budget < cap and !m.cpu.halted and !m.cpu.paused and m.cpu.trap == null) : (budget += 1) m.step();
+        const schedule = if (input) |path| try std.Io.Dir.cwd().readFileAlloc(init.io, path, a, .limited(1024 * 1024)) else "";
+        const events = try n.runtime.parseSchedule(a, schedule);
+        defer a.free(events);
+        var input_bits: u8 = 0;
+        var event: usize = 0;
+        var f: u64 = 0;
+        while (f < frames and m.cpu.retired < cap and !m.cpu.halted and !m.cpu.paused and m.cpu.trap == null) : (f += 1) {
+            while (event < events.len and events[event].frame == f) : (event += 1) input_bits = events[event].bits;
+            m.frame(input_bits, cap);
+        }
     }
     if (shot) |path| {
         const bytes = try n.video.ppm(a, m.bus.bytes[0xc000..0xd800], &m.bus.palette, m.bus.enabled);
