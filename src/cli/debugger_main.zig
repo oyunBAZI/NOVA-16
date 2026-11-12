@@ -20,7 +20,8 @@ fn run(init: std.process.Init) !void {
     };
     const symbols = try n.symbol_map.load(a, symtext, m.checksum);
     defer symbols.deinit();
-    var d: n.Debugger = .{ .machine = &m, .symbols = symbols.symbols };
+    var d: n.Debugger = .{ .machine = &m, .symbols = symbols.symbols, .sources = symbols.locations };
+    defer d.deinit();
     try std.Io.File.stdout().writeStreamingAll(init.io, "NOVA-16 debugger; help lists commands. Addresses use 0x hexadecimal.\n");
     var line: std.ArrayList(u8) = .empty;
     while (true) {
@@ -50,6 +51,22 @@ fn run(init: std.process.Init) !void {
         };
         switch (action) {
             .none => {},
+            .savesnap => |path| {
+                const bytes = try n.snapshot.encode(a, &m);
+                defer a.free(bytes);
+                std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = path, .data = bytes }) catch |err| try out.writer.print("error: {s}\n", .{@errorName(err)});
+            },
+            .loadsnap => |path| {
+                const bytes = std.Io.Dir.cwd().readFileAlloc(init.io, path, a, .limited(n.snapshot.file_size + 1)) catch |err| {
+                    try out.writer.print("error: {s}\n", .{@errorName(err)});
+                    try std.Io.File.stdout().writeStreamingAll(init.io, out.written());
+                    continue;
+                };
+                defer a.free(bytes);
+                if (n.snapshot.restore(&m, bytes, m.checksum)) {
+                    d.clearHistory();
+                } else |err| try out.writer.print("error: {s}\n", .{@errorName(err)});
+            },
             .quit => return,
             .saveframe => |path| {
                 const bytes = try n.video.ppm(a, m.bus.bytes[0xc000..0xd800], &m.bus.palette, m.bus.enabled);

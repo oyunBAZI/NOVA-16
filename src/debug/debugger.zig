@@ -5,10 +5,18 @@ const disasm = @import("disasm.zig");
 const asm16 = @import("../asm/assembler.zig");
 pub const Debugger = struct {
     machine: *Machine,
+    recorder: @import("history.zig").Recorder = .{},
+    sources: []const @import("symbols.zig").Source = &.{},
     breaks: [32768]bool = @splat(false),
     watches: [65536]bool = @splat(false),
     symbols: []const asm16.Symbol = &.{},
-    pub const Action = union(enum) { none, quit, saveframe: []const u8 };
+    pub fn deinit(self: *Debugger) void {
+        self.recorder.deinit();
+    }
+    pub fn clearHistory(self: *Debugger) void {
+        self.recorder.clear();
+    }
+    pub const Action = union(enum) { none, quit, saveframe: []const u8, savesnap: []const u8, loadsnap: []const u8 };
     pub fn command(self: *Debugger, line: []const u8, out: *std.Io.Writer) !Action {
         var args = std.mem.tokenizeAny(u8, line, " \t\r\n");
         const cmd = args.next() orelse return .none;
@@ -21,7 +29,7 @@ pub const Debugger = struct {
         }
         if (eq(cmd, "help")) {
             try arity(count, 0);
-            try out.writeAll("help regs step [n] continue [budget] break ADDRESS delete ADDRESS\nwatch ADDRESS unwatch ADDRESS disasm ADDRESS COUNT mem ADDRESS LENGTH\nstack COUNT reset saveframe PATH quit\n");
+            try out.writeAll("help regs step [n] continue [budget] break ADDRESS delete ADDRESS\nwatch ADDRESS unwatch ADDRESS disasm ADDRESS COUNT mem ADDRESS LENGTH\nstack COUNT reset saveframe PATH savesnap PATH loadsnap PATH quit\nframe [n] input MASK devices trace [n] history [capacity] reverse source ADDRESS\n");
         } else if (eq(cmd, "regs")) {
             try arity(count, 0);
             const c = &self.machine.cpu;
@@ -35,19 +43,51 @@ pub const Debugger = struct {
             for (0..budget) |_| {
                 const c = &self.machine.cpu;
                 if (c.halted or c.paused or c.trap != null) break;
-                if (eq(cmd, "continue") and c.pc & 1 == 0 and self.breaks[c.pc / 2]) {
-                    try out.print("breakpoint before {x:0>4}\n", .{c.pc});
-                    break;
-                }
-                self.machine.step();
-                var hit = false;
-                for (self.machine.bus.writes[0..self.machine.bus.write_count]) |w| if (self.watches[w.address]) {
-                    try out.print("watch {x:0>4}: {x:0>2} -> {x:0>2}\n", .{ w.address, w.old, w.new });
-                    hit = true;
-                };
-                if (hit) break;
+                if (!try self.runOne(out, eq(cmd, "continue"))) break;
             }
             try self.status(out);
+        } else if (eq(cmd, "input")) {
+            try arity(count, 1);
+            self.machine.bus.input.inject(@intCast(try number(tokens[0], 255)));
+        } else if (eq(cmd, "devices")) {
+            try arity(count, 0);
+            const b = &self.machine.bus;
+            try out.print("held={x:0>2} pressed={x:0>2} frame={d} vblank={any} enabled={any}\n", .{ b.input.held, b.input.pressed, b.frame, b.vblank, b.enabled });
+            for (0..16) |k| try out.print("palette {d}: {x:0>2}{x:0>2}{x:0>2}\n", .{ k, b.palette[k * 3], b.palette[k * 3 + 1], b.palette[k * 3 + 2] });
+        } else if (eq(cmd, "frame")) {
+            if (count > 1) return error.ArgumentCount;
+            const frames = if (count == 1) try number(tokens[0], 1000) else 1;
+            self.machine.cpu.paused = false;
+            for (0..frames) |_| {
+                if (self.machine.cpu.halted or self.machine.cpu.paused or self.machine.cpu.trap != null) break;
+                self.machine.bus.input.inject(self.machine.bus.input.held);
+                var running = true;
+                for (0..@import("../arch/isa.zig").frame_budget) |_| if (!try self.runOne(out, true)) {
+                    running = false;
+                    break;
+                };
+                self.machine.bus.frame +%= 1;
+                self.machine.bus.vblank = true;
+                if (!running) break;
+            }
+            try self.status(out);
+        } else if (eq(cmd, "trace")) {
+            if (count > 1) return error.ArgumentCount;
+            try self.recorder.print(out, @intCast(if (count == 1) try number(tokens[0], 128) else 16));
+        } else if (eq(cmd, "history")) {
+            if (count > 1) return error.ArgumentCount;
+            if (count == 1) try self.recorder.configure(@intCast(try number(tokens[0], 32)));
+            try out.print("history={d} trace={d}\n", .{ self.recorder.undo_count, self.recorder.trace_count });
+        } else if (eq(cmd, "reverse")) {
+            try arity(count, 0);
+            try self.recorder.reverse(self.machine);
+            try self.status(out);
+        } else if (eq(cmd, "source")) {
+            try arity(count, 1);
+            const addr = try number(tokens[0], 65535);
+            for (self.sources) |loc| if (addr >= loc.address and addr - loc.address < loc.length) {
+                try out.print("{s}:{d}:{d}\n", .{ loc.file, loc.line, loc.column });
+            };
         } else if (eq(cmd, "break") or eq(cmd, "delete")) {
             try arity(count, 1);
             const addr: u16 = @intCast(try number(tokens[0], 65535));
@@ -114,19 +154,38 @@ pub const Debugger = struct {
         } else if (eq(cmd, "reset")) {
             try arity(count, 0);
             self.machine.reset();
+            self.clearHistory();
             try self.status(out);
         } else if (eq(cmd, "saveframe")) {
             try arity(count, 1);
             return .{ .saveframe = tokens[0] };
+        } else if (eq(cmd, "savesnap") or eq(cmd, "loadsnap")) {
+            try arity(count, 1);
+            return if (eq(cmd, "savesnap")) .{ .savesnap = tokens[0] } else .{ .loadsnap = tokens[0] };
         } else if (eq(cmd, "quit")) {
             try arity(count, 0);
             return .quit;
         } else return error.UnknownCommand;
         return .none;
     }
+    fn runOne(self: *Debugger, out: *std.Io.Writer, respect_break: bool) !bool {
+        const c = &self.machine.cpu;
+        if (c.halted or c.paused or c.trap != null) return false;
+        if (respect_break and c.pc & 1 == 0 and self.breaks[c.pc / 2]) {
+            try out.print("breakpoint before {x:0>4}\n", .{c.pc});
+            return false;
+        }
+        self.recorder.step(self.machine);
+        var hit = false;
+        for (self.machine.bus.writes[0..self.machine.bus.write_count]) |event| if (self.watches[event.address]) {
+            try out.print("watch {x:0>4}: {x:0>2} -> {x:0>2}\n", .{ event.address, event.old, event.new });
+            hit = true;
+        };
+        return !hit and !c.halted and !c.paused and c.trap == null;
+    }
     fn status(self: *Debugger, out: *std.Io.Writer) !void {
         const c = &self.machine.cpu;
-        if (c.trap) |t| try out.print("trap {s} pc={x:0>4} {s} address={x:0>4}\n", .{ @errorName(t.kind), t.pc, @tagName(t.access), t.address }) else try out.print("PC={x:0>4} {s}\n", .{ c.pc, if (c.halted) "HALT" else if (c.paused) "BRK" else "ready" });
+        if (c.trap) |t| try out.print("trap {s} pc={x:0>4} {s} address={d} opcode={x:0>4}\n", .{ @errorName(t.kind), t.pc, @tagName(t.access), t.address, t.instruction }) else try out.print("PC={x:0>4} {s}\n", .{ c.pc, if (c.halted) "HALT" else if (c.paused) "BRK" else "ready" });
     }
 };
 fn eq(a: []const u8, b: []const u8) bool {
@@ -172,4 +231,49 @@ test "scripted break-before-execute watch BRK resume and reset" {
     try std.testing.expectEqual(0, m.cpu.retired);
     try std.testing.expectError(error.InvalidNumber, d.command("step nope", &output.writer));
     try std.testing.expectError(error.AddressRange, d.command("mem 65535 2", &output.writer));
+}
+test "frame input trace reverse snapshots and nonacknowledging devices" {
+    const a = std.testing.allocator;
+    var diag: asm16.Diagnostic = .{};
+    const r = try asm16.assemble(a, "LDI R0, 0xd800\nLDB R1, [R0]\nLDI R2, 0xc000\nSTB R1, [R2]\nB.AL 0xe004", &diag);
+    defer r.deinit();
+    var m: Machine = .{};
+    try m.load(r.image);
+    var d: Debugger = .{ .machine = &m, .recorder = .{ .allocator = a } };
+    defer d.deinit();
+    var out: std.Io.Writer.Allocating = .init(a);
+    defer out.deinit();
+    _ = try d.command("history 8", &out.writer);
+    _ = try d.command("input 16", &out.writer);
+    _ = try d.command("step 4", &out.writer);
+    try std.testing.expectEqual(16, m.bus.bytes[0xc000]);
+    _ = try d.command("trace 4", &out.writer);
+    try std.testing.expect(std.mem.indexOf(u8, out.written(), "[c000]:00->10") != null);
+    _ = try d.command("reverse", &out.writer);
+    try std.testing.expectEqual(0, m.bus.bytes[0xc000]);
+    _ = try d.command("step", &out.writer);
+    try std.testing.expectEqual(16, m.bus.bytes[0xc000]);
+    _ = try d.command("devices", &out.writer);
+    try std.testing.expectEqual(16, m.bus.input.pressed);
+    _ = try d.command("frame 1", &out.writer);
+    try std.testing.expectEqual(1, m.bus.frame);
+    const snapshot = @import("../core/snapshot.zig");
+    const state = try snapshot.encode(a, &m);
+    defer a.free(state);
+    _ = try d.command("input 32", &out.writer);
+    _ = try d.command("frame 2", &out.writer);
+    const expected = try snapshot.encode(a, &m);
+    defer a.free(expected);
+    try snapshot.restore(&m, state, m.checksum);
+    d.clearHistory();
+    _ = try d.command("input 32", &out.writer);
+    _ = try d.command("frame 2", &out.writer);
+    const actual = try snapshot.encode(a, &m);
+    defer a.free(actual);
+    try std.testing.expectEqualSlices(u8, expected, actual);
+    _ = try d.command("break 0xe004", &out.writer);
+    m.cpu.pc = 0xe004;
+    const before = m.cpu.retired;
+    _ = try d.command("frame", &out.writer);
+    try std.testing.expectEqual(before, m.cpu.retired);
 }

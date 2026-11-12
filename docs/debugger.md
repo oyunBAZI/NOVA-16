@@ -24,3 +24,24 @@ subsequent step/continue clears its pause and proceeds. Stepping does not advanc
 frame counters; use the runner for frame-timed applications. Memory inspection
 uses non-destructive device reads and never clears key edges or VBLANK.
 Budgets/counts and command lengths are bounded; malformed commands print errors.
+
+## Frame-based investigation and deterministic state
+- `frame [n]`: advance at most n guest frames (default 1, maximum 1000), respecting
+  breakpoints, watchpoints, BRK, HALT and traps. Uses the ISA frame budget.
+- `input MASK`: inject held bits deterministically; rising edges latch normally.
+  Pipe input/frame commands for replay without host keyboard or time.
+- `devices`: peek input/frame/video state and palette without read-clear effects.
+- `trace [n]`: inspect up to 128 last executed instructions, opcode/immediate,
+  PC, register/SP/flag changes, memory writes and traps.
+- `history CAPACITY`: enable 0…32 complete pre-instruction states (default off),
+  bounded to about 2 MiB. `history` shows counts. `reverse` restores the latest
+  pre-instruction state; branching from history clears the old trace.
+- `savesnap PATH` / `loadsnap PATH`: save/restore portable N16S state. Restore
+  checks the current ROM and clears trace/undo state; debug break/watch settings stay.
+- `source ADDRESS`: show source location from a checked versioned symbol map.
+
+Frames interrupted by a breakpoint/watchpoint complete their one invoked frame,
+as the V1 frame contract specifies. Resuming starts a new frame. Reverse restores
+pre-instruction machine state, including device latches, and undoes a completed
+frame counter if the reversed instruction was its last instruction. It does not
+undo host breakpoint settings. See snapshots.md for the byte format.

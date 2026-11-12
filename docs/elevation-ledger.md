@@ -52,3 +52,23 @@ assert missing entry at line 1 column 10, R8 at its exact column, overflowing
 expressions, listing bytes/source, source-map ROM mismatch and legacy loading.
 Exhaustive legal instruction round trips and all four golden ROMs still pass.
 No ISA, ROM or State JSON V1 format changes.
+
+### Phase 1 native gate — closed
+GitHub run 43137507584 passed all native Linux/Windows/macOS 15 Debug and
+ReleaseSafe execution/acceptance jobs, cross-build ROM identity and Linux SDL2.
+Run 43137203853 also passed. These are native execution results, not just compiles.
+
+## Phase 4 — debugger, trace, snapshots and undo
+Added core/snapshot.zig, debug/history.zig and explicit ROM payload length state.
+Extended debugger/CLI with frames, input, device peeks, source spans, 128-entry
+trace, optional 32-state undo, portable save/restore and richer fault context.
+Validated snapshot fields before atomic restore. Hardened the retirement limit
+and invalid host reset entry so deserialized/public state cannot panic the host.
+State JSON V1, ISA V1 and N16R are unchanged; N16S is independently versioned.
+
+`zig build test`, `zig build`, `python3 scripts/acceptance.py` passed. Tests prove
+snapshot byte-identical roundtrip, deterministic continuation, malformed-state
+atomicity, maximum counter safety, input/frame operation, trace writes, reverse,
+read-clear preservation, source-map association and CLI save/load. All old golden
+images pass. No known open core correctness failure; GUI/platform hardening,
+fuzzing, performance and release work follow.

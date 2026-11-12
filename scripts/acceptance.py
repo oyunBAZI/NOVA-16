@@ -92,7 +92,13 @@ def main():
             run(BIN / 'nova16', 'inspect', malformed, success=False)
         dbg = run(BIN / 'n16dbg', paint, stdin='step nope\nwatch 0xffff\nmem 65535 2\nquit\n').stdout
         assert dbg.count('error:') == 3
-        print('Replay, budgets, malformed CLI/source/ROM/debugger checks OK')
+        snapshot = temp / 'machine.n16s'
+        session = run(BIN / 'n16dbg', paint, stdin=(
+            f'history 8\ninput 24\nstep 4\ntrace 4\nsavesnap {snapshot}\n'
+            f'frame 2\nloadsnap {snapshot}\ndevices\nreverse\nquit\n')).stdout
+        assert snapshot.read_bytes().startswith(b'N16S') and 'opcode=' in session
+        assert 'held=18' in session and 'error: HistoryEmpty' in session
+        print('Replay, budgets, malformed CLI/source/ROM/debugger and snapshot checks OK')
 
 
 if __name__ == '__main__':

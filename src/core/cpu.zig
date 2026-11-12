@@ -16,10 +16,19 @@ pub const Cpu = struct {
     instruction: u16 = 0,
     access: traps.Access = .fetch,
     pub fn reset(self: *Cpu, entry: u16) void {
-        self.* = .{ .pc = isa.rom_base + entry };
+        self.* = .{};
+        if (entry >= isa.rom_size or entry & 1 != 0) {
+            self.trap = .{ .kind = if (entry & 1 != 0) error.Unaligned else error.AddressOverflow, .pc = isa.rom_base, .address = @as(i32, isa.rom_base) + entry, .access = .fetch };
+            return;
+        }
+        self.pc = isa.rom_base + entry;
     }
     pub fn step(self: *Cpu, bus: *Bus) void {
         if (self.halted or self.paused or self.trap != null) return;
+        if (self.retired == std.math.maxInt(u64)) {
+            self.trap = .{ .kind = error.InstructionLimit, .pc = self.pc, .address = self.pc, .access = .fetch };
+            return;
+        }
         const old = self.pc;
         self.execute(bus) catch |err| {
             self.trap = .{ .kind = err, .pc = old, .address = self.address, .access = self.access, .instruction = self.instruction };

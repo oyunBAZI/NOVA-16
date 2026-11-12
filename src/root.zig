@@ -46,3 +46,7 @@ pub const symbol_map = @import("debug/symbols.zig");
 test {
     _ = symbol_map;
 }
+pub const snapshot = @import("core/snapshot.zig");
+test {
+    _ = snapshot;
+}

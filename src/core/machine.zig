@@ -7,11 +7,13 @@ pub const Machine = struct {
     bus: Bus = .{},
     checksum: u32 = 0,
     entry: u16 = 0,
+    rom_length: u16 = 0,
     pub fn load(self: *Machine, data: []const u8) !void {
         const image = try rom.parse(data);
         self.* = .{};
         @memcpy(self.bus.bytes[0xe000..][0..image.payload.len], image.payload);
         self.entry = image.entry;
+        self.rom_length = @intCast(image.payload.len);
         self.checksum = image.checksum;
         self.cpu.reset(image.entry);
     }
