@@ -53,3 +53,4 @@ test {
 test {
     _ = @import("fuzz_tests.zig");
 }
+pub const version = @import("version.zig").string;

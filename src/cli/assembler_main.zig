@@ -9,6 +9,10 @@ pub fn main(init: std.process.Init) !void {
 fn run(init: std.process.Init) !void {
     const a = init.arena.allocator();
     const args = try init.minimal.args.toSlice(a);
+    if (args.len == 2 and std.mem.eql(u8, args[1], "--version")) {
+        try std.Io.File.stdout().writeStreamingAll(init.io, n.version ++ "\n");
+        return;
+    }
     if (args.len < 2) return error.Usage_n16asm_SOURCE_out_PATH;
     if (std.mem.eql(u8, args[1], "--help")) {
         try std.Io.File.stdout().writeStreamingAll(init.io, "n16asm SOURCE --out PATH [--symbols LEGACY_MAP] [--debug-symbols JSON_MAP]\n  [--listing PATH] [--diagnostics text|json]\n");

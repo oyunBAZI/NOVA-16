@@ -4,8 +4,8 @@ fn coreModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bui
     core.addAnonymousImport("examples", .{ .root_source_file = b.path("examples/sources.zig") });
     return core;
 }
-fn executable(b: *std.Build, name: []const u8, source: []const u8, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, core: *std.Build.Module) *std.Build.Step.Compile {
-    const exe = b.addExecutable(.{ .name = name, .root_module = b.createModule(.{ .root_source_file = b.path(source), .target = target, .optimize = optimize }) });
+fn executable(b: *std.Build, name: []const u8, source: []const u8, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, core: *std.Build.Module, strip: bool) *std.Build.Step.Compile {
+    const exe = b.addExecutable(.{ .name = name, .root_module = b.createModule(.{ .root_source_file = b.path(source), .target = target, .optimize = optimize, .strip = strip }) });
     exe.root_module.addImport("nova16", core);
     return exe;
 }
@@ -19,22 +19,23 @@ pub fn build(b: *std.Build) void {
     if (v.major != 0 or v.minor != 17 or v.patch != 1) @compileError("NOVA-16 requires Zig 0.17.1");
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const strip = b.option(bool, "strip", "Strip debug information from distributable executables") orelse false;
     const gui = b.option(bool, "gui", "Enable optional SDL2 frontend (requires target SDL2 development libraries)") orelse false;
     const options = b.addOptions();
     options.addOption(bool, "gui", gui);
     const core = coreModule(b, target, optimize);
     // Asset generators execute on the build host, never on the selected target.
     const host_core = coreModule(b, b.graph.host, optimize);
-    const host_assembler = executable(b, "n16asm-build-host", "src/cli/assembler_main.zig", b.graph.host, optimize, host_core);
+    const host_assembler = executable(b, "n16asm-build-host", "src/cli/assembler_main.zig", b.graph.host, optimize, host_core, strip);
     inline for (.{ .{ "nova16", "src/cli/nova16_main.zig" }, .{ "n16asm", "src/cli/assembler_main.zig" }, .{ "n16dbg", "src/cli/debugger_main.zig" } }) |item| {
-        const exe = executable(b, item[0], item[1], target, optimize, core);
+        const exe = executable(b, item[0], item[1], target, optimize, core, strip);
         exe.root_module.addOptions("options", options);
         if (gui and std.mem.eql(u8, item[0], "nova16")) {
             linkGui(b, exe);
         }
         b.installArtifact(exe);
     }
-    const benchmark = executable(b, "n16bench", "src/cli/benchmark_main.zig", b.graph.host, optimize, host_core);
+    const benchmark = executable(b, "n16bench", "src/cli/benchmark_main.zig", b.graph.host, optimize, host_core, strip);
     benchmark.root_module.addImport("examples", host_core.import_table.get("examples").?);
     const run_bench = b.addRunArtifact(benchmark);
     run_bench.addPassthruArgs();
@@ -42,7 +43,7 @@ pub fn build(b: *std.Build) void {
     b.step("bench", "Measure CPU, frames, initialization, reset, bus, video, loader and assembler").dependOn(&run_bench.step);
     b.step("bench-build", "Install native benchmark executable").dependOn(&b.addInstallArtifact(benchmark, .{}).step);
     if (gui) {
-        const test_gui = executable(b, "n16gui-tests", "src/cli/gui_test_main.zig", target, optimize, core);
+        const test_gui = executable(b, "n16gui-tests", "src/cli/gui_test_main.zig", target, optimize, core, strip);
         linkGui(b, test_gui);
         b.step("gui-test", "Verify SDL events, controls, actual renderer output and integer scaling").dependOn(&b.addRunArtifact(test_gui).step);
     }

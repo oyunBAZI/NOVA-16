@@ -13,6 +13,19 @@ fn eq(a: []const u8, b: []const u8) bool {
 fn run(init: std.process.Init) !void {
     const a = init.arena.allocator();
     const args = try init.minimal.args.toSlice(a);
+    if (args.len == 2 and eq(args[1], "--build-info")) {
+        const builtin = @import("builtin");
+        var out: std.Io.Writer.Allocating = .init(a);
+        defer out.deinit();
+        try std.json.Stringify.value(.{ .version = n.version, .zig_version = "0.17.1", .isa_version = @as(u16, 1), .rom_version = @as(u16, 1), .optimization = @tagName(builtin.mode), .os = @tagName(builtin.os.tag), .arch = @tagName(builtin.cpu.arch), .cpu_model = builtin.cpu.model.name, .gui = options.gui }, .{}, &out.writer);
+        try out.writer.writeByte('\n');
+        try std.Io.File.stdout().writeStreamingAll(init.io, out.written());
+        return;
+    }
+    if (args.len == 2 and eq(args[1], "--version")) {
+        try std.Io.File.stdout().writeStreamingAll(init.io, n.version ++ "\n");
+        return;
+    }
     if (args.len == 1 or eq(args[1], "--help")) {
         try std.Io.File.stdout().writeStreamingAll(init.io, "nova16 inspect ROM\nnova16 run ROM [--headless|--gui] [--frames N] [--max-instructions N]\n  [--screenshot PATH] [--state-json PATH] [--input SCHEDULE] [--scale N]\n");
         return;

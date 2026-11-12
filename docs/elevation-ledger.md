@@ -129,3 +129,18 @@ component timing is reported accurately rather than claimed as sampling analysis
 GitHub Fuzz and coverage run 43140891457 passed both guided fuzz and kcov source
 coverage jobs and published the source-coverage artifact. The tooling failures
 were fixed; no failed step was masked or made optional.
+
+## Phase 8 — verification-gated release engineering (publication pending)
+Added pinned action SHAs, read-only/default workflow policy checks, dependency
+updates, native package extraction/acceptance, reproducible archive timestamps/
+permissions, per-file and archive SHA256, source/build-info manifests, baseline-
+CPU stripped binaries, --version/--build-info and a fully gated prerelease job.
+Added installation, contribution/security/compatibility, changelog and release
+process documents. Repository administration/rulesets are intentionally unchanged.
+
+Local `zig build fmt`, tests (60/60), ReleaseSafe baseline-CPU stripped build,
+black-box acceptance, package build/extraction and security policy all passed.
+Two local package runs produced identical ZIP SHA256; extracted binaries really
+assembled and booted all four sources and ran the debugger without Zig or SDL.
+Native package CI and actual release publication remain open until those run.
+The distribution is explicitly 0.2.0-rc.1; no stable-release label is claimed.

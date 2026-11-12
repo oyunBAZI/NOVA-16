@@ -1,3 +1,7 @@
 .zig-cache/
 zig-out/
 .zig-toolchain/
+dist/
+coverage/
+nova16-tests
+nova16-tests.o
