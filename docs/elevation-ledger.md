@@ -99,5 +99,11 @@ Local `zig build -Dgui=true --search-prefix ../sdl-sdk/prefix` and dummy-driver
 boots three guests, measures all renderer pixels, verifies resized letterboxing,
 all keys, releases, controls, quit/focus and guest paint. A viewport-clipped
 readback defect was caught and fixed without weakening the pixel comparison.
-Core tests and full black-box acceptance pass with no golden changes. Native
+The expanded guest-paint assertion initially used an even-X expected nibble
+after moving to odd X; it was corrected to F0, preserving the neighbour. The
+phase-6 ledger was initially written before that expanded gate finished; this
+correction is recorded explicitly. Native
 Windows/macOS graphical acceptance is pending the new CI jobs; not yet claimed.
+The corrected expanded local phase-6 gate has now completed successfully:
+dummy SDL ABI/events/controls/scaling/readback, core tests, default build and
+complete black-box acceptance all returned exit 0. Native GUI CI remains pending.

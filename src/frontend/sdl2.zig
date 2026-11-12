@@ -98,7 +98,8 @@ pub fn selfTest(a: std.mem.Allocator) !void {
     try check(n16_sdl_test_event(host, 4, 0));
     n16_sdl_poll(host, &input);
     m.frame(@intCast(input.held), 1_000_000);
-    if (m.cpu.r[0] != 65 or m.cpu.r[6] != 15) return error.GuestPaintInput;
+    // x=65 is odd: paint occupies the high nibble, preserving its left neighbour.
+    if (m.cpu.r[0] != 65 or m.cpu.r[6] != 0xf0) return error.GuestPaintInput;
     try check(n16_sdl_test_event(host, 3, 1));
     try check(n16_sdl_test_event(host, 4, 1));
     n16_sdl_poll(host, &input);
