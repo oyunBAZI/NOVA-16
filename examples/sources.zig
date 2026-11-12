@@ -9,3 +9,5 @@ pub const breakout = @embedFile("projects/breakout/constants.asm") ++
     @embedFile("projects/breakout/game.asm") ++
     @embedFile("projects/breakout/graphics.asm") ++
     @embedFile("projects/breakout/font.asm");
+
+pub const abi = @embedFile("abi_conformance.asm");

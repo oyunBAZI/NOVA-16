@@ -63,3 +63,7 @@ test {
 test {
     _ = @import("breakout_tests.zig");
 }
+
+test {
+    _ = @import("abi_tests.zig");
+}
