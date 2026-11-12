@@ -28,7 +28,7 @@ fn run(init: std.process.Init) !void {
     };
     const symbols = try n.symbol_map.load(a, symtext, m.checksum);
     defer symbols.deinit();
-    var d: n.Debugger = .{ .machine = &m, .symbols = symbols.symbols, .sources = symbols.locations };
+    var d: n.Debugger = .{ .machine = &m, .symbols = symbols.symbols, .sources = symbols.locations, .variables = symbols.variables };
     defer d.deinit();
     try std.Io.File.stdout().writeStreamingAll(init.io, "NOVA-16 debugger; help lists commands. Addresses use 0x hexadecimal.\n");
     var line: std.ArrayList(u8) = .empty;

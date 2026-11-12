@@ -138,3 +138,35 @@ test "compiler resource caps allocation failure and emitted source origins" {
     };
     try std.testing.checkAllAllocationFailures(a, Check.run, .{});
 }
+
+test "independent bounded AST interpreter agrees with compiled V1 across seeded programs" {
+    const Reference = @import("compiler/reference.zig").Interpreter;
+    var random = std.Random.DefaultPrng.init(0x4e16c004);
+    for (0..192) |case| {
+        const x = random.random().int(u16);
+        const y = random.random().intRangeAtMost(u16, 1, 65535);
+        const shift = random.random().intRangeAtMost(u16, 0, 31);
+        const source = try std.fmt.allocPrint(std.testing.allocator, "struct P{{x:u16;y:i16;}} var g:u16={d}; fn mix(a:u16,b:u16)->u16{{var p:P;p.x=a;p.y=i16(b);return (p.x^u16(p.y))+(a>>{d});}} fn main()->u16{{var data:[4]u16;var i:u16=0;while(i<4){{data[i]=mix(g+i,{d});i=i+1;}} var s:i16=i16({d});if(s<i16(0)){{g=u16(s/i16({d}));}}else{{g=data[2]/{d};}} return (data[0]+data[3])^(g+u16(s>>{d}));}}", .{ x, shift, y, x, y, y, shift });
+        defer std.testing.allocator.free(source);
+        var d: compiler.Diagnostic = .{};
+        const r = try compiler.compile(std.testing.allocator, source, &d);
+        defer r.deinit();
+        var reference: Reference = .{ .context = r.context };
+        const expected = try reference.run();
+        var m: Machine = .{};
+        try m.load(r.program.image);
+        for (0..500000) |_| {
+            m.step();
+            if (m.cpu.halted or m.cpu.paused or m.cpu.trap != null) break;
+        }
+        if (!m.cpu.halted or m.cpu.trap != null or m.cpu.r[0] != expected) {
+            std.debug.print("differential seed4e16c004 case{d} expected{d} actual{d}\n{s}\n", .{ case, expected, m.cpu.r[0], source });
+            return error.CompilerDifferentialMismatch;
+        }
+    }
+    var d: compiler.Diagnostic = .{};
+    const infinite = try compiler.compile(std.testing.allocator, "fn main()->u16{while(true){}return 0;}", &d);
+    defer infinite.deinit();
+    var bounded: Reference = .{ .context = infinite.context, .remaining = 100 };
+    try std.testing.expectError(error.ReferenceWorkLimit, bounded.run());
+}

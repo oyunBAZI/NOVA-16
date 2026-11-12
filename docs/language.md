@@ -57,3 +57,20 @@ assembler. Direct lowering is intentional for an 8 KiB target; typed nodes retai
 bindings and source spans, so an optimizing IR is not required to deliver real
 code or debugging. The next phase independently verifies execution and enriches
 variable/source-debugging metadata rather than declaring an interpreter a compiler.
+
+Compiler maps use schema 3 (ROM checksum, existing symbols/source spans plus
+variable records). Ordinary assembly still emits schema 2, and legacy maps load
+unchanged. `vars` and `var NAME` inspect initialized globals and in-scope frame
+slots without acknowledging MMIO; arrays/structs show up to 16 words. Values are
+available in the current function, not suspended callers. Local ranges begin
+after initialization and end at the lexical block exit. Compiler runtime errors
+store code at 00F0 and original source line at 00F2 before BRK; debugger status
+reports the original file/line. Device intrinsics can produce architectural traps
+and retain their original source spans. Statement `next`, instruction trace,
+snapshots and reverse work on compiled ROMs.
+
+`src/compiler/reference.zig` is a bounded pure-AST correctness oracle, excluded
+from application execution. It independently computes arithmetic with wide
+integers, global/frame layout and control flow. The seeded differential campaign
+executes the generated ROM on the unchanged V1 CPU and compares results. It is
+not a second application runtime and does not interpret device intrinsics.

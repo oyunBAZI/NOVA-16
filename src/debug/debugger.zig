@@ -6,6 +6,7 @@ const asm16 = @import("../asm/assembler.zig");
 pub const Debugger = struct {
     machine: *Machine,
     recorder: @import("history.zig").Recorder = .{},
+    variables: []const @import("symbols.zig").Variable = &.{},
     sources: []const @import("symbols.zig").Source = &.{},
     breaks: [32768]bool = @splat(false),
     watches: [65536]bool = @splat(false),
@@ -30,7 +31,7 @@ pub const Debugger = struct {
         }
         if (eq(cmd, "help")) {
             try arity(count, 0);
-            try out.writeAll("help regs step [n] continue [budget] break ADDRESS delete ADDRESS\nwatch ADDRESS unwatch ADDRESS disasm ADDRESS COUNT mem ADDRESS LENGTH\nstack COUNT reset saveframe PATH savesnap PATH loadsnap PATH quit\nframe [n] input MASK devices trace [n] history [capacity] reverse source [ADDRESS] next [budget] symbols\n");
+            try out.writeAll("help regs step [n] continue [budget] break ADDRESS delete ADDRESS\nwatch ADDRESS unwatch ADDRESS disasm ADDRESS COUNT mem ADDRESS LENGTH\nstack COUNT reset saveframe PATH savesnap PATH loadsnap PATH quit\nframe [n] input MASK devices trace [n] history [capacity] reverse source [ADDRESS] next [budget] symbols vars var NAME\n");
         } else if (eq(cmd, "regs")) {
             try arity(count, 0);
             const c = &self.machine.cpu;
@@ -47,6 +48,29 @@ pub const Debugger = struct {
                 if (!try self.runOne(out, eq(cmd, "continue"))) break;
             }
             try self.status(out);
+        } else if (eq(cmd, "vars") or eq(cmd, "var")) {
+            if ((eq(cmd, "vars") and count != 0) or (eq(cmd, "var") and count != 1)) return error.ArgumentCount;
+            var found = false;
+            for (self.variables) |variable| {
+                if (self.machine.cpu.pc < variable.scope_start or self.machine.cpu.pc >= variable.scope_end) continue;
+                if (count == 1 and !std.mem.eql(u8, tokens[0], variable.name)) continue;
+                found = true;
+                try out.print("{s}:{s}=", .{ variable.name, variable.type_name });
+                if (variable.constant) |value| try out.print("{d}", .{value}) else {
+                    const location = @as(u32, variable.address) + (if (variable.frame_relative) @as(u32, self.machine.cpu.r[7]) else 0);
+                    if (location + @as(u32, variable.words) * 2 > 0x8000 or (variable.frame_relative and location < 0x4000)) return error.InvalidVariableFrame;
+                    for (0..@min(variable.words, 16)) |index| {
+                        const low = try self.machine.bus.peek(@intCast(location + index * 2));
+                        const high = try self.machine.bus.peek(@intCast(location + index * 2 + 1));
+                        const value = @as(u16, low) | (@as(u16, high) << 8);
+                        if (index > 0) try out.writeByte(',');
+                        if (variable.signed) try out.print("{d}", .{@as(i16, @bitCast(value))}) else try out.print("{d}", .{value});
+                    }
+                    if (variable.words > 16) try out.writeAll(",...");
+                }
+                try out.writeByte('\n');
+            }
+            if (!found) return error.VariableNotInScope;
         } else if (eq(cmd, "symbols")) {
             try arity(count, 0);
             for (self.symbols) |sym| try out.print("{s}={x}\n", .{ sym.name, sym.value });
@@ -233,6 +257,16 @@ pub const Debugger = struct {
             _ = try disasm.instruction(out, t.instruction, immediate, t.pc);
             try out.writeByte('\n');
         } else try out.print("PC={x:0>4} {s}\n", .{ c.pc, if (c.halted) "HALT" else if (c.paused) "BRK" else "ready" });
+        if (c.paused and self.sourceAt(c.pc) != null and std.mem.eql(u8, self.sourceAt(c.pc).?.file, "<n16-runtime>")) {
+            const code = try self.machine.bus.read16(0xf0);
+            const line = try self.machine.bus.read16(0xf2);
+            if (code >= 1 and code <= 3 and line != 0) {
+                for (self.sources) |loc| if (!std.mem.eql(u8, loc.file, "<n16-runtime>")) {
+                    try out.print("guest error {d} at {s}:{d}\n", .{ code, loc.file, line });
+                    break;
+                };
+            }
+        }
         if (self.sourceAt(if (c.trap) |t| t.pc else c.pc)) |loc| try out.print("at {s}:{d}:{d}\n", .{ loc.file, loc.line, loc.column });
     }
 };

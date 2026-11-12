@@ -52,7 +52,7 @@ fn run(init: std.process.Init) !void {
     if (assembly) |path| try files.append(a, .{ .path = path, .bytes = result.assembly });
     if (map) |path| {
         var text: std.Io.Writer.Allocating = .init(a);
-        try n.symbol_map.write(&text.writer, a, result.program, std.fs.path.basename(args[1]));
+        try n.compiler.writeDebugMap(&text.writer, a, result, std.fs.path.basename(args[1]));
         try files.append(a, .{ .path = path, .bytes = try text.toOwnedSlice() });
     }
     if (layout) |path| {

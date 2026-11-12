@@ -7,7 +7,7 @@ const none = s.none;
 const asm16 = @import("../asm/assembler.zig");
 pub const Diagnostic = asm16.Diagnostic;
 pub const Origin = struct { line: usize, column: usize };
-pub const Variable = struct { name: []const u8, ty: Id, address: u16, function: Id, constant: bool, constant_value: ?u16 = null, visible: bool = true };
+pub const Variable = struct { name: []const u8, ty: Id, address: u16, function: Id, constant: bool, constant_value: ?u16 = null, visible: bool = true, end_block: usize = none };
 pub const Function = struct { node: Id, words: u16 = 0 };
 pub const Result = struct {
     context: *Context,
@@ -243,7 +243,7 @@ pub const Context = struct {
                 try self.emit("PUSH R0", .{});
                 try self.expression(n.b);
                 const valid = self.nextLabel();
-                try self.emit("CMPI R0, {d}\nB.CC _c_L{d}\nJMP _c_bounds\n_c_L{d}:", .{ array.length, valid, valid });
+                try self.emit("CMPI R0, {d}\nB.CC _c_L{d}\nLDI R3, {d}\nLDI R4, 242\nSTW R3, [R4]\nJMP _c_bounds\n_c_L{d}:", .{ array.length, valid, n.token.line, valid });
                 try self.emit("LDI R1, 2\nMUL R0, R1\nPOP R1\nADD R0, R1", .{});
             },
             .member => {
@@ -312,7 +312,7 @@ pub const Context = struct {
                 } else if (eq(op, "/") or eq(op, "%")) {
                     try self.emit("CALL {s}", .{if (try self.infer(n.a) == 1) "n16_sdiv" else "n16_udiv"});
                     const valid = self.nextLabel();
-                    try self.emit("CMPI R2, 1\nB.NE _c_L{d}\nJMP _c_divzero\n_c_L{d}:", .{ valid, valid });
+                    try self.emit("CMPI R2, 1\nB.NE _c_L{d}\nLDI R3, {d}\nLDI R4, 242\nSTW R3, [R4]\nJMP _c_divzero\n_c_L{d}:", .{ valid, n.token.line, valid });
                     if (eq(op, "%")) try self.emit("MOV R0, R1", .{});
                 } else {
                     const instruction: []const u8 = if (eq(op, "+")) "ADD" else if (eq(op, "-")) "SUB" else if (eq(op, "*")) "MUL" else if (eq(op, "&")) "AND" else if (eq(op, "|")) "OR" else if (eq(op, "^")) "XOR" else if (eq(op, "<<")) "SHL" else if (eq(op, ">>")) (if (ty == 1) "SAR" else "SHR") else return error.UnknownOperator;
@@ -383,7 +383,11 @@ pub const Context = struct {
             .block => {
                 const start = self.variables.items.len;
                 for (n.items) |child| try self.statement(child);
-                for (self.variables.items[start..]) |*v| v.visible = false;
+                try self.emit("_c_b_{d}:", .{id});
+                for (self.variables.items[start..]) |*v| {
+                    v.visible = false;
+                    if (v.end_block == none) v.end_block = id;
+                }
             },
             .decl => {
                 const index = try self.declare(id);
@@ -397,6 +401,7 @@ pub const Context = struct {
                     if (v.function == none) try self.emit("LDI R0, {d}", .{v.address}) else try self.emit("MOV R0, R7\nADDI R0, {d}", .{v.address});
                     try self.emit("LDI R1, {d}\nCALL n16_memzero", .{self.tree.types[n.ty].words * 2});
                 }
+                try self.emit("_c_v_{d}:", .{self.tree.nodes[id].binding});
             },
             .assign => {
                 try self.mutable(n.a);
@@ -488,11 +493,12 @@ pub const Context = struct {
             if (!self.definitelyReturns(f.a)) return error.MissingReturn;
             try self.emit("_c_f_{s}:\nPUSH R4\nPUSH R5\nPUSH R6\nPUSH R7", .{f.token.text});
             const valid = self.nextLabel();
-            try self.emit("CMPI R7, 0x4100\nB.CS _c_L{d}\nJMP _c_stack\n_c_L{d}:\nLDI R4, 256\nSUB R7, R4", .{ valid, valid });
+            try self.emit("CMPI R7, 0x4100\nB.CS _c_L{d}\nLDI R3, {d}\nLDI R4, 242\nSTW R3, [R4]\nJMP _c_stack\n_c_L{d}:\nLDI R4, 256\nSUB R7, R4", .{ valid, f.token.line, valid });
             const start = self.variables.items.len;
             for (f.items, 0..) |param, arg| {
                 const v = try self.declare(param);
                 try self.emit("MOV R4, R7\nADDI R4, {d}\nSTW R{d}, [R4]", .{ self.variables.items[v].address, arg });
+                try self.emit("_c_v_{d}:", .{v});
             }
             try self.statement(f.a);
             try self.emit("_c_e_{s}:\nPOP R7\nPOP R6\nPOP R5\nPOP R4\nRET\n_c_end_{s}:", .{ f.token.text, f.token.text });
@@ -592,4 +598,34 @@ fn compileInner(owner: std.mem.Allocator, source: []const u8, diag: *Diagnostic)
         }
     }
     return .{ .context = ctx, .assembly = assembly, .program = program };
+}
+
+fn symbolAddress(result: Result, name: []const u8) !u32 {
+    for (result.program.symbols) |symbol| if (eq(symbol.name, name)) return @intCast(symbol.value);
+    return error.CompilerDebugSymbol;
+}
+pub fn writeDebugMap(w: *std.Io.Writer, a: std.mem.Allocator, result: Result, file: []const u8) !void {
+    const maps = @import("../debug/symbols.zig");
+    const locations = try a.alloc(maps.Source, result.program.locations.len);
+    defer a.free(locations);
+    for (result.program.locations, locations) |loc, *target| target.* = .{ .file = if (loc.file.len > 0) loc.file else file, .address = loc.address, .length = loc.length, .line = loc.line, .column = loc.column };
+    const variables = try a.alloc(maps.Variable, result.context.variables.items.len);
+    defer a.free(variables);
+    for (result.context.variables.items, variables, 0..) |variable, *target, index| {
+        const ty = result.context.tree.types[variable.ty];
+        const element = if (ty.kind == .array) result.context.tree.types[ty.element] else ty;
+        target.* = .{ .name = variable.name, .type_name = if (ty.kind == .array) "array" else ty.name, .address = variable.address, .words = ty.words, .frame_relative = variable.function != none, .signed = element.kind == .signed, .constant = variable.constant_value };
+        if (variable.function != none) {
+            const begin = try std.fmt.allocPrint(a, "_c_v_{d}", .{index});
+            defer a.free(begin);
+            target.scope_start = try symbolAddress(result, begin);
+            const function = result.context.tree.nodes[result.context.functions.items[variable.function].node];
+            const end = if (variable.end_block != none) try std.fmt.allocPrint(a, "_c_b_{d}", .{variable.end_block}) else try std.fmt.allocPrint(a, "_c_end_{s}", .{function.token.text});
+            defer a.free(end);
+            target.scope_end = try symbolAddress(result, end);
+        }
+    }
+    const map: maps.Map = .{ .schema_version = 3, .rom_checksum = std.mem.readInt(u32, result.program.image[12..16], .little), .symbols = result.program.symbols, .locations = locations, .variables = variables };
+    try std.json.Stringify.value(map, .{}, w);
+    try w.writeByte('\n');
 }
