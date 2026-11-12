@@ -50,3 +50,6 @@ pub const snapshot = @import("core/snapshot.zig");
 test {
     _ = snapshot;
 }
+test {
+    _ = @import("fuzz_tests.zig");
+}

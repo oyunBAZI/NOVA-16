@@ -1,0 +1,40 @@
+name: Fuzz and coverage
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '27 4 * * 1'
+permissions:
+  contents: read
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/setup_zig.py
+      - name: Coverage-guided fuzzing
+        run: zig build test -Doptimize=ReleaseSafe --fuzz=${{ github.event_name == 'schedule' && '100K' || '1K' }} --test-timeout 10m
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fuzz-corpus
+          include-hidden-files: true
+          path: .zig-cache/f/
+          if-no-files-found: warn
+  coverage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/setup_zig.py
+      - run: sudo apt-get update && sudo apt-get install -y kcov
+      - name: Build standalone tests with debug information
+        run: zig test --test-no-exec --dep examples -Mroot=src/root.zig -Mexamples=examples/sources.zig -femit-bin=nova16-tests
+      - name: Measure source coverage
+        run: kcov --include-path=${{ github.workspace }}/src coverage ./nova16-tests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-coverage
+          path: coverage/

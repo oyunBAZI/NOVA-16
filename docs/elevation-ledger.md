@@ -72,3 +72,12 @@ atomicity, maximum counter safety, input/frame operation, trace writes, reverse,
 read-clear preservation, source-map association and CLI save/load. All old golden
 images pass. No known open core correctness failure; GUI/platform hardening,
 fuzzing, performance and release work follow.
+
+## Phase 5 — systematic malformed inputs and guided fuzzing
+Added dedicated bounded fuzz targets, a deterministic seven-family smoke suite,
+allocation-failure regression, API input limits and push/scheduled fuzz/coverage
+workflows. `zig build test`, build and full CLI acceptance passed. Actual
+`zig build test -Doptimize=ReleaseSafe --fuzz=1K --test-timeout 5m` passed: 1179
+runs / 174 unique / 841 of 15441 feedback PCs. Default Debug backend's zero-PC
+coverage failure is documented; the successful LLVM mode is explicit in CI.
+No failures were suppressed. kcov publication remains pending CI execution.

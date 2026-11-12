@@ -18,6 +18,7 @@ pub const Debugger = struct {
     }
     pub const Action = union(enum) { none, quit, saveframe: []const u8, savesnap: []const u8, loadsnap: []const u8 };
     pub fn command(self: *Debugger, line: []const u8, out: *std.Io.Writer) !Action {
+        if (line.len > 4096) return error.CommandTooLong;
         var args = std.mem.tokenizeAny(u8, line, " \t\r\n");
         const cmd = args.next() orelse return .none;
         var tokens: [3][]const u8 = undefined;

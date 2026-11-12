@@ -2,6 +2,7 @@ const std = @import("std");
 pub const Event = struct { frame: u64, bits: u8 };
 /// Each line is frame-number input-mask; masks persist until the next event.
 pub fn parseSchedule(a: std.mem.Allocator, text: []const u8) ![]Event {
+    if (text.len > 1024 * 1024) return error.ScheduleTooLarge;
     var events: std.ArrayList(Event) = .empty;
     errdefer events.deinit(a);
     var lines = std.mem.splitScalar(u8, text, '\n');
