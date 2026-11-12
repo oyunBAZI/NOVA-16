@@ -15,6 +15,33 @@ pub const Cpu = struct {
     address: i32 = 0,
     instruction: u16 = 0,
     access: traps.Access = .fetch,
+    /// A detached observation: modifying it cannot modify the live CPU.
+    pub fn observe(self: *const Cpu) Cpu {
+        return self.*;
+    }
+    pub fn validateState(self: *const Cpu) !void {
+        if (self.depth > isa.stack_capacity or self.sp != isa.stack_top - @as(u32, self.depth) * 2) return error.InvalidStack;
+        if (self.pc & 1 != 0) return error.Unaligned;
+        if (!isa.executable(self.pc)) return error.ExecuteDenied;
+    }
+    /// Atomically replace architectural registers and execution position.
+    /// Counters, traps and stop flags are deliberately not editable here.
+    pub fn setRegisters(self: *Cpu, registers: [8]u16, flags: u4, pc: u16, depth: u16) !void {
+        var candidate = self.*;
+        if (depth > isa.stack_capacity) return error.InvalidStack;
+        candidate.r = registers;
+        candidate.flags = flags;
+        candidate.pc = pc;
+        candidate.depth = depth;
+        candidate.sp = @intCast(isa.stack_top - @as(u32, depth) * 2);
+        try candidate.validateState();
+        self.* = candidate;
+    }
+    pub fn resumeExecution(self: *Cpu) !void {
+        try self.validateState();
+        if (self.trap != null or self.halted) return error.Stopped;
+        self.paused = false;
+    }
     pub fn reset(self: *Cpu, entry: u16) void {
         self.* = .{};
         if (entry >= isa.rom_size or entry & 1 != 0) {

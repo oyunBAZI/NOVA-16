@@ -31,7 +31,12 @@ is committed on failure and PC/retirement do not advance. This relies on handler
 ordering, not a generic memory transaction rollback engine; new instructions
 must preserve that ordering and add a fault-atomicity regression.
 
-Core structs remain public for host embedding/tests. Hosts must not mutate private
+Core structs remain public for source compatibility and low-level tests. Prefer
+`Machine.observeCpu` (detached value), `inspect` (non-acknowledging), `patch`
+(atomic RAM/VRAM range only), `injectInput`, `setPaused`, and
+`Cpu.setRegisters` (atomic registers/PC/derived stack transition). `resumeExecution`
+rejects trapped/halted/invalid CPUs; reset is the explicit recovery operation.
+These methods allocate nothing. Hosts must not mutate private
 bookkeeping, immutable ROM bytes/metadata, stop flags or enum tags inconsistently.
 Guest instructions cannot modify these host fields. Checked snapshot restoration
 is the supported deserialization interface; copying arbitrary native structs is
