@@ -49,3 +49,14 @@ N16S captures complete deterministic machine state with explicit field widths;
 source maps bind to ROM CRC. Trace/history are bounded host tools. State JSON V1
 remains an observable report, not a resumable machine snapshot. Timer, SDL, file
 and filesystem APIs remain outside all CPU/bus/device execution paths.
+
+v0.4 checked embedding additions: `Machine.validateRom`, `validateState`,
+`replaceCpu` (candidate validated before assignment), `resetChecked`, and
+`snapshot.encodeChecked`. `encode` remains a raw forensic serialization API;
+checked serialization rejects states that checked restore cannot resume.
+An active untrapped CPU must have an aligned executable PC. Stopped CPUs may
+retain an aligned next-PC outside executable memory (e.g. HALT at BFFE advances
+to C000); trapped CPUs preserve faulting PCs, including odd/denied addresses.
+This preserves diagnosis and genuine stop states while rejecting active C000.
+Input pressed bits need not be a subset of held bits: releases do not erase
+latched edges. Frame-counter wrap and maximum retirement values remain valid.

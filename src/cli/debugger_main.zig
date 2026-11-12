@@ -60,7 +60,7 @@ fn run(init: std.process.Init) !void {
         switch (action) {
             .none => {},
             .savesnap => |path| {
-                const bytes = try n.snapshot.encode(a, &m);
+                const bytes = try n.snapshot.encodeChecked(a, &m);
                 defer a.free(bytes);
                 std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = path, .data = bytes }) catch |err| try out.writer.print("error: {s}\n", .{@errorName(err)});
             },

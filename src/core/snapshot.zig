@@ -53,6 +53,11 @@ pub fn encode(a: std.mem.Allocator, m: *const Machine) ![]u8 {
     put(u32, out, 12, std.hash.Crc32.hash(p));
     return out;
 }
+/// Checked serialization for embedders; raw encode remains a forensic interface.
+pub fn encodeChecked(a: std.mem.Allocator, m: *const Machine) ![]u8 {
+    try m.validateState();
+    return encode(a, m);
+}
 /// All validation completes in a bounded temporary machine before assignment.
 pub fn restore(target: *Machine, data: []const u8, expected_rom: ?u32) !void {
     if (data.len != file_size) return error.SnapshotSize;
@@ -98,6 +103,7 @@ pub fn restore(target: *Machine, data: []const u8, expected_rom: ?u32) !void {
         if (m.checksum != 0 or m.entry != 0) return error.SnapshotState;
     } else if (std.hash.Crc32.hash(rom[0..m.rom_length]) != m.checksum) return error.SnapshotRomMismatch;
     for (rom[m.rom_length..]) |v| if (v != 0) return error.SnapshotState;
+    m.validateState() catch return error.SnapshotState;
     target.* = m;
 }
 test "full-state snapshots roundtrip deterministically and malformed restore is atomic" {
@@ -186,4 +192,56 @@ test "CRC-correct invalid metadata and version failures leave live state unchang
         defer a.free(after);
         try std.testing.expectEqualSlices(u8, saved, after);
     }
+}
+
+test "CRC-correct active non-executable PC rejects atomically" {
+    const a = std.testing.allocator;
+    var original: Machine = .{};
+    try original.patch(0x120, &.{ 42, 99 });
+    const bytes = try encode(a, &original);
+    defer a.free(bytes);
+    put(u16, bytes[32..], 24, 0xc000);
+    put(u32, bytes, 12, std.hash.Crc32.hash(bytes[32..]));
+    var live = original;
+    try std.testing.expectError(error.SnapshotState, restore(&live, bytes, null));
+    try std.testing.expectEqualDeep(original.cpu, live.cpu);
+    try std.testing.expectEqualSlices(u8, &original.bus.bytes, &live.bus.bytes);
+}
+
+test "snapshot PC stop-state matrix, ROM metadata and checked embedding remain atomic" {
+    const a = std.testing.allocator;
+    for ([_]u16{ 0, 1, 0xbffe, 0xbfff, 0xc000, 0xd7fe, 0xd800, 0xdffe, 0xe000, 0xe001, 0xfffe, 0xffff }) |pc| {
+        for (0..8) |bits| {
+            var m: Machine = .{};
+            m.cpu.pc = pc;
+            m.cpu.halted = bits & 1 != 0;
+            m.cpu.paused = bits & 2 != 0;
+            if (bits & 4 != 0) m.cpu.trap = .{ .kind = error.ExecuteDenied, .pc = pc, .address = pc, .access = .fetch };
+            const valid = m.cpu.trap != null or (pc & 1 == 0 and (m.cpu.halted or m.cpu.paused or isa.executable(pc)));
+            const bytes = try encode(a, &m);
+            defer a.free(bytes);
+            var live: Machine = .{};
+            live.cpu.r[3] = 1234;
+            const before = live.cpu;
+            if (valid) try restore(&live, bytes, null) else {
+                try std.testing.expectError(error.SnapshotState, restore(&live, bytes, null));
+                try std.testing.expectEqualDeep(before, live.cpu);
+            }
+        }
+    }
+    var m: Machine = .{};
+    var cpu = m.cpu;
+    cpu.pc = 0xc000;
+    try std.testing.expectError(error.ExecuteDenied, m.replaceCpu(cpu));
+    try std.testing.expectEqual(0xe000, m.cpu.pc);
+    m.cpu = cpu;
+    try std.testing.expectError(error.ExecuteDenied, encodeChecked(a, &m));
+    try m.resetChecked();
+    m.rom_length = 8193;
+    const before = m.cpu;
+    try std.testing.expectError(error.InvalidRomState, m.resetChecked());
+    try std.testing.expectEqualDeep(before, m.cpu);
+    m.rom_length = 0;
+    m.bus.bytes[0xffff] = 1;
+    try std.testing.expectError(error.InvalidRomState, m.validateState());
 }

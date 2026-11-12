@@ -8,6 +8,38 @@ pub const Machine = struct {
     checksum: u32 = 0,
     entry: u16 = 0,
     rom_length: u16 = 0,
+    /// Validate persistent state without allocating or acknowledging devices.
+    pub fn validateRom(self: *const Machine) !void {
+        const isa = @import("../arch/isa.zig");
+        if (self.rom_length > isa.rom_size or self.entry & 1 != 0) return error.InvalidRomState;
+        const bytes = self.bus.bytes[isa.rom_base..];
+        if (self.rom_length == 0) {
+            if (self.entry != 0 or self.checksum != 0) return error.InvalidRomState;
+        } else {
+            if (self.entry >= self.rom_length or std.hash.Crc32.hash(bytes[0..self.rom_length]) != self.checksum) return error.InvalidRomState;
+        }
+        for (bytes[self.rom_length..]) |byte| if (byte != 0) return error.InvalidRomState;
+    }
+    pub fn validateState(self: *const Machine) !void {
+        const isa = @import("../arch/isa.zig");
+        try self.validateRom();
+        const c = &self.cpu;
+        if (c.depth > isa.stack_capacity or c.sp != isa.stack_top - @as(u32, c.depth) * 2) return error.InvalidStack;
+        if (c.trap == null) {
+            if (c.pc & 1 != 0) return error.Unaligned;
+            if (!c.halted and !c.paused and !isa.executable(c.pc)) return error.ExecuteDenied;
+        }
+    }
+    pub fn replaceCpu(self: *Machine, cpu: Cpu) !void {
+        var candidate = self.*;
+        candidate.cpu = cpu;
+        try candidate.validateState();
+        self.cpu = cpu;
+    }
+    pub fn resetChecked(self: *Machine) !void {
+        try self.validateRom();
+        self.reset();
+    }
     pub fn observeCpu(self: *const Machine) Cpu {
         return self.cpu.observe();
     }

@@ -54,3 +54,10 @@ and VBLANK true, frame=1, payload length=2. An independent Python struct/zlib
 encoding of the table above yields SHA256:
 `6509420edf13f7d12f32eb26a6940e120f9c1b9685ecb10685be456fb04532af`.
 Native tests require exactly these bytes, not only same-platform round trips.
+
+v0.4 validation correction: an active CPU (neither stopped nor trapped) must
+have an executable PC, not merely an even PC. CRC-correct active C000/D800
+snapshots formerly accepted by v0.3 now fail SnapshotState atomically. Encodings
+and all valid golden bytes remain unchanged. Stopped aligned next-PCs and fault
+PCs are retained for diagnosis; public raw host fields still require disciplined
+use. Prefer encodeChecked for snapshots intended for subsequent restoration.
