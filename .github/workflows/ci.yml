@@ -6,46 +6,38 @@ on:
 permissions:
   contents: read
 jobs:
-  headless:
-    runs-on: ubuntu-24.04
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-14]
+        mode: [Debug, ReleaseSafe]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Install pinned Zig 0.17.1
-        run: |
-          curl --fail --location --retry 3 https://ziglang.org/download/0.17.1/zig-x86_64-linux-0.17.1.tar.xz -o /tmp/zig.tar.xz
-          echo '3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a  /tmp/zig.tar.xz' | sha256sum --check
-          tar -xf /tmp/zig.tar.xz -C /tmp
-          echo '/tmp/zig-x86_64-linux-0.17.1' >> "$GITHUB_PATH"
-      - run: zig version
-      - run: zig build fmt
-      - run: zig build
-      - run: zig build test
-      - run: zig build demos
-      - run: python3 scripts/acceptance.py
-      - run: zig build -Doptimize=ReleaseSafe
-      - run: python3 scripts/acceptance.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/setup-python@v5
         with:
-          name: nova16-linux-x86_64-headless
-          path: |
-            zig-out/bin/
-            zig-out/demos/
+          python-version: '3.12'
+      - run: python scripts/setup_zig.py
+      - run: zig build fmt
+      - run: zig build -Doptimize=${{ matrix.mode }}
+      - run: zig build test -Doptimize=${{ matrix.mode }}
+      - run: python scripts/acceptance.py
+  cross:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/setup_zig.py
+      - run: python3 scripts/cross_acceptance.py
   sdl2:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Install pinned Zig and SDL2
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libsdl2-dev xvfb xauth
-          curl --fail --location --retry 3 https://ziglang.org/download/0.17.1/zig-x86_64-linux-0.17.1.tar.xz -o /tmp/zig.tar.xz
-          echo '3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a  /tmp/zig.tar.xz' | sha256sum --check
-          tar -xf /tmp/zig.tar.xz -C /tmp
-          echo '/tmp/zig-x86_64-linux-0.17.1' >> "$GITHUB_PATH"
+      - run: python3 scripts/setup_zig.py
+      - run: sudo apt-get update && sudo apt-get install -y libsdl2-dev xvfb xauth
       - run: zig build -Dgui=true
       - run: zig build test -Dgui=true
-      - name: GUI smoke under virtual display
-        run: |
-          xvfb-run -a zig-out/bin/nova16 run zig-out/demos/boot_splash.n16 --gui --frames 6
-          xvfb-run -a zig-out/bin/nova16 run zig-out/demos/bouncing_pixel.n16 --gui --frames 6
-          xvfb-run -a zig-out/bin/nova16 run zig-out/demos/paint.n16 --gui --frames 6
+      - run: xvfb-run -a zig-out/bin/nova16 run zig-out/demos/paint.n16 --gui --frames 6

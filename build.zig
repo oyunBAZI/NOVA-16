@@ -1,43 +1,53 @@
 const std = @import("std");
+fn coreModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module {
+    const core = b.createModule(.{ .root_source_file = b.path("src/root.zig"), .target = target, .optimize = optimize });
+    core.addAnonymousImport("examples", .{ .root_source_file = b.path("examples/sources.zig") });
+    return core;
+}
+fn executable(b: *std.Build, name: []const u8, source: []const u8, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, core: *std.Build.Module) *std.Build.Step.Compile {
+    const exe = b.addExecutable(.{ .name = name, .root_module = b.createModule(.{ .root_source_file = b.path(source), .target = target, .optimize = optimize }) });
+    exe.root_module.addImport("nova16", core);
+    return exe;
+}
 pub fn build(b: *std.Build) void {
     const v = @import("builtin").zig_version;
     if (v.major != 0 or v.minor != 17 or v.patch != 1) @compileError("NOVA-16 requires Zig 0.17.1");
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const gui = b.option(bool, "gui", "Enable optional SDL2 frontend") orelse false;
+    const gui = b.option(bool, "gui", "Enable optional SDL2 frontend (requires target SDL2 development libraries)") orelse false;
     const options = b.addOptions();
     options.addOption(bool, "gui", gui);
-    const core = b.addModule("nova16", .{ .root_source_file = b.path("src/root.zig"), .target = target, .optimize = optimize });
-    core.addAnonymousImport("examples", .{ .root_source_file = b.path("examples/sources.zig") });
+    const core = coreModule(b, target, optimize);
+    // Asset generators execute on the build host, never on the selected target.
+    const host_core = coreModule(b, b.graph.host, optimize);
+    const host_assembler = executable(b, "n16asm-build-host", "src/cli/assembler_main.zig", b.graph.host, optimize, host_core);
     inline for (.{ .{ "nova16", "src/cli/nova16_main.zig" }, .{ "n16asm", "src/cli/assembler_main.zig" }, .{ "n16dbg", "src/cli/debugger_main.zig" } }) |item| {
-        const exe = b.addExecutable(.{ .name = item[0], .root_module = b.createModule(.{ .root_source_file = b.path(item[1]), .target = target, .optimize = optimize }) });
-        exe.root_module.addImport("nova16", core);
+        const exe = executable(b, item[0], item[1], target, optimize, core);
         exe.root_module.addOptions("options", options);
         if (gui and std.mem.eql(u8, item[0], "nova16")) {
             exe.root_module.link_libc = true;
             exe.root_module.linkSystemLibrary("SDL2", .{});
         }
         b.installArtifact(exe);
-        if (std.mem.eql(u8, item[0], "n16asm")) {
-            const demos = b.step("demos", "Assemble all four guest ROMs");
-            inline for (.{ "boot_splash", "bouncing_pixel", "paint", "diagnostics" }) |name| {
-                const assemble = b.addRunArtifact(exe);
-                assemble.addFileArg(b.path("examples/" ++ name ++ ".asm"));
-                assemble.addArg("--out");
-                const image = assemble.addOutputFileArg(name ++ ".n16");
-                assemble.addArg("--symbols");
-                const symbols = assemble.addOutputFileArg(name ++ ".sym");
-                const install = b.addInstallFile(image, "demos/" ++ name ++ ".n16");
-                const install_symbols = b.addInstallFile(symbols, "demos/" ++ name ++ ".sym");
-                demos.dependOn(&install.step);
-                demos.dependOn(&install_symbols.step);
-                b.getInstallStep().dependOn(&install.step);
-                b.getInstallStep().dependOn(&install_symbols.step);
-            }
-        }
     }
-    const unit = b.addTest(.{ .root_module = core });
-    b.step("test", "Run automated tests").dependOn(&b.addRunArtifact(unit).step);
+    const demos = b.step("demos", "Assemble platform-independent guest ROMs with a native build-host tool");
+    inline for (.{ "boot_splash", "bouncing_pixel", "paint", "diagnostics" }) |name| {
+        const assemble = b.addRunArtifact(host_assembler);
+        assemble.addFileArg(b.path("examples/" ++ name ++ ".asm"));
+        assemble.addArg("--out");
+        const image = assemble.addOutputFileArg(name ++ ".n16");
+        assemble.addArg("--symbols");
+        const symbols = assemble.addOutputFileArg(name ++ ".sym");
+        const install = b.addInstallFile(image, "demos/" ++ name ++ ".n16");
+        const install_symbols = b.addInstallFile(symbols, "demos/" ++ name ++ ".sym");
+        demos.dependOn(&install.step);
+        demos.dependOn(&install_symbols.step);
+        b.getInstallStep().dependOn(&install.step);
+        b.getInstallStep().dependOn(&install_symbols.step);
+    }
+    // `test` always executes native host tests. Native OS CI validates each target.
+    const unit = b.addTest(.{ .root_module = host_core });
+    b.step("test", "Run native build-host automated tests").dependOn(&b.addRunArtifact(unit).step);
     const fmt = b.addFmt(.{ .paths = &.{ b.path("build.zig"), b.path("src"), b.path("examples/sources.zig") }, .check = true });
     b.step("fmt", "Check formatting").dependOn(&fmt.step);
 }
