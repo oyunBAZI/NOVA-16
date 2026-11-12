@@ -94,8 +94,24 @@ pub fn main(init: std.process.Init) !void {
             _ = try debugger.command("step", &output);
         }
         try results.append(a, .{ .name = "debugger_step", .operations = 10000, .nanoseconds = @intCast(now(init.io) - start) });
+        try debugger.recorder.configure(32);
+        start = now(init.io);
+        for (0..10000) |_| debugger.recorder.step(m);
+        try results.append(a, .{ .name = "history_full_step", .operations = 10000, .nanoseconds = @intCast(now(init.io) - start) });
+        // Capture-only candidate lower bound, not an exact reverse implementation.
+        const Candidate = struct { cpu: @TypeOf(m.cpu), input: [2]u8, palette: [48]u8, frame: u16, enabled: bool, vblank: bool, writes: @TypeOf(m.bus.writes) };
+        var candidates: [32]Candidate = undefined;
+        start = now(init.io);
+        for (0..10000) |index| {
+            candidates[index % 32] = .{ .cpu = m.cpu, .input = .{ m.bus.input.held, m.bus.input.pressed }, .palette = m.bus.palette, .frame = m.bus.frame, .enabled = m.bus.enabled, .vblank = m.bus.vblank, .writes = m.bus.writes };
+            m.step();
+            std.mem.doNotOptimizeAway(&candidates);
+        }
+        try results.append(a, .{ .name = "history_candidate_capture_lower_bound", .operations = 10000, .nanoseconds = @intCast(now(init.io) - start) });
+        guard +%= @sizeOf(Candidate);
         debugger.deinit();
-        if (m.cpu.retired != 10000 or m.cpu.trap != null) return error.DebuggerBenchmarkMismatch;
+
+        if (m.cpu.retired != 30000 or m.cpu.trap != null) return error.DebuggerBenchmarkMismatch;
         start = now(init.io);
         for (0..1000) |_| {
             const data = try n.snapshot.encode(std.heap.smp_allocator, m);
@@ -124,7 +140,7 @@ pub fn main(init: std.process.Init) !void {
     }
     var out: std.Io.Writer.Allocating = .init(a);
     defer out.deinit();
-    try std.json.Stringify.value(.{ .schema_version = @as(u16, 1), .zig_version = "0.17.1", .optimization = @tagName(builtin.mode), .os = @tagName(builtin.os.tag), .arch = @tagName(builtin.cpu.arch), .cpu_model = builtin.cpu.model.name, .guard = guard, .samples = results.items }, .{}, &out.writer);
+    try std.json.Stringify.value(.{ .schema_version = @as(u16, 1), .zig_version = "0.17.1", .optimization = @tagName(builtin.mode), .os = @tagName(builtin.os.tag), .arch = @tagName(builtin.cpu.arch), .cpu_model = builtin.cpu.model.name, .guard = guard, .history_full_bytes_32 = @sizeOf(n.Machine) * 32, .samples = results.items }, .{}, &out.writer);
     try out.writer.writeByte('\n');
     try std.Io.File.stdout().writeStreamingAll(init.io, out.written());
 }

@@ -88,7 +88,9 @@ pub const Debugger = struct {
             try self.status(out);
         } else if (eq(cmd, "input")) {
             try arity(count, 1);
-            self.machine.bus.input.inject(@intCast(try number(tokens[0], 255)));
+            const mask: u8 = @intCast(try number(tokens[0], 255));
+            self.recorder.capture(self.machine);
+            self.machine.bus.input.inject(mask);
         } else if (eq(cmd, "devices")) {
             try arity(count, 0);
             const b = &self.machine.bus;
@@ -106,6 +108,7 @@ pub const Debugger = struct {
                     running = false;
                     break;
                 };
+                self.recorder.capture(self.machine);
                 self.machine.bus.frame +%= 1;
                 self.machine.bus.vblank = true;
                 if (!running) break;
@@ -377,4 +380,73 @@ test "source commands reporting and malformed source locations have bounded beha
     _ = try d.command("loadsnap state.n16s", &out.writer);
     _ = try d.command("quit", &out.writer);
     try std.testing.expect(std.mem.indexOf(u8, out.written(), "main.asm:3:1") != null);
+}
+
+test "undo captures input and exact frame-boundary state" {
+    const a = std.testing.allocator;
+    var diag: asm16.Diagnostic = .{};
+    const rom = try asm16.assemble(a, "loop: LDI R0, 0xd801\nLDB R1, [R0]\nLDI R2, 0xc000\nSTB R1, [R2]\nJMP loop", &diag);
+    defer rom.deinit();
+    var m: Machine = .{};
+    try m.load(rom.image);
+    var d: Debugger = .{ .machine = &m, .recorder = .{ .allocator = a } };
+    defer d.deinit();
+    var out: std.Io.Writer.Allocating = .init(a);
+    defer out.deinit();
+    _ = try d.command("history 32", &out.writer);
+    _ = try d.command("input 16", &out.writer);
+    _ = try d.command("reverse", &out.writer);
+    try std.testing.expectEqual(0, m.bus.input.held);
+    try std.testing.expectEqual(0, m.bus.input.pressed);
+    _ = try d.command("input 32", &out.writer);
+    _ = try d.command("frame", &out.writer);
+    try std.testing.expectEqual(1, m.bus.frame);
+    const after = m;
+    _ = try d.command("reverse", &out.writer);
+    try std.testing.expectEqual(0, m.bus.frame);
+    try std.testing.expect(!m.bus.vblank);
+    try std.testing.expectEqual(after.cpu.retired, m.cpu.retired);
+    try std.testing.expectEqualSlices(u8, &after.bus.bytes, &m.bus.bytes);
+    // Reapply the boundary, then compare deterministic serialized state.
+    m.bus.frame +%= 1;
+    m.bus.vblank = true;
+    const snapshot = @import("../core/snapshot.zig");
+    const expected = try snapshot.encode(a, &after);
+    defer a.free(expected);
+    const actual = try snapshot.encode(a, &m);
+    defer a.free(actual);
+    try std.testing.expectEqualSlices(u8, expected, actual);
+}
+
+test "reverse restores RAM stack VRAM palette read-clear latches and traps" {
+    const a = std.testing.allocator;
+    var diagnostic: asm16.Diagnostic = .{};
+    const rom = try asm16.assemble(a, "LDI R0, 0x1234\nPUSH R0\nLDI R1, 0x100\nSTW R0, [R1]\nLDI R1, 0xc000\nSTW R0, [R1]\nLDI R1, 0xd820\nSTB R0, [R1]\nLDI R1, 0xd801\nLDB R0, [R1]\nLDI R1, 0xd804\nLDB R0, [R1]\nPOP R0\nLDI R1, 0xd900\nLDB R0, [R1]", &diagnostic);
+    defer rom.deinit();
+    var m: Machine = .{};
+    try m.load(rom.image);
+    m.bus.input.inject(48);
+    m.bus.vblank = true;
+    var recorder: @import("history.zig").Recorder = .{ .allocator = a };
+    defer recorder.deinit();
+    try recorder.configure(32);
+    const snapshot = @import("../core/snapshot.zig");
+    for (0..15) |_| {
+        const before = try snapshot.encode(a, &m);
+        defer a.free(before);
+        recorder.step(&m);
+        const after = m;
+        try recorder.reverse(&m);
+        const restored = try snapshot.encode(a, &m);
+        defer a.free(restored);
+        try std.testing.expectEqualSlices(u8, before, restored);
+        // Replay the instruction and verify the exact resulting persistent state.
+        recorder.step(&m);
+        const expected = try snapshot.encode(a, &after);
+        defer a.free(expected);
+        const actual = try snapshot.encode(a, &m);
+        defer a.free(actual);
+        try std.testing.expectEqualSlices(u8, expected, actual);
+    }
+    try std.testing.expect(m.cpu.trap != null);
 }

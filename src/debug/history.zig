@@ -28,13 +28,17 @@ pub const Recorder = struct {
         self.trace_count = 0;
         self.trace_next = 0;
     }
-    pub fn step(self: *Recorder, m: *Machine) void {
-        if (m.cpu.halted or m.cpu.paused or m.cpu.trap != null) return;
+    /// Record an external device transition in the same exact-state undo ring.
+    pub fn capture(self: *Recorder, m: *const Machine) void {
         if (self.undo) |u| {
             u[self.undo_next] = m.*;
             self.undo_next = (self.undo_next + 1) % u.len;
             self.undo_count = @min(self.undo_count + 1, u.len);
         }
+    }
+    pub fn step(self: *Recorder, m: *Machine) void {
+        if (m.cpu.halted or m.cpu.paused or m.cpu.trap != null) return;
+        self.capture(m);
         const before = m.cpu;
         const pc: usize = before.pc;
         const word: u16 = if (pc <= 65534) @as(u16, m.bus.bytes[pc]) | (@as(u16, m.bus.bytes[pc + 1]) << 8) else 0;
