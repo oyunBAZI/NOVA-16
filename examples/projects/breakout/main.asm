@@ -1,0 +1,5 @@
+.include "constants.asm"
+.include "entry.asm"
+.include "game.asm"
+.include "graphics.asm"
+.include "font.asm"

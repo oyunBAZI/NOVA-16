@@ -31,8 +31,8 @@ then 2. Never execute VRAM/MMIO. Words must be even-aligned.
 MMIO D800 is held buttons; D801 is latched presses and clears on read.
 D802/D803 give the frame counter; D805 acknowledges vblank on read. Palette
 RGB bytes start at D820, and D804 controls video enable. `memory-map.md` lists
-all valid addresses; other device accesses trap. Input bits: Left=1, Right=2,
-Up=4, Down=8, A=16, B=32, Start=64, Select=128. GUI arrows/Z/X/Enter map to these.
+all valid addresses; other device accesses trap. Input bits: Up=1, Down=2,
+Left=4, Right=8, A=16, B=32, Start=64, Select=128. GUI arrows/Z/X/Enter map to these.
 A host frame provides at most 20,000 instructions; use a frame counter wait for
 stable animation. Host timers only pace graphical presentation.
 
@@ -65,7 +65,7 @@ Test schema 1 accepts rom, frames (0–10000), optional input schedule path,
 register-index/value checks, halted and ppm_sha256. Paths are relative to the
 test file. Failure exits nonzero; success emits report JSON schema 1 with actual
 State JSON V1 and framebuffer hash. Add an expected hash after reviewing output.
-For a replay, save `0 2`, `20 0` on separate lines in a schedule (hold Right
+For a replay, save `0 8`, `20 0` on separate lines in a schedule (hold Right
 from frame 0 through 19). Pass `--input schedule.txt` to nova16, or add the
 relative `input` field to a test. Identical ROM/input/frame caps reproduce output.
 

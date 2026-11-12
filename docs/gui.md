@@ -38,3 +38,12 @@ checked by the C compiler; no SDL_Event byte offsets are handwritten in Zig.
 A readback regression caught that SDL clips ReadPixels to the logical viewport.
 The verifier now temporarily reads the complete physical target before restoring
 logical sizing, so letterbox bytes are actually measured, not assumed zero.
+
+v0.3 uses SDL's software renderer with an explicit physical-pixel destination
+rectangle. At this small resolution it provides portable exact nearest-neighbor
+scaling without GPU-driver readback differences. Black letterbox dimensions use
+the same integer geometry as the framebuffer verifier. A local OpenGL backend
+showed stale drawable readback during window resize; it is no longer selected
+by default. Actual software-renderer resize and all-pixel verification are
+required on each native platform. The window-resize test waits 50ms for host
+window-manager processing; this wait never advances guest state.

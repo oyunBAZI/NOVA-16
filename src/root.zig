@@ -59,3 +59,7 @@ pub const project = @import("asm/project.zig");
 test {
     _ = project;
 }
+
+test {
+    _ = @import("breakout_tests.zig");
+}

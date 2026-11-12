@@ -1,0 +1,69 @@
+; Original 3x5 bitmap font; rows are three low bits.
+font_data:
+.byte 0, 0, 0, 0, 0 ;  
+.byte 0, 0, 0, 0, 0 ; !
+.byte 0, 0, 0, 0, 0 ; "
+.byte 0, 0, 0, 0, 0 ; #
+.byte 0, 0, 0, 0, 0 ; $
+.byte 0, 0, 0, 0, 0 ; %
+.byte 0, 0, 0, 0, 0 ; &
+.byte 0, 0, 0, 0, 0 ; '
+.byte 0, 0, 0, 0, 0 ; (
+.byte 0, 0, 0, 0, 0 ; )
+.byte 0, 0, 0, 0, 0 ; *
+.byte 0, 0, 0, 0, 0 ; +
+.byte 0, 0, 0, 0, 0 ; ,
+.byte 0, 0, 0, 0, 0 ; -
+.byte 0, 0, 0, 0, 0 ; .
+.byte 0, 0, 0, 0, 0 ; /
+.byte 7, 5, 5, 5, 7 ; 0
+.byte 2, 6, 2, 2, 7 ; 1
+.byte 6, 1, 2, 4, 7 ; 2
+.byte 6, 1, 2, 1, 6 ; 3
+.byte 5, 5, 7, 1, 1 ; 4
+.byte 7, 4, 6, 1, 6 ; 5
+.byte 3, 4, 7, 5, 7 ; 6
+.byte 7, 1, 2, 2, 2 ; 7
+.byte 7, 5, 7, 5, 7 ; 8
+.byte 7, 5, 7, 1, 6 ; 9
+.byte 0, 0, 0, 0, 0 ; :
+.byte 0, 0, 0, 0, 0 ; ;
+.byte 0, 0, 0, 0, 0 ; <
+.byte 0, 0, 0, 0, 0 ; =
+.byte 0, 0, 0, 0, 0 ; >
+.byte 0, 0, 0, 0, 0 ; ?
+.byte 0, 0, 0, 0, 0 ; @
+.byte 2, 5, 7, 5, 5 ; A
+.byte 6, 5, 6, 5, 6 ; B
+.byte 3, 4, 4, 4, 3 ; C
+.byte 6, 5, 5, 5, 6 ; D
+.byte 7, 4, 6, 4, 7 ; E
+.byte 7, 4, 6, 4, 4 ; F
+.byte 3, 4, 5, 5, 3 ; G
+.byte 5, 5, 7, 5, 5 ; H
+.byte 7, 2, 2, 2, 7 ; I
+.byte 1, 1, 1, 5, 2 ; J
+.byte 5, 5, 6, 5, 5 ; K
+.byte 4, 4, 4, 4, 7 ; L
+.byte 5, 7, 7, 5, 5 ; M
+.byte 5, 7, 7, 7, 5 ; N
+.byte 2, 5, 5, 5, 2 ; O
+.byte 6, 5, 6, 4, 4 ; P
+.byte 2, 5, 5, 7, 3 ; Q
+.byte 6, 5, 6, 5, 5 ; R
+.byte 3, 4, 2, 1, 6 ; S
+.byte 7, 2, 2, 2, 2 ; T
+.byte 5, 5, 5, 5, 7 ; U
+.byte 5, 5, 5, 5, 2 ; V
+.byte 5, 5, 7, 7, 5 ; W
+.byte 5, 5, 2, 5, 5 ; X
+.byte 5, 5, 2, 2, 2 ; Y
+.byte 7, 1, 2, 4, 7 ; Z
+title_text: .ascii "NOVA BREAKOUT\0"
+subtitle_text: .ascii "24 BRICKS\0"
+start_text: .ascii "PRESS ENTER\0"
+score_text: .ascii "SCORE\0"
+lives_text: .ascii "LIFE\0"
+lost_text: .ascii "GAME OVER\0"
+won_text: .ascii "VICTORY\0"
+.align 2

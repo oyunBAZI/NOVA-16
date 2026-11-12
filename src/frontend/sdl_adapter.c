@@ -39,7 +39,7 @@ N16Host *n16_sdl_open(int scale) {
         SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!host->window) goto fail;
     SDL_SetWindowMinimumSize(host->window, 128, 96);
-    host->renderer = SDL_CreateRenderer(host->window, -1, 0);
+    host->renderer = SDL_CreateRenderer(host->window, -1, SDL_RENDERER_SOFTWARE);
     if (!host->renderer) goto fail;
     if (SDL_RenderSetLogicalSize(host->renderer, 128, 96) < 0 ||
         SDL_RenderSetIntegerScale(host->renderer, SDL_TRUE) < 0) goto fail;
@@ -89,12 +89,7 @@ static int verify_pixels(N16Host *host, const uint8_t *pixels) {
     size_t size = (size_t)width * (size_t)height * 3;
     uint8_t *actual = malloc(size);
     if (!actual) return SDL_SetError("readback allocation failed");
-    /* ReadPixels is clipped to the current viewport. Temporarily expose the
-       full target so letterbox bytes are read too, then restore logical size. */
-    int result = SDL_RenderSetLogicalSize(host->renderer, 0, 0);
-    if (result == 0)
-        result = SDL_RenderReadPixels(host->renderer, &(SDL_Rect){0, 0, width, height}, SDL_PIXELFORMAT_RGB24, actual, width * 3);
-    if (SDL_RenderSetLogicalSize(host->renderer, 128, 96) < 0) result = -1;
+    int result = SDL_RenderReadPixels(host->renderer, &(SDL_Rect){0, 0, width, height}, SDL_PIXELFORMAT_RGB24, actual, width * 3);
     int scale = width / 128 < height / 96 ? width / 128 : height / 96;
     int left = (width - 128 * scale) / 2, top = (height - 96 * scale) / 2;
     for (int y = 0; result == 0 && y < height; ++y) {
@@ -111,9 +106,17 @@ static int verify_pixels(N16Host *host, const uint8_t *pixels) {
     free(actual); return result;
 }
 int n16_sdl_present(N16Host *host, const uint8_t *pixels, int verify) {
-    if (SDL_UpdateTexture(host->texture, NULL, pixels, 128 * 3) < 0 ||
+    int width, height;
+    if (SDL_GetRendererOutputSize(host->renderer, &width, &height) < 0) return -1;
+    int scale = width / 128 < height / 96 ? width / 128 : height / 96;
+    if (scale < 1) scale = 1;
+    SDL_Rect destination = {(width - 128 * scale) / 2, (height - 96 * scale) / 2, 128 * scale, 96 * scale};
+    if (SDL_RenderSetLogicalSize(host->renderer, 0, 0) < 0 ||
+        SDL_RenderSetViewport(host->renderer, NULL) < 0 ||
+        SDL_RenderSetScale(host->renderer, 1, 1) < 0 ||
+        SDL_UpdateTexture(host->texture, NULL, pixels, 128 * 3) < 0 ||
         SDL_RenderClear(host->renderer) < 0 ||
-        SDL_RenderCopy(host->renderer, host->texture, NULL, NULL) < 0) return -1;
+        SDL_RenderCopy(host->renderer, host->texture, NULL, &destination) < 0) return -1;
     if (verify && verify_pixels(host, pixels) < 0) return -1;
     SDL_RenderPresent(host->renderer); return 0;
 }
@@ -141,5 +144,9 @@ int n16_sdl_test_event(N16Host *host, int key, int up) {
     return SDL_PushEvent(&event) == 1 ? 0 : -1;
 }
 void n16_sdl_resize(N16Host *host, int width, int height) {
-    SDL_SetWindowSize(host->window, width, height); SDL_PumpEvents();
+    SDL_SetWindowSize(host->window, width, height);
+    /* A real window-manager resize is asynchronous on X11/Wayland/macOS.
+       This test helper waits for host presentation; guest time never advances. */
+    SDL_Delay(50);
+    SDL_PumpEvents();
 }

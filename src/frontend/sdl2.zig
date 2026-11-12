@@ -67,7 +67,7 @@ pub fn selfTest(a: std.mem.Allocator) !void {
     const examples = @import("examples");
     const assembler = @import("../asm/assembler.zig");
     var pixels: [128 * 96 * 3]u8 = undefined;
-    for ([_][]const u8{ examples.splash, examples.bouncing, examples.paint }) |source| {
+    for ([_][]const u8{ examples.splash, examples.bouncing, examples.paint, examples.breakout }) |source| {
         var diagnostic: assembler.Diagnostic = .{};
         const result = try assembler.assemble(a, source, &diagnostic);
         defer result.deinit();
@@ -102,6 +102,25 @@ pub fn selfTest(a: std.mem.Allocator) !void {
     if (m.cpu.r[0] != 65 or m.cpu.r[6] != 0xf0) return error.GuestPaintInput;
     try check(n16_sdl_test_event(host, 3, 1));
     try check(n16_sdl_test_event(host, 4, 1));
+    n16_sdl_poll(host, &input);
+    video.render(m.bus.bytes[0xc000..0xd800], &m.bus.palette, m.bus.enabled, &pixels);
+    try check(n16_sdl_present(host, &pixels, 1));
+    const game = try assembler.assemble(a, examples.breakout, &diagnostic);
+    defer game.deinit();
+    try m.load(game.image);
+    for (0..5) |_| m.frame(0, 10_000_000);
+    try check(n16_sdl_test_event(host, 6, 0)); // Enter / Start.
+    n16_sdl_poll(host, &input);
+    m.frame(@intCast(input.held), 10_000_000);
+    try check(n16_sdl_test_event(host, 6, 1));
+    n16_sdl_poll(host, &input);
+    for (0..4) |_| m.frame(@intCast(input.held), 10_000_000);
+    const old_paddle = try m.bus.read16(0x102);
+    try check(n16_sdl_test_event(host, 3, 0)); // Right arrow.
+    n16_sdl_poll(host, &input);
+    m.frame(@intCast(input.held), 10_000_000);
+    if (try m.bus.read16(0x100) != 1 or try m.bus.read16(0x102) != old_paddle + 1) return error.GuestBreakoutInput;
+    try check(n16_sdl_test_event(host, 3, 1));
     n16_sdl_poll(host, &input);
     video.render(m.bus.bytes[0xc000..0xd800], &m.bus.palette, m.bus.enabled, &pixels);
     try check(n16_sdl_present(host, &pixels, 1));

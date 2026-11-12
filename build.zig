@@ -62,6 +62,17 @@ pub fn build(b: *std.Build) void {
         b.getInstallStep().dependOn(&install.step);
         b.getInstallStep().dependOn(&install_symbols.step);
     }
+    const game = b.addRunArtifact(host_assembler);
+    game.addFileArg(b.path("examples/projects/breakout/main.asm"));
+    inline for (.{ "constants", "entry", "game", "graphics", "font" }) |part| game.addFileInput(b.path("examples/projects/breakout/" ++ part ++ ".asm"));
+    game.addArg("--out");
+    const game_rom = game.addOutputFileArg("breakout.n16");
+    game.addArg("--debug-symbols");
+    const game_map = game.addOutputFileArg("breakout.sym2");
+    inline for (.{ b.addInstallFile(game_rom, "demos/breakout.n16"), b.addInstallFile(game_map, "demos/breakout.sym2") }) |file| {
+        demos.dependOn(&file.step);
+        b.getInstallStep().dependOn(&file.step);
+    }
     // `test` always executes native host tests. Native OS CI validates each target.
     const unit = b.addTest(.{ .root_module = host_core });
     b.step("test", "Run native build-host automated tests").dependOn(&b.addRunArtifact(unit).step);
