@@ -42,3 +42,7 @@ test {
 test {
     _ = @import("sequence_tests.zig");
 }
+pub const symbol_map = @import("debug/symbols.zig");
+test {
+    _ = symbol_map;
+}

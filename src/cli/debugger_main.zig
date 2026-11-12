@@ -13,20 +13,14 @@ fn run(init: std.process.Init) !void {
     const data = try std.Io.Dir.cwd().readFileAlloc(init.io, args[1], a, .limited(8225));
     var m: n.Machine = .{};
     try m.load(data);
-    var symbols: std.ArrayList(n.assembler.Symbol) = .empty;
     const symbol_path = if (args.len == 4 and std.mem.eql(u8, args[2], "--symbols")) args[3] else if (args.len == 2) try std.fmt.allocPrint(a, "{s}.sym", .{args[1][0..(if (std.mem.endsWith(u8, args[1], ".n16")) args[1].len - 4 else args[1].len)]}) else return error.BadArguments;
     const symtext = std.Io.Dir.cwd().readFileAlloc(init.io, symbol_path, a, .limited(1024 * 1024)) catch |err| switch (err) {
         error.FileNotFound => "",
         else => return err,
     };
-    var lines = std.mem.splitScalar(u8, symtext, '\n');
-    while (lines.next()) |line| {
-        var words = std.mem.tokenizeAny(u8, line, " \t\r");
-        const addr = words.next() orelse continue;
-        const name = words.next() orelse return error.BadSymbolMap;
-        try symbols.append(a, .{ .name = name, .value = try std.fmt.parseInt(i64, addr, 16) });
-    }
-    var d: n.Debugger = .{ .machine = &m, .symbols = symbols.items };
+    const symbols = try n.symbol_map.load(a, symtext, m.checksum);
+    defer symbols.deinit();
+    var d: n.Debugger = .{ .machine = &m, .symbols = symbols.symbols };
     try std.Io.File.stdout().writeStreamingAll(init.io, "NOVA-16 debugger; help lists commands. Addresses use 0x hexadecimal.\n");
     var line: std.ArrayList(u8) = .empty;
     while (true) {

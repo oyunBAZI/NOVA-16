@@ -4,19 +4,25 @@ const parser = @import("parser.zig");
 const enc = @import("encoder.zig");
 const isa = @import("../arch/isa.zig");
 const rom = @import("../rom/format.zig");
-pub const Diagnostic = struct { line: usize = 1, column: usize = 1, token: []const u8 = "", reason: []const u8 = "" };
+pub const Diagnostic = @import("diagnostic.zig").Diagnostic;
+pub const Location = struct { address: u32, length: usize, line: usize, column: usize, source: []const u8 };
 pub const Symbol = struct { name: []const u8, value: i64 };
 pub const Result = struct {
     image: []u8,
     symbols: []Symbol,
+    locations: []Location,
     allocator: std.mem.Allocator,
     pub fn deinit(self: Result) void {
         self.allocator.free(self.image);
         self.allocator.free(self.symbols);
+        self.allocator.free(self.locations);
     }
 };
 const Assembly = struct {
     a: std.mem.Allocator,
+    source: []const u8,
+    diag: *Diagnostic,
+    locations: std.ArrayList(Location) = .empty,
     symbols: std.ArrayList(Symbol) = .empty,
     pending: std.ArrayList(struct { name: []const u8, expression: []const u8, line: usize }) = .empty,
     line_number: usize = 1,
@@ -28,11 +34,13 @@ const Assembly = struct {
     pass: u1 = 0,
     fn value(self: *Assembly, text: []const u8) !i64 {
         const s = lex.trim(text);
+        self.diag.focus(self.source, s);
         if (s.len == 0) return error.ExpectedExpression;
         // Only one +/- numeric suffix is permitted, never arbitrary code.
         for (s[1..], 1..) |c, k| {
             if (c == '+' or c == '-') {
                 const base = try self.atom(lex.trim(s[0..k]));
+                self.diag.focus(self.source, s);
                 const delta = try number(lex.trim(s[k + 1 ..]));
                 if (delta < 0) return error.ExpectedExpression;
                 return if (c == '+') std.math.add(i64, base, delta) catch return error.Width else std.math.sub(i64, base, delta) catch return error.Width;
@@ -41,16 +49,38 @@ const Assembly = struct {
         return self.atom(s);
     }
     fn atom(self: *Assembly, s: []const u8) !i64 {
+        self.diag.focus(self.source, s);
         if (s.len == 0) return error.ExpectedExpression;
         if (std.ascii.isDigit(s[0]) or s[0] == '-' or s[0] == '+') return number(s);
         for (self.symbols.items) |sym| if (std.mem.eql(u8, s, sym.name)) return sym.value;
         return error.UndefinedSymbol;
     }
     fn symbol(self: *Assembly, name: []const u8, v: i64) !void {
+        self.diag.focus(self.source, name);
         if (!lex.identifier(name)) return error.InvalidSymbol;
         for (self.symbols.items) |sym| if (std.mem.eql(u8, name, sym.name)) return error.DuplicateSymbol;
         for (self.pending.items) |sym| if (std.mem.eql(u8, name, sym.name)) return error.DuplicateSymbol;
         try self.symbols.append(self.a, .{ .name = name, .value = v });
+    }
+    fn unresolved(self: *Assembly) anyerror {
+        var expression = self.pending.items[0].expression;
+        for (0..self.pending.items.len + 1) |_| {
+            self.diag.focus(self.source, expression);
+            var end = expression.len;
+            for (expression[1..], 1..) |c, k| if (c == '+' or c == '-') {
+                end = k;
+                break;
+            };
+            const name = lex.trim(expression[0..end]);
+            var next: ?[]const u8 = null;
+            for (self.pending.items) |p| if (std.mem.eql(u8, p.name, name)) {
+                next = p.expression;
+                break;
+            };
+            expression = next orelse return error.UndefinedSymbol;
+        }
+        self.diag.focus(self.source, self.pending.items[0].expression);
+        return error.CyclicConstant;
     }
     fn emit(self: *Assembly, b: u8) !void {
         if (self.pc >= 65536) return error.RomOverflow;
@@ -96,11 +126,16 @@ const Assembly = struct {
             try self.emit(c);
         }
     }
+    fn register(self: *Assembly, s: []const u8) !u16 {
+        self.diag.focus(self.source, s);
+        return enc.reg(s);
+    }
     fn line(self: *Assembly, l: parser.Line) !void {
         if (l.label) |label| if (self.pass == 0) {
             try self.symbol(label, @intCast(self.pc));
         };
         if (l.name.len == 0) return;
+        self.diag.focus(self.source, l.args);
         const p = try lex.operands(l.args);
         const n = l.name;
         if (n[0] == '.') {
@@ -152,6 +187,7 @@ const Assembly = struct {
         }
         if (self.pc & 1 != 0) return error.UnalignedInstruction;
         if (self.first == null) self.first = self.pc;
+        self.diag.focus(self.source, n);
         const op = try enc.lookup(n);
         const inst_pc = self.pc;
         if (self.pass == 0) {
@@ -167,24 +203,24 @@ const Assembly = struct {
             },
             .rr => {
                 try count(p, 2);
-                w = (op.index << 12) | (try enc.reg(p.items[0]) << 9) | (try enc.reg(p.items[1]) << 6);
+                w = (op.index << 12) | (try self.register(p.items[0]) << 9) | (try self.register(p.items[1]) << 6);
             },
             .immediate => {
                 try count(p, 2);
-                w = 0x2000 | (try enc.reg(p.items[0]) << 9);
+                w = 0x2000 | (try self.register(p.items[0]) << 9);
                 imm = try self.immediate(p.items[1]);
             },
             .extended => {
                 try count(p, 2);
-                w = 0xf000 | (op.index << 8) | (try enc.reg(p.items[0]) << 5) | (try enc.reg(p.items[1]) << 2);
+                w = 0xf000 | (op.index << 8) | (try self.register(p.items[0]) << 5) | (try self.register(p.items[1]) << 2);
             },
             .unary => {
                 try count(p, 1);
-                w = 0xf000 | (op.index << 8) | (try enc.reg(p.items[0]) << 5);
+                w = 0xf000 | (op.index << 8) | (try self.register(p.items[0]) << 5);
             },
             .ext_imm => {
                 try count(p, 2);
-                w = 0xf000 | (op.index << 8) | (try enc.reg(p.items[0]) << 5);
+                w = 0xf000 | (op.index << 8) | (try self.register(p.items[0]) << 5);
                 imm = try self.immediate(p.items[1]);
             },
             .absolute => {
@@ -195,7 +231,7 @@ const Assembly = struct {
             },
             .reg => {
                 try count(p, 1);
-                w = 0xe000 | (op.index << 8) | (try enc.reg(p.items[0]) << 5);
+                w = 0xe000 | (op.index << 8) | (try self.register(p.items[0]) << 5);
             },
             .branch => {
                 try count(p, 1);
@@ -212,7 +248,7 @@ const Assembly = struct {
                 if (mem.len < 4 or mem[0] != '[' or mem[mem.len - 1] != ']') return error.ExpectedMemory;
                 const inner = lex.trim(mem[1 .. mem.len - 1]);
                 if (inner.len < 2) return error.ExpectedMemory;
-                const base = try enc.reg(inner[0..2]);
+                const base = try self.register(inner[0..2]);
                 const suffix = lex.trim(inner[2..]);
                 var off: i64 = 0;
                 if (suffix.len != 0) {
@@ -222,7 +258,7 @@ const Assembly = struct {
                 }
                 if (off < -32 or off > 31) return error.DisplacementRange;
                 const disp: i6 = @intCast(off);
-                w = (op.index << 12) | (try enc.reg(p.items[0]) << 9) | (base << 6) | @as(u6, @bitCast(disp));
+                w = (op.index << 12) | (try self.register(p.items[0]) << 9) | (base << 6) | @as(u6, @bitCast(disp));
             },
         }
         _ = try isa.decode(w);
@@ -234,10 +270,16 @@ fn number(s: []const u8) !i64 {
     return std.fmt.parseInt(i64, s, 0) catch return error.InvalidNumber;
 }
 pub fn assemble(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Result {
-    errdefer if (diag.reason.len == 0) {
-        diag.reason = "invalid entry or image layout";
+    return assembleInner(a, source, diag) catch |err| {
+        diag.explain(err);
+        return err;
     };
-    var state: Assembly = .{ .a = a };
+}
+fn assembleInner(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Result {
+    diag.* = .{};
+    if (source.len > 1024 * 1024) return error.SourceTooLarge;
+    var state: Assembly = .{ .a = a, .source = source, .diag = diag };
+    defer state.locations.deinit(a);
     defer state.symbols.deinit(a);
     defer state.pending.deinit(a);
     for (0..2) |pass| {
@@ -250,15 +292,18 @@ pub fn assemble(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Re
         while (lines.next()) |text| {
             line_no += 1;
             state.line_number = line_no;
-            diag.* = .{ .line = line_no, .token = lex.code(text) };
+            diag.focus(source, lex.code(text));
             const line = parser.parse(text) catch |err| {
                 diag.reason = @errorName(err);
                 return err;
             };
-            state.line(line) catch |err| {
-                diag.reason = @errorName(err);
-                return err;
-            };
+            const before = state.pc;
+            state.line(line) catch |err| return err;
+            if (pass == 1 and state.pc > before) {
+                var span: Diagnostic = .{};
+                span.focus(source, lex.code(text));
+                try state.locations.append(a, .{ .address = @intCast(before), .length = state.pc - before, .line = span.line, .column = span.column, .source = lex.code(text) });
+            }
         }
         if (pass == 0) {
             while (state.pending.items.len > 0) {
@@ -278,8 +323,7 @@ pub fn assemble(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Re
                     progress = true;
                 }
                 if (!progress) {
-                    diag.* = .{ .line = state.pending.items[0].line, .token = state.pending.items[0].expression, .reason = "UndefinedOrCyclicConstant" };
-                    return error.UndefinedOrCyclicConstant;
+                    return state.unresolved();
                 }
             }
         }
@@ -288,7 +332,9 @@ pub fn assemble(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Re
     if (entry < 0xe000 or entry >= 0xe000 + state.length or @mod(entry, 2) != 0) return error.BadEntry;
     const image = try rom.pack(a, state.bytes[0..state.length], @intCast(entry - 0xe000));
     errdefer a.free(image);
-    return .{ .image = image, .symbols = try a.dupe(Symbol, state.symbols.items), .allocator = a };
+    const symbols = try a.dupe(Symbol, state.symbols.items);
+    errdefer a.free(symbols);
+    return .{ .image = image, .symbols = symbols, .locations = try state.locations.toOwnedSlice(a), .allocator = a };
 }
 test "golden bytes forward labels and deterministic output" {
     const a = std.testing.allocator;
@@ -322,6 +368,46 @@ test "forward constants depend on forward labels or constants and cycles reject"
     const r = try assemble(a, ".equ here, later - 2\n.equ next, end + 2\n.equ end, 0xe000\nLDI R0, here\nlater: HALT", &d);
     defer r.deinit();
     try std.testing.expectEqual(0xe002, std.mem.readInt(u16, r.image[34..36], .little));
-    try std.testing.expectError(error.UndefinedOrCyclicConstant, assemble(a, ".equ a, b\n.equ b, a\nHALT", &d));
+    try std.testing.expectError(error.CyclicConstant, assemble(a, ".equ a, b\n.equ b, a\nHALT", &d));
     try std.testing.expectEqual(1, d.line);
+}
+test "diagnostics point to actual entry expression and invalid operand spans" {
+    const a = std.testing.allocator;
+    var d: Diagnostic = .{};
+    try std.testing.expectError(error.UndefinedSymbol, assemble(a, "  .entry missing\nHALT\n", &d));
+    try std.testing.expectEqual(1, d.line);
+    try std.testing.expectEqual(10, d.column);
+    try std.testing.expectEqualStrings("missing", d.token);
+    try std.testing.expectEqualStrings("UndefinedSymbol", d.code);
+    try std.testing.expectError(error.ExpectedRegister, assemble(a, "  LDI R8, 2", &d));
+    try std.testing.expectEqual(7, d.column);
+    try std.testing.expectEqual(2, d.length);
+    try std.testing.expectError(error.Width, assemble(a, "LDI R0, 9223372036854775807 + 1", &d));
+    try std.testing.expectEqual(9, d.column);
+}
+pub fn writeListing(w: *std.Io.Writer, result: Result) !void {
+    for (result.locations) |loc| {
+        var offset: usize = 0;
+        while (offset < loc.length) : (offset += 8) {
+            const size = @min(8, loc.length - offset);
+            const payload_offset = loc.address - 0xe000 + offset;
+            try w.print("{x:0>4}: ", .{loc.address + offset});
+            for (0..8) |k| {
+                if (k < size) try w.print("{x:0>2} ", .{result.image[32 + payload_offset + k]}) else try w.writeAll("   ");
+            }
+            if (offset == 0) try w.print("{d}:{d} {s}", .{ loc.line, loc.column, loc.source });
+            try w.writeByte('\n');
+        }
+    }
+}
+test "listing contains addresses bytes and original source" {
+    const a = std.testing.allocator;
+    var d: Diagnostic = .{};
+    const r = try assemble(a, "  LDI R1, 0x1234\nHALT", &d);
+    defer r.deinit();
+    var text: std.Io.Writer.Allocating = .init(a);
+    defer text.deinit();
+    try writeListing(&text.writer, r);
+    try std.testing.expect(std.mem.indexOf(u8, text.written(), "e000: 00 22 34 12") != null);
+    try std.testing.expect(std.mem.indexOf(u8, text.written(), "1:3 LDI R1") != null);
 }

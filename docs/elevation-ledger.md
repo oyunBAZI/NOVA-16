@@ -39,3 +39,16 @@ all Zig sources. Added .gitattributes enforcing LF source checkouts (binary PNG/
 ROM exceptions). macOS 14 jobs were cancelled before execution; matrix moved to
 macOS 15. Linux native Debug/ReleaseSafe and SDL jobs passed. Native Windows/macOS
 remain pending the corrected matrix. Formatting assertions are not weakened.
+
+## Phase 3 — source-aware toolchain
+Implemented true token spans, stable diagnostic codes/explanations, entry-symbol
+location retention, distinct undefined/cyclic constant rejection, byte listings,
+JSON diagnostic schema 1, and explicit checksum-bound source/symbol JSON schema 2.
+Legacy .sym files still load; --symbols output remains unchanged. Changed asm/
+diagnostic/assembler, CLI assembler/debugger, debug/symbols, acceptance and docs.
+
+`zig build test`, `zig build`, `python3 scripts/acceptance.py` passed. Regressions
+assert missing entry at line 1 column 10, R8 at its exact column, overflowing
+expressions, listing bytes/source, source-map ROM mismatch and legacy loading.
+Exhaustive legal instruction round trips and all four golden ROMs still pass.
+No ISA, ROM or State JSON V1 format changes.

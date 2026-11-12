@@ -72,8 +72,20 @@ def main():
                        '.equ a, b\n.equ b, a\nHALT'):
             bad.write_text(source)
             p = run(BIN / 'n16asm', bad, '--out', temp / 'bad.n16', success=False)
-            assert ':1:1:' in p.stderr
-        malformed = temp / 'malformed.n16'
+            assert str(bad) + ':1:' in p.stderr
+        bad.write_text('  .entry missing\nHALT\n')
+        diagnostic = json.loads(run(BIN / 'n16asm', bad, '--out', temp / 'bad.n16',
+                                   '--diagnostics', 'json', success=False).stderr)
+        assert (diagnostic['line'], diagnostic['column'], diagnostic['token']) == (1, 10, 'missing')
+        listing, debug_map = temp / 'program.lst', temp / 'program.sym2'
+        run(BIN / 'n16asm', ROOT / 'examples/paint.asm', '--out', paint,
+            '--listing', listing, '--debug-symbols', debug_map)
+        assert 'e000:' in listing.read_text() and json.loads(debug_map.read_text())['schema_version'] == 2
+        run(BIN / 'n16dbg', paint, '--symbols', debug_map, stdin='quit\n')
+        wrong_map = json.loads(debug_map.read_text()); wrong_map['rom_checksum'] ^= 1
+        debug_map.write_text(json.dumps(wrong_map))
+        run(BIN / 'n16dbg', paint, '--symbols', debug_map, stdin='quit\n', success=False)
+        malformed = temp / 'malformed.n16' 
         valid = (temp / 'boot_splash.n16').read_bytes()
         for content in (b'', valid[:31], b'BAD!' + valid[4:], valid + b'\0', valid[:-1]):
             malformed.write_bytes(content)
