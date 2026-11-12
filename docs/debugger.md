@@ -45,3 +45,32 @@ as the V1 frame contract specifies. Resuming starts a new frame. Reverse restore
 pre-instruction machine state, including device latches, and undoes a completed
 frame counter if the reversed instruction was its last instruction. It does not
 undo host breakpoint settings. See snapshots.md for the byte format.
+
+## Source-oriented commands
+Load a checksum-bound JSON source map with `--symbols PROGRAM.sym2`. Then:
+
+```
+symbols
+break lib/graphics.asm:2
+continue 100
+source
+next
+mem result 2
+history 8
+step
+reverse
+```
+
+`break FILE:LINE` and `delete FILE:LINE` use exact root-relative paths in the
+verified map, selecting the first mapped, decodable executable address on that
+line. Missing/invalid locations fail explicitly; no filename guessing occurs.
+`source [ADDRESS_OR_SYMBOL]` defaults to PC. Address commands (mem, disasm,
+watch, break, source) also accept an exact case-sensitive symbol name whose
+value fits a 16-bit address. `symbols` lists the loaded namespace.
+
+`next [budget]` retires until the source file/line changes, a stop condition or
+breakpoint occurs, or the bounded instruction budget expires. It advances past
+a current breakpoint once, like `step`; it is statement stepping, not function
+step-over. Reverse is instruction-level. Traps include the saved encoding,
+disassembly, category/access/address and mapped source location. All inspection
+uses non-acknowledging reads; no host timer affects execution.

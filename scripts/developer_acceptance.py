@@ -43,7 +43,17 @@ def main():
         assert 'lib/input.asm' in {x['file'] for x in mapping['locations']}
         state = json.loads(run('nova16', 'run', p/'first.n16').stdout)
         assert state['halted'] and state['registers'][1] == 42
-        entry = p/'first/main.asm'
+        snap, restored = p/'before.n16s', p/'restored.n16s'
+        session = run('n16dbg', p/'first.n16', '--symbols', p/'first.sym2', stdin=(
+            'history 8\nbreak lib/graphics.asm:2\ncontinue 100\nregs\nsymbols\nsource\n'
+            'next\nstep\nreverse\nregs\nmem result 2\n'
+            f'savesnap {snap}\nstep\nloadsnap {snap}\nsavesnap {restored}\n'
+            'continue 100\nregs\nquit\n')).stdout
+        assert 'breakpoint before' in session and 'at lib/graphics.asm:2:' in session
+        assert 'initialize=' in session and '0100: 00 00' in session
+        assert 'R1=002a' in session and 'HALT' in session
+        assert snap.read_bytes() == restored.read_bytes()
+        entry = p/'first/main.asm' 
         for text in ('.include "main.asm"', '.include "missing.asm"',
                      '.include "../outside.asm"', '.include "/absolute.asm"'):
             entry.write_text(text)

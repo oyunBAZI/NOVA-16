@@ -30,7 +30,7 @@ pub const Debugger = struct {
         }
         if (eq(cmd, "help")) {
             try arity(count, 0);
-            try out.writeAll("help regs step [n] continue [budget] break ADDRESS delete ADDRESS\nwatch ADDRESS unwatch ADDRESS disasm ADDRESS COUNT mem ADDRESS LENGTH\nstack COUNT reset saveframe PATH savesnap PATH loadsnap PATH quit\nframe [n] input MASK devices trace [n] history [capacity] reverse source ADDRESS\n");
+            try out.writeAll("help regs step [n] continue [budget] break ADDRESS delete ADDRESS\nwatch ADDRESS unwatch ADDRESS disasm ADDRESS COUNT mem ADDRESS LENGTH\nstack COUNT reset saveframe PATH savesnap PATH loadsnap PATH quit\nframe [n] input MASK devices trace [n] history [capacity] reverse source [ADDRESS] next [budget] symbols\n");
         } else if (eq(cmd, "regs")) {
             try arity(count, 0);
             const c = &self.machine.cpu;
@@ -45,6 +45,21 @@ pub const Debugger = struct {
                 const c = &self.machine.cpu;
                 if (c.halted or c.paused or c.trap != null) break;
                 if (!try self.runOne(out, eq(cmd, "continue"))) break;
+            }
+            try self.status(out);
+        } else if (eq(cmd, "symbols")) {
+            try arity(count, 0);
+            for (self.symbols) |sym| try out.print("{s}={x}\n", .{ sym.name, sym.value });
+        } else if (eq(cmd, "next")) {
+            if (count > 1) return error.ArgumentCount;
+            const budget = if (count == 1) try number(tokens[0], 1_000_000) else 100_000;
+            const origin = self.sourceAt(self.machine.cpu.pc) orelse return error.NoSourceLocation;
+            self.machine.cpu.paused = false;
+            for (0..budget) |_| {
+                if (!try self.runOne(out, false)) break;
+                if (self.breaks[self.machine.cpu.pc / 2]) break;
+                const current = self.sourceAt(self.machine.cpu.pc) orelse break;
+                if (current.line != origin.line or !std.mem.eql(u8, current.file, origin.file)) break;
             }
             try self.status(out);
         } else if (eq(cmd, "input")) {
@@ -84,24 +99,24 @@ pub const Debugger = struct {
             try self.recorder.reverse(self.machine);
             try self.status(out);
         } else if (eq(cmd, "source")) {
-            try arity(count, 1);
-            const addr = try number(tokens[0], 65535);
+            if (count > 1) return error.ArgumentCount;
+            const addr = if (count == 0) self.machine.cpu.pc else try self.address(tokens[0]);
             for (self.sources) |loc| if (addr >= loc.address and addr - loc.address < loc.length) {
                 try out.print("{s}:{d}:{d}\n", .{ loc.file, loc.line, loc.column });
             };
         } else if (eq(cmd, "break") or eq(cmd, "delete")) {
             try arity(count, 1);
-            const addr: u16 = @intCast(try number(tokens[0], 65535));
+            const addr: u16 = try self.sourceAddress(tokens[0]);
             if (!@import("../arch/isa.zig").executable(addr)) return error.InvalidBreakpoint;
             self.breaks[addr / 2] = eq(cmd, "break");
         } else if (eq(cmd, "watch") or eq(cmd, "unwatch")) {
             try arity(count, 1);
-            const addr: u16 = @intCast(try number(tokens[0], 65535));
+            const addr: u16 = try self.address(tokens[0]);
             try Bus.validate(addr, true);
             self.watches[addr] = eq(cmd, "watch");
         } else if (eq(cmd, "mem")) {
             try arity(count, 2);
-            const addr = try number(tokens[0], 65535);
+            const addr = @as(u64, try self.address(tokens[0]));
             const len = try number(tokens[1], 4096);
             if (addr + len > 65536) return error.AddressRange;
             var k: u64 = 0;
@@ -122,7 +137,7 @@ pub const Debugger = struct {
             }
         } else if (eq(cmd, "disasm")) {
             try arity(count, 2);
-            var addr = try number(tokens[0], 65535);
+            var addr = @as(u64, try self.address(tokens[0]));
             const len = try number(tokens[1], 4096);
             if (addr & 1 != 0) return error.Unaligned;
             for (0..len) |_| {
@@ -169,6 +184,28 @@ pub const Debugger = struct {
         } else return error.UnknownCommand;
         return .none;
     }
+    fn address(self: *const Debugger, text: []const u8) !u16 {
+        for (self.symbols) |sym| if (std.mem.eql(u8, text, sym.name)) {
+            if (sym.value < 0 or sym.value > 65535) return error.AddressRange;
+            return @intCast(sym.value);
+        };
+        return @intCast(try number(text, 65535));
+    }
+    fn sourceAt(self: *const Debugger, pc: u16) ?@import("symbols.zig").Source {
+        for (self.sources) |loc| if (pc >= loc.address and pc - loc.address < loc.length) return loc;
+        return null;
+    }
+    fn sourceAddress(self: *Debugger, text: []const u8) !u16 {
+        const colon = std.mem.lastIndexOfScalar(u8, text, ':') orelse return self.address(text);
+        const line = try number(text[colon + 1 ..], 32768);
+        for (self.sources) |loc| if (std.mem.eql(u8, loc.file, text[0..colon]) and loc.line == line) {
+            const addr: u16 = @intCast(loc.address);
+            const word = try self.machine.bus.fetch(addr);
+            _ = try @import("../arch/isa.zig").decode(word);
+            return addr;
+        };
+        return error.SourceLocationNotFound;
+    }
     fn runOne(self: *Debugger, out: *std.Io.Writer, respect_break: bool) !bool {
         const c = &self.machine.cpu;
         if (c.halted or c.paused or c.trap != null) return false;
@@ -186,7 +223,17 @@ pub const Debugger = struct {
     }
     fn status(self: *Debugger, out: *std.Io.Writer) !void {
         const c = &self.machine.cpu;
-        if (c.trap) |t| try out.print("trap {s} pc={x:0>4} {s} address={d} opcode={x:0>4}\n", .{ @errorName(t.kind), t.pc, @tagName(t.access), t.address, t.instruction }) else try out.print("PC={x:0>4} {s}\n", .{ c.pc, if (c.halted) "HALT" else if (c.paused) "BRK" else "ready" });
+        if (c.trap) |t| {
+            try out.print("trap {s} pc={x:0>4} {s} address={d} opcode={x:0>4}\n", .{ @errorName(t.kind), t.pc, @tagName(t.access), t.address, t.instruction });
+            const immediate: ?u16 = if (t.pc <= 65532) blk: {
+                const lo = self.machine.bus.peek(t.pc + 2) catch break :blk null;
+                const hi = self.machine.bus.peek(t.pc + 3) catch break :blk null;
+                break :blk @as(u16, lo) | (@as(u16, hi) << 8);
+            } else null;
+            _ = try disasm.instruction(out, t.instruction, immediate, t.pc);
+            try out.writeByte('\n');
+        } else try out.print("PC={x:0>4} {s}\n", .{ c.pc, if (c.halted) "HALT" else if (c.paused) "BRK" else "ready" });
+        if (self.sourceAt(if (c.trap) |t| t.pc else c.pc)) |loc| try out.print("at {s}:{d}:{d}\n", .{ loc.file, loc.line, loc.column });
     }
 };
 fn eq(a: []const u8, b: []const u8) bool {
