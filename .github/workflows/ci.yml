@@ -31,6 +31,7 @@ jobs:
       - run: zig build v2-model-test -Doptimize=${{ matrix.mode }}
       - run: python scripts/acceptance.py
       - run: python scripts/developer_acceptance.py
+      - run: python scripts/compiler_acceptance.py
       - run: python scripts/game_acceptance.py
       - if: matrix.mode == 'ReleaseSafe'
         run: python scripts/package.py

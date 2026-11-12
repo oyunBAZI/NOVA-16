@@ -71,3 +71,8 @@ test {
 test {
     _ = @import("guest_library_tests.zig");
 }
+
+pub const compiler = @import("compiler/compiler.zig");
+test {
+    _ = @import("compiler_tests.zig");
+}

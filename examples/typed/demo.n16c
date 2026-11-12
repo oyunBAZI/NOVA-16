@@ -1,0 +1,20 @@
+struct Point { x:u16; y:u16; }
+var position:Point;
+var samples:[4]u16;
+fn sum(a:u16,b:u16)->u16 {
+    return a+b;
+}
+fn main()->u16 {
+    position.x=19;
+    position.y=23;
+    var i:u16=0;
+    while(i<4) {
+        samples[i]=i*7;
+        i=i+1;
+    }
+    clear(0);
+    color(13);
+    rect(10,10,20,12);
+    number(10,30,sum(position.x,position.y));
+    return sum(position.x,position.y);
+}

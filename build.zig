@@ -28,7 +28,7 @@ pub fn build(b: *std.Build) void {
     // Asset generators execute on the build host, never on the selected target.
     const host_core = coreModule(b, b.graph.host, optimize);
     const host_assembler = executable(b, "n16asm-build-host", "src/cli/assembler_main.zig", b.graph.host, optimize, host_core, strip);
-    inline for (.{ .{ "nova16", "src/cli/nova16_main.zig" }, .{ "n16asm", "src/cli/assembler_main.zig" }, .{ "n16dbg", "src/cli/debugger_main.zig" } }) |item| {
+    inline for (.{ .{ "nova16", "src/cli/nova16_main.zig" }, .{ "n16asm", "src/cli/assembler_main.zig" }, .{ "n16dbg", "src/cli/debugger_main.zig" }, .{ "n16c", "src/cli/compiler_main.zig" } }) |item| {
         const exe = executable(b, item[0], item[1], target, optimize, core, strip);
         exe.root_module.addOptions("options", options);
         if (gui and std.mem.eql(u8, item[0], "nova16")) {
