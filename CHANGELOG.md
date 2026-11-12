@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — compact typed programs
+- Demand-linked ABI1 library blocks and reachable typed function emission.
+- Deterministic `n16c --size-report PATH` with function/library byte accounting.
+- Original application replays and V1 ROM hashes preserved; Crates saves 844
+  payload bytes and Pixel Studio saves 788 bytes without instruction rewrites.
+- Differential full/compact library execution and pruned-local debug metadata.
+
+
 ## 0.4.0-rc.1 — Developer Platform
 - Atomic active-PC snapshot validation and checked embedding state APIs.
 - Executed ABI1, namespaced guest arithmetic/memory/graphics/input/runtime library.

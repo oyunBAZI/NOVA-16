@@ -1,0 +1,148 @@
+{
+  "host": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "zig": "0.17.1",
+  "mode": "Debug",
+  "source_before": "beccc7a7a4f59892eeed59ed9cdf80ec719db76d",
+  "samples": 10,
+  "applications": {
+    "minimal": {
+      "before": {
+        "rom_payload_bytes": 1812,
+        "sha256": "cc5837dc0dfb08f8866ed2d9c8ca6ec4a3b95c048f5ba7cd987f49932c5e6971"
+      },
+      "after": {
+        "rom_payload_bytes": 92,
+        "sha256": "1efe33de1bfaa6b0bd997f408fb0044cf86c4f4a741a4fb95abf3ba7ad903acc"
+      },
+      "saved_bytes": 1720,
+      "saved_percent": 94.92,
+      "compile_process_time": {
+        "before": {
+          "raw_ms": [
+            19.819469,
+            18.605077,
+            18.460541,
+            18.889014,
+            21.482874,
+            19.195969,
+            19.352514,
+            19.160696,
+            28.057617,
+            68.918318
+          ],
+          "median_ms": 19.274241500000002
+        },
+        "after": {
+          "raw_ms": [
+            79.154723,
+            15.311187,
+            67.098519,
+            14.536946,
+            15.179319,
+            17.712169,
+            14.832604,
+            14.917457,
+            15.898768,
+            18.298859
+          ],
+          "median_ms": 15.6049775
+        }
+      }
+    },
+    "crates": {
+      "before": {
+        "rom_payload_bytes": 7944,
+        "sha256": "a783e1dcf28b04aa4de7a88520486093df75baf0cbffe19b297da5f8576366c4"
+      },
+      "after": {
+        "rom_payload_bytes": 7100,
+        "sha256": "36d2f7efbc206826104b70b0873b6ad225ef7959e87650486f36379aa4853c2d"
+      },
+      "saved_bytes": 844,
+      "saved_percent": 10.62,
+      "compile_process_time": {
+        "before": {
+          "raw_ms": [
+            31.576896,
+            31.592669,
+            31.136836,
+            39.827012,
+            31.342434,
+            32.028533,
+            39.434553,
+            34.290446,
+            32.076245,
+            38.20257
+          ],
+          "median_ms": 32.052389000000005
+        },
+        "after": {
+          "raw_ms": [
+            35.195834,
+            38.93957,
+            36.919931,
+            38.259439,
+            39.654583,
+            38.579629,
+            36.424235,
+            47.597206,
+            43.671437,
+            45.233461
+          ],
+          "median_ms": 38.7595995
+        }
+      }
+    },
+    "pixel_studio": {
+      "before": {
+        "rom_payload_bytes": 5010,
+        "sha256": "173dc1c8d5778ca613d25fbdc7d2c8c2673829feaa2ddb11d938b0564e19c2aa"
+      },
+      "after": {
+        "rom_payload_bytes": 4222,
+        "sha256": "efd5fc86b4ad361df159459f4b69b8f21eb2ffc3b56b1eac340301c5da31abd6"
+      },
+      "saved_bytes": 788,
+      "saved_percent": 15.73,
+      "compile_process_time": {
+        "before": {
+          "raw_ms": [
+            25.125048,
+            24.420031,
+            25.433631,
+            25.976992,
+            26.145168,
+            27.333621,
+            28.645192,
+            27.009223,
+            25.420341,
+            27.127852
+          ],
+          "median_ms": 26.06108
+        },
+        "after": {
+          "raw_ms": [
+            26.688563,
+            26.746359,
+            27.699509,
+            28.021833,
+            27.505308,
+            27.070901,
+            30.415344,
+            28.940657,
+            28.112709,
+            28.729465
+          ],
+          "median_ms": 27.860671
+        }
+      }
+    }
+  },
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "measurement": "Warm filesystem, one warmup per binary/application, ten alternating fresh-process Debug CLI compilations; wall-clock includes startup and atomic output publication. No concurrent task-owned validation. Not a cold-build or runtime-throughput benchmark.",
+  "implementation_sha256": {
+    "src/compiler/compiler.zig": "d2c9ec9b2f22ed4b0b01bb1f7672b56b17c34f42be57515e354a41fcd7ef351f",
+    "src/compiler/guest_linker.zig": "9bbae4088c92d3a0cbd08627b4b4222fe00edc64404297f760dc77a09e62960c",
+    "src/cli/compiler_main.zig": "e33dbf88b949d264224910366cfcdf861fc390e8d0d371cb06c88f21d545bbb2"
+  }
+}

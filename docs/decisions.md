@@ -35,3 +35,14 @@
 10. **Code size**: the specification explicitly calls 10–12k LOC a scope estimate,
     not a quota. Shared ISA tables, bounded data structures and compact modules
     reduce the required implementation. No source duplication or padding is added.
+
+11. **Demand-linked typed programs (2026-11-12)**: compiler-generated ROM layout
+    may change while ISA/ABI/N16R/N16S semantics remain fixed. Retain typed call
+    reachability from main; validate unused bodies before suppressing emission.
+    Link the reviewed ABI1 library through parsed exact symbol/control-flow/data
+    references and fallthrough, keeping original block order. Reject unsupported
+    indirect library flow/layout rather than guessing. Keep original assembly
+    sources and full-library callers unchanged. Rebuild maps for new checksums;
+    omit debug locals belonging to removed functions. Preserve all original V1
+    ROM hashes and application framebuffer/state replays. This decision does not
+    approve new hardware or Profile-2 contract changes.
