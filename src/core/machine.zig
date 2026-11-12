@@ -25,7 +25,7 @@ pub const Machine = struct {
     pub fn frame(self: *Machine, input: u8, cap: u64) void {
         self.bus.input.inject(input);
         var count: u32 = 0;
-        while (count < 20000 and self.cpu.retired < cap and !self.cpu.halted and !self.cpu.paused and self.cpu.trap == null) : (count += 1) self.step();
+        while (count < @import("../arch/isa.zig").frame_budget and self.cpu.retired < cap and !self.cpu.halted and !self.cpu.paused and self.cpu.trap == null) : (count += 1) self.step();
         self.bus.frame +%= 1;
         self.bus.vblank = true;
     }

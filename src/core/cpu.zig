@@ -5,7 +5,7 @@ const Bus = @import("bus.zig").Bus;
 pub const Cpu = struct {
     r: [8]u16 = @splat(0),
     pc: u16 = 0xe000,
-    sp: u16 = 0xbffe,
+    sp: u16 = isa.stack_top,
     flags: u4 = 0,
     halted: bool = false,
     paused: bool = false,
@@ -39,11 +39,10 @@ pub const Cpu = struct {
         self.access = .fetch;
         if (@as(u32, self.pc) + i.len > 65535) return error.AddressOverflow;
         const next = self.pc + i.len;
-        if (i.len == 4) {
+        const imm: u16 = if (i.len == 4) blk: {
             self.address = self.pc + 2;
-            _ = try bus.fetch(self.pc + 2);
-        }
-        const imm: u16 = if (i.len == 4) try bus.fetch(self.pc + 2) else 0;
+            break :blk try bus.fetch(self.pc + 2);
+        } else 0;
         const x = self.r[i.d];
         const y = self.r[i.s];
         var target = next;
@@ -97,6 +96,7 @@ pub const Cpu = struct {
             13 => if (self.condition(i.sub)) {
                 const off: i8 = @bitCast(@as(u8, @truncate(w)));
                 const t: i32 = @as(i32, next) + @as(i32, off) * 2;
+                self.address = t;
                 if (t < 0 or t > 65535) return error.AddressOverflow;
                 target = @intCast(t);
                 try self.validateTarget(target);
@@ -154,7 +154,7 @@ pub const Cpu = struct {
     fn checkStack(self: *Cpu) traps.Fault!void {
         self.address = self.sp;
         self.access = .stack;
-        if (self.sp & 1 != 0 or self.sp > 0xbffe or self.sp != 0xbffe - @as(u32, self.depth) * 2) return error.InvalidStack;
+        if (self.sp & 1 != 0 or self.sp > isa.stack_top or self.depth > isa.stack_capacity or self.sp != isa.stack_top - @as(u32, self.depth) * 2) return error.InvalidStack;
     }
     fn push(self: *Cpu, b: *Bus, v: u16) traps.Fault!void {
         try self.checkStack();

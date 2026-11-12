@@ -39,3 +39,6 @@ test {
 test {
     _ = @import("conformance_tests.zig");
 }
+test {
+    _ = @import("sequence_tests.zig");
+}
