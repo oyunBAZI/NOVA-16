@@ -56,3 +56,13 @@ Source coverage is measured on the linked unit/integration test binary; unused
 CLI entrypoints and the separate C/SDL frontend are not included in that binary's
 line totals. Their executable behavior is verified by black-box/native graphical
 acceptance. The coverage report is not presented as a whole-product percentage.
+
+v0.3 regression gates: `python3 scripts/developer_acceptance.py`,
+`python3 scripts/game_acceptance.py`, and Linux
+`python3 scripts/project_stress.py`. Reliability records live in
+`docs/reliability/`; CI retains guided corpus inputs and source-coverage output.
+Included-file success/error ownership is tested with every allocation failing in
+turn; snapshots cover every trap encoding and CRC-correct invalid state metadata.
+Full Breakout winning/losing input paths execute guest instructions, and snapshot
+replay compares complete CPU/memory state. Feedback PC coverage is distinct from
+kcov's linked-test source line coverage; neither includes unlinked host CLIs.

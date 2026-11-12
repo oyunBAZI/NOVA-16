@@ -1,14 +1,16 @@
 //! Host-side local textual inclusion. No host I/O enters the virtual machine.
 const std = @import("std");
 const lex = @import("lexer.zig");
-pub const Line = struct { file: []const u8, line: usize };
+pub const Line = struct { file: []const u8, line: usize, offset: usize, expanded_offset: usize };
 pub const Expanded = struct {
     allocator: std.mem.Allocator,
     source: []u8,
+    root: []const u8,
     lines: []Line,
     files: [][]const u8,
     pub fn deinit(self: Expanded) void {
         self.allocator.free(self.source);
+        self.allocator.free(self.root);
         self.allocator.free(self.lines);
         for (self.files) |file| self.allocator.free(file);
         self.allocator.free(self.files);
@@ -34,18 +36,24 @@ const Loader = struct {
         defer self.a.free(text);
         if (text.len > 1024 * 1024 - self.total) return error.ProjectTooLarge;
         self.total += text.len;
-        const relative = try self.a.dupe(u8, real[self.root.len + @as(usize, if (std.fs.path.isSep(self.root[self.root.len - 1])) 0 else 1) ..]);
-        errdefer self.a.free(relative);
-        for (relative) |*c| if (c.* == '\\') {
-            c.* = '/';
+        const relative = blk: {
+            const owned = try self.a.dupe(u8, real[self.root.len + @as(usize, if (std.fs.path.isSep(self.root[self.root.len - 1])) 0 else 1) ..]);
+            errdefer self.a.free(owned);
+            for (owned) |*c| if (c.* == '\\') {
+                c.* = '/';
+            };
+            try self.files.append(self.a, owned);
+            break :blk owned;
         };
-        try self.files.append(self.a, relative);
         try self.stack.append(self.a, real);
         defer _ = self.stack.pop();
         var lines = std.mem.splitScalar(u8, text, '\n');
         var number: usize = 0;
+        var offset: usize = 0;
         while (lines.next()) |line| {
             number += 1;
+            const source_offset = offset;
+            offset += line.len + 1;
             const code = lex.code(line);
             if (std.mem.startsWith(u8, code, ".include") and (code.len == 8 or code[8] == ' ' or code[8] == '\t')) {
                 const name = lex.trim(code[8..]);
@@ -57,7 +65,7 @@ const Loader = struct {
                 try self.visit(child);
             } else {
                 if (self.lines.items.len >= 32768 or self.out.written().len + line.len + 1 > 1024 * 1024) return error.ProjectTooLarge;
-                try self.lines.append(self.a, .{ .file = relative, .line = number });
+                try self.lines.append(self.a, .{ .file = relative, .line = number, .offset = source_offset, .expanded_offset = self.out.written().len });
                 try self.out.writer.writeAll(line);
                 try self.out.writer.writeByte('\n');
             }
@@ -79,15 +87,49 @@ pub fn load(a: std.mem.Allocator, io: std.Io, root: []const u8, entry: []const u
         for (loader.files.items) |file| a.free(file);
         loader.files.deinit(a);
     }
-    try loader.visit(entry);
+    loader.visit(entry) catch |err| {
+        // Only the owned Allocating writer produces WriteFailed here.
+        if (err == error.WriteFailed) return error.OutOfMemory;
+        return err;
+    };
     const source = try loader.out.toOwnedSlice();
     errdefer a.free(source);
     const lines = try loader.lines.toOwnedSlice(a);
     errdefer a.free(lines);
-    return .{ .allocator = a, .source = source, .lines = lines, .files = try loader.files.toOwnedSlice(a) };
+    const root_owned = try a.dupe(u8, real);
+    errdefer a.free(root_owned);
+    return .{ .allocator = a, .root = root_owned, .source = source, .lines = lines, .files = try loader.files.toOwnedSlice(a) };
 }
 test "project boundary matching requires a complete path component" {
     try std.testing.expect(inside("/a/b", "/a/b/main.asm"));
     try std.testing.expect(!inside("/a/b", "/a/bad/main.asm"));
     try std.testing.expect(!inside("/a/b", "/a/b"));
+}
+
+test "include success and failure release transferred filenames under allocation failure" {
+    const Check = struct {
+        fn run(a: std.mem.Allocator, root: []const u8, entry: []const u8, failure: bool) !void {
+            if (load(a, std.testing.io, root, entry)) |project| {
+                defer project.deinit();
+                if (failure) return error.ExpectedIncludeFailure;
+                try std.testing.expectEqualStrings("HALT\n\n\n", project.source);
+            } else |err| {
+                if (err == error.OutOfMemory) return err;
+                if (!failure or err != error.IncludeCycle) return err;
+            }
+        }
+    };
+    var temp = std.testing.tmpDir(.{});
+    defer temp.cleanup();
+    const io = std.testing.io;
+    const a = std.testing.allocator;
+    try temp.dir.writeFile(io, .{ .sub_path = "main.asm", .data = ".include \"child.asm\"\n" });
+    try temp.dir.writeFile(io, .{ .sub_path = "child.asm", .data = "HALT\n" });
+    const root = try temp.dir.realPathFileAlloc(io, ".", a);
+    defer a.free(root);
+    const entry = try std.fs.path.join(a, &.{ root, "main.asm" });
+    defer a.free(entry);
+    try std.testing.checkAllAllocationFailures(a, Check.run, .{ root, entry, false });
+    try temp.dir.writeFile(io, .{ .sub_path = "child.asm", .data = ".include \"main.asm\"\n" });
+    try std.testing.checkAllAllocationFailures(a, Check.run, .{ root, entry, true });
 }

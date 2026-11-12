@@ -15,8 +15,10 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 scripts/setup_zig.py
+      - run: zig build -Doptimize=ReleaseSafe
+      - run: python3 scripts/project_stress.py
       - name: Coverage-guided fuzzing
-        run: zig build test -Doptimize=ReleaseSafe --fuzz=${{ github.event_name == 'schedule' && '100K' || '1K' }} --test-timeout 10m
+        run: zig build test -Doptimize=ReleaseSafe --fuzz=${{ github.event_name == 'schedule' && '100K' || '10K' }} --test-timeout 10m --seed=0x4e313603
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

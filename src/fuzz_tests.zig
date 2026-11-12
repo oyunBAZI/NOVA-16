@@ -9,7 +9,7 @@ const Debugger = @import("debug/debugger.zig").Debugger;
 const runtime = @import("core/runtime.zig");
 pub fn exercise(a: std.mem.Allocator, data: []const u8) !void {
     if (data.len == 0) return;
-    switch (data[0] % 7) {
+    switch (data[0] % 8) {
         0 => {
             _ = rom.parse(data[1..]) catch {};
         },
@@ -46,6 +46,7 @@ pub fn exercise(a: std.mem.Allocator, data: []const u8) !void {
         5 => {
             var m: Machine = .{};
             const source = data[1..];
+            if (source.len > 8192) return;
             @memcpy(m.bus.bytes[0xe000..][0..source.len], source);
             for (0..64) |_| {
                 m.step();
@@ -57,6 +58,9 @@ pub fn exercise(a: std.mem.Allocator, data: []const u8) !void {
             defer a.free(input);
             var diag: assembler.Diagnostic = .{};
             if (assembler.assemble(a, input, &diag)) |result| result.deinit() else |_| {}
+        },
+        7 => {
+            _ = assembler.diagnose(a, data[1..]) catch {};
         },
         else => unreachable,
     }
@@ -70,12 +74,12 @@ fn guided(_: void, smith: *std.testing.Smith) !void {
 test "coverage guided bounded machine toolchain and snapshot inputs" {
     try std.testing.fuzz({}, guided, .{ .corpus = &.{ "\x01.entry missing\nHALT", "\x02frame 1", "\x03 0 16\n1 0", "\x04seed", "\x05\x01\x00" } });
 }
-test "deterministic malformed input smoke across all seven target families" {
+test "deterministic malformed input smoke across all eight target families" {
     var random = std.Random.DefaultPrng.init(0x4e313653);
     var bytes: [256]u8 = undefined;
     for (0..1000) |k| {
         random.random().bytes(&bytes);
-        bytes[0] = @intCast(k % 7);
+        bytes[0] = @intCast(k % 8);
         try exercise(std.testing.allocator, bytes[0..random.random().intRangeAtMost(usize, 1, bytes.len)]);
     }
 }
@@ -85,6 +89,29 @@ test "allocation failures in assembler outputs and source maps do not leak" {
             var diagnostic: assembler.Diagnostic = .{};
             const result = try assembler.assemble(a, ".entry end\nLDI R0, end\nend: HALT", &diagnostic);
             defer result.deinit();
+        }
+    };
+    try std.testing.checkAllAllocationFailures(std.testing.allocator, Check.run, .{});
+}
+
+test "allocation failures in recovered diagnostics pending constants and owned JSON maps" {
+    const Check = struct {
+        fn run(a: std.mem.Allocator) !void {
+            var d: assembler.Diagnostic = .{};
+            const result = try assembler.assemble(a, ".equ a, b+1\n.equ b, 2\nstart: LDI R0, a\nHALT", &d);
+            defer result.deinit();
+            var output: std.Io.Writer.Allocating = .init(a);
+            defer output.deinit();
+            const maps = @import("debug/symbols.zig");
+            maps.write(&output.writer, a, result, "main.asm") catch |err| {
+                // Allocating writer deliberately erases allocator errors at its
+                // generic Writer boundary; translate here for injection testing.
+                if (err == error.WriteFailed) return error.OutOfMemory;
+                return err;
+            };
+            const loaded = try maps.load(a, output.written(), std.mem.readInt(u32, result.image[12..16], .little));
+            defer loaded.deinit();
+            _ = try assembler.diagnose(a, "LDI R8, 0\nLDI R9, 1\nHALT");
         }
     };
     try std.testing.checkAllAllocationFailures(std.testing.allocator, Check.run, .{});

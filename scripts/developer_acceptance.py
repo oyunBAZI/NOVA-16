@@ -43,6 +43,14 @@ def main():
         assert 'lib/input.asm' in {x['file'] for x in mapping['locations']}
         state = json.loads(run('nova16', 'run', p/'first.n16').stdout)
         assert state['halted'] and state['registers'][1] == 42
+        included = p/'first/lib/input.asm'
+        original_source = included.read_bytes()
+        included.write_text('sample_input: LDI R8, 0\nRET\n')
+        error = json.loads(run('n16asm', p/'first/main.asm', '--out', rom, '--diagnostics', 'json2', ok=False).stderr)['diagnostics'][0]
+        assert (error['file'], error['line'], error['column'], error['offset']) == ('lib/input.asm', 1, 19, 18)
+        included.write_bytes(original_source)
+        run('n16asm', p/'first/main.asm', '--out', included, ok=False)
+        assert included.read_bytes() == original_source
         snap, restored = p/'before.n16s', p/'restored.n16s'
         session = run('n16dbg', p/'first.n16', '--symbols', p/'first.sym2', stdin=(
             'history 8\nbreak lib/graphics.asm:2\ncontinue 100\nregs\nsymbols\nsource\n'

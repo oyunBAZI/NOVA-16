@@ -151,3 +151,39 @@ test "snapshot at maximum retirement cannot overflow host counter" {
     copy.step();
     try std.testing.expectEqual(error.InstructionLimit, copy.cpu.trap.?.kind);
 }
+
+test "every trap code and context roundtrips without native enum serialization" {
+    const a = std.testing.allocator;
+    for (faults) |fault| {
+        var m: Machine = .{};
+        m.cpu.trap = .{ .kind = fault, .pc = 0xe001, .instruction = 0xffff, .address = -32, .access = .write };
+        const bytes = try encode(a, &m);
+        defer a.free(bytes);
+        var restored: Machine = .{};
+        try restore(&restored, bytes, null);
+        try std.testing.expectEqualDeep(m.cpu.trap, restored.cpu.trap);
+        const again = try encode(a, &restored);
+        defer a.free(again);
+        try std.testing.expectEqualSlices(u8, bytes, again);
+    }
+}
+test "CRC-correct invalid metadata and version failures leave live state unchanged" {
+    const a = std.testing.allocator;
+    var original: Machine = .{};
+    try original.patch(0x100, &.{ 42, 99 });
+    const saved = try encode(a, &original);
+    defer a.free(saved);
+    // Exact serialized offsets: version, reserved header, flags, stop bits,
+    // enum tags, trap code, booleans, reserved payload and inconsistent depth.
+    for ([_]usize{ 4, 6, 16, 32 + 6, 32 + 7, 32 + 46, 32 + 47, 32 + 56, 32 + 59, 32 + 62, 32 + 66, 32 + 28 }) |offset| {
+        const bytes = try a.dupe(u8, saved);
+        defer a.free(bytes);
+        bytes[offset] = 255;
+        put(u32, bytes, 12, std.hash.Crc32.hash(bytes[32..]));
+        var live = original;
+        if (restore(&live, bytes, null)) |_| return error.ExpectedSnapshotRejection else |_| {}
+        const after = try encode(a, &live);
+        defer a.free(after);
+        try std.testing.expectEqualSlices(u8, saved, after);
+    }
+}

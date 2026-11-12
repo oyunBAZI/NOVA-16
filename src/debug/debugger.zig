@@ -325,3 +325,22 @@ test "frame input trace reverse snapshots and nonacknowledging devices" {
     _ = try d.command("frame", &out.writer);
     try std.testing.expectEqual(before, m.cpu.retired);
 }
+
+test "source commands reporting and malformed source locations have bounded behavior" {
+    const a = std.testing.allocator;
+    var m: Machine = .{};
+    const symbols = [_]asm16.Symbol{.{ .name = "entry", .value = 0xe000 }};
+    const sources = [_]@import("symbols.zig").Source{.{ .file = "main.asm", .line = 3, .column = 1, .address = 0xe000, .length = 2 }};
+    var d: Debugger = .{ .machine = &m, .symbols = &symbols, .sources = &sources };
+    defer d.deinit();
+    var out: std.Io.Writer.Allocating = .init(a);
+    defer out.deinit();
+    for ([_][]const u8{ "help", "regs", "source", "symbols", "break main.asm:3", "delete main.asm:3", "disasm entry 1", "mem entry 2", "next 1" }) |cmd| _ = try d.command(cmd, &out.writer);
+    try std.testing.expectError(error.SourceLocationNotFound, d.command("break main.asm:2", &out.writer));
+    try std.testing.expectError(error.InvalidNumber, d.command("break main.asm:no", &out.writer));
+    _ = try d.command("saveframe screen.ppm", &out.writer);
+    _ = try d.command("savesnap state.n16s", &out.writer);
+    _ = try d.command("loadsnap state.n16s", &out.writer);
+    _ = try d.command("quit", &out.writer);
+    try std.testing.expect(std.mem.indexOf(u8, out.written(), "main.asm:3:1") != null);
+}

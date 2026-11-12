@@ -45,7 +45,10 @@ fn run(init: std.process.Init) !void {
     const source = expanded.source;
     var d: n.assembler.Diagnostic = .{};
     const result = n.assembler.assemble(a, source, &d) catch {
-        if (d.line <= expanded.lines.len) d.line = expanded.lines[d.line - 1].line;
+        const first_origin = expanded.lines[@min(d.line - 1, expanded.lines.len - 1)];
+        const diagnostic_file = if (expanded.files.len == 1) args[1] else first_origin.file;
+        d.line = first_origin.line;
+        d.offset = first_origin.offset + d.offset - first_origin.expanded_offset;
         var error_text: std.Io.Writer.Allocating = .init(a);
         defer error_text.deinit();
         if (rich or json2) {
@@ -56,6 +59,7 @@ fn run(init: std.process.Init) !void {
                 const origin = expanded.lines[@min(item.line - 1, expanded.lines.len - 1)];
                 item.line = origin.line;
                 const filename = if (expanded.files.len == 1) args[1] else origin.file;
+                const reported_offset = origin.offset + item.offset - origin.expanded_offset;
                 var start = item.offset;
                 while (start > 0 and source[start - 1] != '\n') start -= 1;
                 var end = item.offset;
@@ -63,7 +67,7 @@ fn run(init: std.process.Init) !void {
                 const suggestion: ?[]const u8 = if (std.mem.eql(u8, item.code, "ExpectedRegister")) "Use R0 through R7" else null;
                 if (json2) {
                     if (index > 0) try error_text.writer.writeByte(',');
-                    try std.json.Stringify.value(.{ .category = "assembly", .file = filename, .code = item.code, .message = item.reason, .line = item.line, .column = item.column, .offset = item.offset, .length = item.length, .excerpt = source[start..end], .suggestion = suggestion }, .{}, &error_text.writer);
+                    try std.json.Stringify.value(.{ .category = "assembly", .file = filename, .code = item.code, .message = item.reason, .line = item.line, .column = item.column, .offset = reported_offset, .length = item.length, .excerpt = source[start..end], .suggestion = suggestion }, .{}, &error_text.writer);
                 } else {
                     try error_text.writer.print("{s}:{d}:{d}: {s}: {s}\n{s}\n", .{ filename, item.line, item.column, item.code, item.reason, source[start..end] });
                     for (1..item.column) |_| try error_text.writer.writeByte(' ');
@@ -74,9 +78,9 @@ fn run(init: std.process.Init) !void {
             }
             if (json2) try error_text.writer.writeAll("]}\n");
         } else if (json) {
-            try std.json.Stringify.value(.{ .schema_version = @as(u16, 1), .file = args[1], .code = d.code, .message = d.reason, .line = d.line, .column = d.column, .offset = d.offset, .length = d.length, .token = d.token }, .{}, &error_text.writer);
+            try std.json.Stringify.value(.{ .schema_version = @as(u16, 1), .file = diagnostic_file, .code = d.code, .message = d.reason, .line = d.line, .column = d.column, .offset = d.offset, .length = d.length, .token = d.token }, .{}, &error_text.writer);
             try error_text.writer.writeByte('\n');
-        } else try error_text.writer.print("{s}:{d}:{d}: {s}: {s}: {s}\n", .{ args[1], d.line, d.column, d.code, d.reason, d.token });
+        } else try error_text.writer.print("{s}:{d}:{d}: {s}: {s}: {s}\n", .{ diagnostic_file, d.line, d.column, d.code, d.reason, d.token });
         try std.Io.File.stderr().writeStreamingAll(init.io, error_text.written());
         return error.DiagnosticReported;
     };
@@ -105,5 +109,8 @@ fn run(init: std.process.Init) !void {
         try n.assembler.writeListing(&text.writer, result);
         try artifacts.append(a, .{ .path = path, .bytes = try text.toOwnedSlice() });
     }
-    try outputs.publish(a, init.io, args[1], artifacts.items);
+    var inputs: std.ArrayList([]const u8) = .empty;
+    defer inputs.deinit(a);
+    for (expanded.files) |file| try inputs.append(a, try std.fs.path.join(a, &.{ expanded.root, file }));
+    try outputs.publish(a, init.io, inputs.items, artifacts.items);
 }

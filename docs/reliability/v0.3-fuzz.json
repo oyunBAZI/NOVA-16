@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "zig": "0.17.1",
+  "optimization": "ReleaseSafe",
+  "command": "zig build test -Doptimize=ReleaseSafe --fuzz=10K --test-timeout 5m --seed=0x4e313603",
+  "build_seed": "0x4e313603",
+  "test_id": "a0aec1ae80b6f0ef",
+  "runs_before": 0,
+  "runs_after": 10509,
+  "unique_before": 0,
+  "unique_after": 425,
+  "instrumented_pcs_covered": 1138,
+  "instrumented_pcs_total": 16306,
+  "coverage_scope": "feedback PCs, not whole-product source coverage",
+  "base_revision": "199b22282c5f461f8a142db219a91ad415d2ac6b",
+  "source_dirty": true,
+  "src_examples_sha256": "f507a6835015fe587c9be6b5521910155d9832ff9d348c58ace8ad2f869830ae",
+  "result": "exit 0, no reproducible failure",
+  "deterministic_smoke_seed": "0x4e313653",
+  "project_adversary_seed": "0x4e313603"
+}

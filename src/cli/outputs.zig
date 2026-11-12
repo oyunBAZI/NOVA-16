@@ -2,10 +2,18 @@
 //! No cross-file crash-atomicity is promised by ordinary host filesystems.
 const std = @import("std");
 pub const Artifact = struct { path: []const u8, bytes: []const u8 };
-pub fn publish(a: std.mem.Allocator, io: std.Io, source: []const u8, artifacts: []const Artifact) !void {
+pub fn publish(a: std.mem.Allocator, io: std.Io, sources: []const []const u8, artifacts: []const Artifact) !void {
     const cwd = std.Io.Dir.cwd();
-    const input = try cwd.realPathFileAlloc(io, source, a);
-    defer a.free(input);
+    var inputs: std.ArrayList([]const u8) = .empty;
+    defer {
+        for (inputs.items) |path| a.free(path);
+        inputs.deinit(a);
+    }
+    for (sources) |source| {
+        const path = try cwd.realPathFileAlloc(io, source, a);
+        errdefer a.free(path);
+        try inputs.append(a, path);
+    }
     var normalized: std.ArrayList([]const u8) = .empty;
     defer {
         for (normalized.items) |p| a.free(p);
@@ -18,14 +26,14 @@ pub fn publish(a: std.mem.Allocator, io: std.Io, source: []const u8, artifacts: 
         defer a.free(parent);
         const path = try std.fs.path.join(a, &.{ parent, std.fs.path.basename(item.path) });
         errdefer a.free(path);
-        if (std.ascii.eqlIgnoreCase(input, path)) return error.OutputAliasesSource;
+        for (inputs.items) |input| if (std.ascii.eqlIgnoreCase(input, path)) return error.OutputAliasesSource;
         for (normalized.items) |p| if (std.ascii.eqlIgnoreCase(p, path)) return error.DuplicateOutputPath;
         // Existing symlink/hardlink destinations are rejected to avoid alias edits.
         if (cwd.statFile(io, item.path, .{ .follow_symlinks = false })) |stat| {
             if (stat.kind != .file) return error.InvalidOutputPath;
             const canonical = try cwd.realPathFileAlloc(io, item.path, a);
             defer a.free(canonical);
-            if (std.ascii.eqlIgnoreCase(canonical, input)) return error.OutputAliasesSource;
+            for (inputs.items) |input| if (std.ascii.eqlIgnoreCase(canonical, input)) return error.OutputAliasesSource;
         } else |err| if (err != error.FileNotFound) return err;
         try normalized.append(a, path);
     }
