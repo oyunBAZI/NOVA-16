@@ -13,3 +13,9 @@ test {
     _ = rom;
     _ = @import("devices/input.zig");
 }
+pub const assembler = @import("asm/assembler.zig");
+pub const disasm = @import("debug/disasm.zig");
+test {
+    _ = assembler;
+    _ = disasm;
+}

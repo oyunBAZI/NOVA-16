@@ -23,3 +23,10 @@ atomicity, empty stack, shift counts 0/1/15. Bus/MMIO hardening follows in phase
 permissions, read-clear devices, ROM parser/packer, CRC, reset, and encoded
 boot-to-RAM-write integration pass. Mutation tests reject every changed header
 or payload byte; access tests cover all region boundaries.
+
+## Phase 4 — passed
+`zig build`, `zig build test` returned exit 0. Two-pass assembly, expressions,
+all directives, symbols, negative diagnostics and the n16asm CLI work.
+Exhaustive legal-word disassemble/reassemble tests preserve instruction bytes,
+including negative offsets and unknown-data fallbacks. Golden forward-reference
+bytes match the manual encoding. No external assembler is used.
