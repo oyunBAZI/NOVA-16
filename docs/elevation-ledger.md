@@ -32,3 +32,10 @@ instruction. Existing exhaustive encodings/ALU/condition tests remain enabled.
 New regressions cover invalid host stack state and guest self-modifying RAM code.
 No golden image was changed. Other public CPU/bus fields remain host APIs with
 valid-state preconditions; snapshot input will be validated before committing.
+
+### Native CI follow-up
+First native Windows format checks exposed Git's automatic CRLF conversion of
+all Zig sources. Added .gitattributes enforcing LF source checkouts (binary PNG/
+ROM exceptions). macOS 14 jobs were cancelled before execution; matrix moved to
+macOS 15. Linux native Debug/ReleaseSafe and SDL jobs passed. Native Windows/macOS
+remain pending the corrected matrix. Formatting assertions are not weakened.
