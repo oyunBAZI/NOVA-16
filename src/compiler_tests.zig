@@ -170,3 +170,52 @@ test "independent bounded AST interpreter agrees with compiled V1 across seeded 
     var bounded: Reference = .{ .context = infinite.context, .remaining = 100 };
     try std.testing.expectError(error.ReferenceWorkLimit, bounded.run());
 }
+
+test "guest linker exact references shared tails recursion data and unsupported layouts" {
+    const linker = @import("compiler/guest_linker.zig");
+    const library = "unused: RET\nentry: CALL helper\nB.EQ tail\nfall: LDI R0, table+1\nRET\nhelper: CALL helper\nJMP tail\ntail: RET\ntable: .byte 1,2\n.align 2\n";
+    const plan = try linker.plan(std.testing.allocator, "CALL entry ; unused\n", library);
+    defer plan.deinit();
+    for (plan.blocks, 0..) |block, index| try std.testing.expectEqual(index != 0, block.retained);
+    const empty = try linker.plan(std.testing.allocator, "LDI R0, 1 ; entry\n", library);
+    defer empty.deinit();
+    for (empty.blocks) |block| try std.testing.expect(!block.retained);
+    try std.testing.expectError(error.UnsupportedLibraryControlFlow, linker.plan(std.testing.allocator, "CALL x", "x: JMP 57344\n"));
+    try std.testing.expectError(error.UnsupportedLibraryControlFlow, linker.plan(std.testing.allocator, "CALL x", "x: CALLR R0\n"));
+    try std.testing.expectError(error.UnsupportedLibraryDirective, linker.plan(std.testing.allocator, "CALL x", "x: .org 60000\n"));
+    try std.testing.expectError(error.DuplicateLibrarySymbol, linker.plan(std.testing.allocator, "CALL x", "x: RET\nx: RET\n"));
+}
+
+test "minimal typed program omits guest library and size report accounts for payload" {
+    var diagnostic: compiler.Diagnostic = .{};
+    const result = try compiler.compile(std.testing.allocator, "fn main()->u16{return 42;}", &diagnostic);
+    defer result.deinit();
+    try std.testing.expect(result.program.image.len < 256);
+    try std.testing.expect(std.mem.indexOf(u8, result.assembly, "n16_font_data:") == null);
+    var report: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer report.deinit();
+    try compiler.writeSizeReport(&report.writer, std.testing.allocator, result);
+    const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, report.written(), .{});
+    defer parsed.deinit();
+    const object = parsed.value.object;
+    try std.testing.expectEqual(@as(i64, @intCast(result.program.image.len - 32)), object.get("rom_payload_bytes").?.integer);
+    try std.testing.expectEqual(0, object.get("library_blocks").?.array.items.len);
+    try std.testing.expect(object.get("removed_library_blocks").?.integer > 0);
+}
+
+test "unreachable typed cycles and their library dependencies are removed with valid maps" {
+    const source = "fn dead(n:u16)->u16{var hidden:u16=n;glyph(1,2,65);return other(hidden);} fn other(n:u16)->u16{return dead(n);} fn main()->u16{var live:u16=42;return live;}";
+    var diagnostic: compiler.Diagnostic = .{};
+    const result = try compiler.compile(std.testing.allocator, source, &diagnostic);
+    defer result.deinit();
+    try std.testing.expect(std.mem.indexOf(u8, result.assembly, "_c_f_dead:") == null);
+    try std.testing.expect(std.mem.indexOf(u8, result.assembly, "n16_glyph:") == null);
+    var map: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer map.deinit();
+    try compiler.writeDebugMap(&map.writer, std.testing.allocator, result, "main.n16c");
+    try std.testing.expect(std.mem.indexOf(u8, map.written(), "hidden") == null);
+    try std.testing.expect(std.mem.indexOf(u8, map.written(), "live") != null);
+    try execute(source, 42);
+    try std.testing.expectError(error.TypeMismatch, compiler.compile(std.testing.allocator, "fn dead()->u16{return true;}fn main()->u16{return 42;}", &diagnostic));
+    try execute("fn a(n:u16)->u16{if(n==0){return 42;}else{return b(n-1);}}fn b(n:u16)->u16{return a(n);}fn main()->u16{return a(4);}", 42);
+}

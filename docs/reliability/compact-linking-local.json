@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-12",
+  "source_before": "beccc7a7a4f59892eeed59ed9cdf80ec719db76d",
+  "main_baseline": "a25afb5d72dbd0d0a2afd27409c84d112ccb35d0",
+  "host": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "zig": "0.17.1",
+  "main_debug": "Build Summary: 3/3 steps succeeded; 94/94 tests passed\ntest success\n+- run test 94 pass (94 total) 18s MaxRSS:41M\n   +- compile test debug native success 938ms MaxRSS:174M\n\n",
+  "pr5_debug": "Build Summary: 3/3 steps succeeded; 116/116 tests passed\ntest success\n+- run test 116 pass (116 total) 15s MaxRSS:43M\n   +- compile test debug native success 1s MaxRSS:181M\n\n",
+  "pr5_release_safe": "Build Summary: 3/3 steps succeeded; 116/116 tests passed\ntest success\n+- run test 116 pass (116 total) 3s MaxRSS:39M\n   +- compile test safe native success 34s MaxRSS:675M\n\n",
+  "final_checks": {
+    "nova-final-stress.log": "Project stress: depth/files/bytes/lines, 100 seeded adversaries and symlink boundary passed\n",
+    "nova-final-acceptance.log": "boot_splash: boot/debug/PPM OK, sha256=420c5fc58a7f204072d9dd257e24607f2d624f3b31a39c154cf5c8cb0152955c\nbouncing_pixel: boot/debug/PPM OK, sha256=39738b734e6d8c75277c462192e4ab0af156afe3cb28d8b1a65fba0e5c5d4ca5\npaint: boot/debug/PPM OK, sha256=cfadc70d6dba91154258e606e1313fec9a14f4583f954fc11525eb16cc49b2d6\ndiagnostics: boot/debug/PPM OK, sha256=b46b81b0ff39fe8e0e92b2ffd76c0107835e577e17d2f1e050adfea043ea3df6\nReplay, budgets, malformed CLI/source/ROM/debugger and snapshot checks OK\n",
+    "nova-final-compat.log": "All five original V1 ROM byte identities match the v0.3 baseline\n",
+    "nova-final-model.log": "",
+    "nova-final-v2.log": "nova_sound: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\ninterrupt_canvas: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\nV2 black-box acceptance passed; complete original V1 gates remain separate\n",
+    "nova-final-vectors.log": "V2 specification vectors, independent audio math, and V2 ROM activation and V1 snapshot profile isolation passed\n",
+    "nova-final-debug.log": "Build Summary: 3/3 steps succeeded; 119/119 tests passed\ntest success\n+- run test 119 pass (119 total) 13s MaxRSS:60M\n   +- compile test debug native success 1s MaxRSS:179M\n\n",
+    "nova-final-compiler.log": "Compiler CLI: real V1 ROM, ordinary assembly reassembly, source map/debugger, limits and artifact retention passed\n",
+    "nova-final-project.log": "Projects: create/build/run/debug/test, isolated includes, deterministic packages/rebuild, failed-build retention passed\n",
+    "nova-final-game.log": "title: real guest replay/framebuffer SHA256 OK\nplay: real guest replay/framebuffer SHA256 OK\nwin: real guest replay/framebuffer SHA256 OK\nloss: real guest replay/framebuffer SHA256 OK\n",
+    "nova-final-apps.log": "crates/title: real ROM, framebuffer SHA and guest state passed\ncrates/win: real ROM, framebuffer SHA and guest state passed\ncrates/undo: real ROM, framebuffer SHA and guest state passed\ncrates/collision: real ROM, framebuffer SHA and guest state passed\ncrates/restart: real ROM, framebuffer SHA and guest state passed\ncrates/blocked: real ROM, framebuffer SHA and guest state passed\npixel_studio/blank: real ROM, framebuffer SHA and guest state passed\npixel_studio/drawing: real ROM, framebuffer SHA and guest state passed\npixel_studio/undo: real ROM, framebuffer SHA and guest state passed\npixel_studio/clear: real ROM, framebuffer SHA and guest state passed\nAll application replays passed\n",
+    "nova-final-fmt.log": "",
+    "nova-final-security.log": "Workflow pin/trigger/permissions, toolchain SHA256, version and source checkout policy passed\nRelease-only OIDC/attestation permissions and pinned genuine SDL2 source passed\n",
+    "nova-final-safe.log": "Build Summary: 3/3 steps succeeded; 119/119 tests passed\ntest success\n+- run test 119 pass (119 total) 3s MaxRSS:54M\n   +- compile test safe native success 33s MaxRSS:693M\n\n",
+    "nova-final-developer.log": "Developer diagnostics, bounded recovery, output preflight/staging OK\n",
+    "nova-final-build.log": ""
+  },
+  "limitations": [
+    "Linux x86_64 only locally executed; prior CI observations are not new native Windows/macOS validation.",
+    "SDL source setup passed download/checksum but could not configure: cmake missing.",
+    "Direct git CLI has no Username credentials. Initial connector calls used the wrong link; corrected owner connection confirms admin/push access. No PR5 merge or branch-policy bypass performed.",
+    "PR5 API reports open, mergeable=true, mergeable_state=unstable. Latest substantive workflow checks passed; another run has a cancelled macOS SDL job. Required-check policy was not authenticated or bypassed.",
+    "No new fuzz/coverage/mutation campaign claimed. Existing seeded compiler differential and project adversary suites ran within tests."
+  ],
+  "main_release_safe": "Build Summary: 3/3 steps succeeded; 94/94 tests passed\ntest success\n+- run test 94 pass (94 total) 5s MaxRSS:36M\n   +- compile test safe native success 29s MaxRSS:622M\n\n",
+  "package_checks": {
+    "nova-package-build.log": "test 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\ntest 4: passed\ntest 5: passed\n/tmp/tmpeqer6r84/crates.zip\ntest 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\n/tmp/tmptwovkcvs/pixel_studio.zip\n/workspace/scratch/08176eda05f9/NOVA-16-development/dist/nova16-0.5.0-dev-linux-x86_64.zip\n",
+    "nova-package-verify.log": "All five original V1 ROM byte identities match the v0.3 baseline\nCompiler CLI: real V1 ROM, ordinary assembly reassembly, source map/debugger, limits and artifact retention passed\nProjects: create/build/run/debug/test, isolated includes, deterministic packages/rebuild, failed-build retention passed\ncrates/title: real ROM, framebuffer SHA and guest state passed\ncrates/win: real ROM, framebuffer SHA and guest state passed\ncrates/undo: real ROM, framebuffer SHA and guest state passed\ncrates/collision: real ROM, framebuffer SHA and guest state passed\ncrates/restart: real ROM, framebuffer SHA and guest state passed\ncrates/blocked: real ROM, framebuffer SHA and guest state passed\npixel_studio/blank: real ROM, framebuffer SHA and guest state passed\npixel_studio/drawing: real ROM, framebuffer SHA and guest state passed\npixel_studio/undo: real ROM, framebuffer SHA and guest state passed\npixel_studio/clear: real ROM, framebuffer SHA and guest state passed\nAll application replays passed\nV2 specification vectors, independent audio math, and V2 ROM activation and V1 snapshot profile isolation passed\nnova_sound: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\ninterrupt_canvas: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\nV2 black-box acceptance passed; complete original V1 gates remain separate\ntest 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\ntest 4: passed\ntest 5: passed\ntest 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\nPackage 0.5.0-dev linux/x86_64: checksums, assembly, boot and debugger passed\n",
+    "nova-package-repro.log": "test 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\ntest 4: passed\ntest 5: passed\n/tmp/tmp9dsj6dcx/crates.zip\ntest 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\n/tmp/tmpk_ujsw0f/pixel_studio.zip\n/workspace/scratch/08176eda05f9/NOVA-16-development/dist/nova16-0.5.0-dev-linux-x86_64.zip\nNative SDK exact-byte reproducibility after project rebuilds passed\n"
+  }
+}

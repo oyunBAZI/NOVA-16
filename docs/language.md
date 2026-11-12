@@ -80,3 +80,39 @@ breakpoints, traps and the instruction budget effective. It may enter other
 user functions at their mapped source locations; it is statement stepping, not
 a promise to skip all user calls. Instruction `step`/trace still expose library
 instructions. This distinction is verified on a real clear() call.
+
+## Reachable code and size reports
+
+The compiler retains typed functions reachable from `main`, including forward
+calls and recursive cycles. It still validates every declared function: an
+unused function with an invalid body remains a compilation error. There are no
+function pointers or indirect typed calls in language revision 1. Calls in both
+arms of a conditional are conservatively retained; this is not constant folding.
+
+The ABI1 library is linked from the same sources used by assembly developers.
+An assembler-parser-based graph retains exact operand symbol references,
+transitive CALL/branch dependencies, fallthrough, shared return tails and
+address-taken font data. Original block order is preserved. This linker is
+restricted to the reviewed position-independent library, not arbitrary assembly
+projects: indirect library control flow and unsupported layout directives fail
+explicitly. No runtime instructions are rewritten. Hand-authored assembly and
+its default full-library inclusion are unchanged.
+
+```sh
+zig-out/bin/n16c examples/projects/crates/main.n16c --out zig-out/crates.n16 --size-report zig-out/crates-size.json
+```
+
+`--size-report PATH` writes deterministic schema-1 JSON containing payload bytes,
+8,192-byte capacity/percentage, static RAM bytes, the ABI's 256-byte local frame,
+retained typed functions and library blocks with their byte contributions,
+removed function/block counts, and compiler scaffold bytes. Library entries are
+label blocks (including internal shared tails and data), not standalone public
+functions. Contributions plus scaffold bytes sum to the actual payload. Timing
+is deliberately separate so reports remain byte-reproducible. Return-address
+stack consumption remains governed by ABI1; `frame_bytes` is not a measured
+maximum recursion depth. Existing `--layout` and map schemas are unchanged.
+
+Only retained functions have ROM locations and local-variable debug records.
+Global variable layout is preserved. New compiler output has new ROM checksums;
+regenerate its checksum-bound map/snapshot artifacts together. Existing ROMs,
+legacy maps, V1 hardware and V2 hardware contracts are unchanged.

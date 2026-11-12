@@ -4,8 +4,8 @@ Both applications are original typed N16 programs. The unchanged V1 CPU runs
 every rule, input read and pixel write. They use ABI1 and the guest standard
 library; neither has a host-side application engine. `zig build` invokes a native
 build-host n16c and installs ROMs, generated assembly, source maps and layouts in
-zig-out/demos, even when cross compiling. Payloads: Crates 7,944 bytes;
-Pixel Studio 5,010 bytes (the 32-byte N16R envelope is additional).
+zig-out/demos, even when cross compiling. Payloads with demand linking: Crates 7,100 bytes;
+Pixel Studio 4,222 bytes (the 32-byte N16R envelope is additional).
 
 Build/test/debug/package either project, replacing APP with crates/pixel_studio:
 

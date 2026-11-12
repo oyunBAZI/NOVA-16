@@ -8,7 +8,7 @@ const asm16 = @import("../asm/assembler.zig");
 pub const Diagnostic = asm16.Diagnostic;
 pub const Origin = struct { line: usize, column: usize };
 pub const Variable = struct { name: []const u8, ty: Id, address: u16, function: Id, constant: bool, constant_value: ?u16 = null, visible: bool = true, end_block: usize = none };
-pub const Function = struct { node: Id, words: u16 = 0 };
+pub const Function = struct { node: Id, words: u16 = 0, reachable: bool = false };
 pub const Result = struct {
     context: *Context,
     assembly: []const u8,
@@ -35,12 +35,15 @@ pub const Context = struct {
     current_function: Id = none,
     static_end: u16 = 0x100,
     label: usize = 0,
+    emitting: bool = true,
     line: usize = 0,
     column: usize = 1,
+    library_plan: ?@import("guest_linker.zig").Plan = null,
     fn focus(self: *Context, t: s.Token) void {
         self.diag.* = .{ .token = t.text, .offset = @intFromPtr(t.text.ptr) - @intFromPtr(self.source.ptr), .length = t.text.len, .line = t.line, .column = t.column };
     }
     fn emit(self: *Context, comptime fmt: []const u8, args: anytype) !void {
+        if (!self.emitting) return;
         const begin = self.out.written().len;
         try self.out.writer.print(fmt, args);
         try self.out.writer.writeByte('\n');
@@ -453,6 +456,22 @@ pub const Context = struct {
             else => false,
         };
     }
+    fn markCalls(self: *Context, id: Id) bool {
+        if (id == none) return false;
+        const node = self.tree.nodes[id];
+        var changed = false;
+        if (node.tag == .call and self.tree.nodes[node.a].tag == .name) {
+            if (self.names.get(self.tree.nodes[node.a].token.text)) |target| {
+                if (!self.functions.items[target].reachable) {
+                    self.functions.items[target].reachable = true;
+                    changed = true;
+                }
+            }
+        }
+        for ([_]Id{ node.a, node.b, node.c }) |child| changed = self.markCalls(child) or changed;
+        for (node.items) |child| changed = self.markCalls(child) or changed;
+        return changed;
+    }
     fn lower(self: *Context) !void {
         self.names = .init(self.a);
         self.out = .init(self.a);
@@ -468,6 +487,14 @@ pub const Context = struct {
         }
         const main = self.names.get("main") orelse return error.MissingMain;
         if (self.tree.nodes[self.functions.items[main].node].items.len != 0) return error.MainArguments;
+        self.functions.items[main].reachable = true;
+        var changed = true;
+        while (changed) {
+            changed = false;
+            for (self.functions.items) |function| if (function.reachable) {
+                changed = self.markCalls(self.tree.nodes[function.node].a) or changed;
+            };
+        }
         try self.emit(".entry _c_boot\n_c_boot:\nLDI R7, 0x8000", .{});
         for (self.tree.roots) |root| {
             const n = self.tree.nodes[root];
@@ -485,6 +512,9 @@ pub const Context = struct {
         }
         try self.emit("CALL _c_f_main\nHALT", .{});
         for (self.functions.items, 0..) |function, index| {
+            // Still lower/type-check unused functions, preserving diagnostics and
+            // resource limits; only suppress their code and source locations.
+            self.emitting = function.reachable;
             self.current_function = index;
             const f = self.tree.nodes[function.node];
             self.line = f.token.line;
@@ -504,12 +534,19 @@ pub const Context = struct {
             try self.emit("_c_e_{s}:\nPOP R7\nPOP R6\nPOP R5\nPOP R4\nRET\n_c_end_{s}:", .{ f.token.text, f.token.text });
             for (self.variables.items[start..]) |*v| v.visible = false;
         }
+        self.emitting = true;
         self.current_function = none;
         self.line = 0;
         try self.emit("_c_bounds: LDI R0, 1\nJMP _c_fail\n_c_divzero: LDI R0, 2\nJMP _c_fail\n_c_stack: LDI R0, 3\n_c_fail: LDI R1, 0x00f0\nSTW R0, [R1]\nBRK\nHALT", .{});
-        // Exact same guest library sources used by assembly developers/tests.
-        var lines = std.mem.splitScalar(u8, @import("guest").all, '\n');
-        while (lines.next()) |line| try self.emit("{s}", .{line});
+        // Resolve exact assembly references against the shared ABI1 library.
+        // Source origins are appended only for blocks that are actually linked.
+        const library = @import("guest").all;
+        self.library_plan = try @import("guest_linker.zig").plan(self.a, self.out.written(), library);
+        for (self.library_plan.?.blocks) |block| {
+            if (!block.retained) continue;
+            var lines = std.mem.splitScalar(u8, std.mem.trimEnd(u8, library[block.start..block.end], "\n"), '\n');
+            while (lines.next()) |line| try self.emit("{s}", .{line});
+        }
     }
 };
 fn reserved(name: []const u8) bool {
@@ -611,7 +648,11 @@ pub fn writeDebugMap(w: *std.Io.Writer, a: std.mem.Allocator, result: Result, fi
     for (result.program.locations, locations) |loc, *target| target.* = .{ .file = if (loc.file.len > 0) loc.file else file, .address = loc.address, .length = loc.length, .line = loc.line, .column = loc.column };
     const variables = try a.alloc(maps.Variable, result.context.variables.items.len);
     defer a.free(variables);
-    for (result.context.variables.items, variables, 0..) |variable, *target, index| {
+    var variable_count: usize = 0;
+    for (result.context.variables.items, 0..) |variable, index| {
+        if (variable.function != none and !result.context.functions.items[variable.function].reachable) continue;
+        const target = &variables[variable_count];
+        variable_count += 1;
         const ty = result.context.tree.types[variable.ty];
         const element = if (ty.kind == .array) result.context.tree.types[ty.element] else ty;
         target.* = .{ .name = variable.name, .type_name = if (ty.kind == .array) "array" else ty.name, .address = variable.address, .words = ty.words, .frame_relative = variable.function != none, .signed = element.kind == .signed, .constant = variable.constant_value };
@@ -625,7 +666,67 @@ pub fn writeDebugMap(w: *std.Io.Writer, a: std.mem.Allocator, result: Result, fi
             target.scope_end = try symbolAddress(result, end);
         }
     }
-    const map: maps.Map = .{ .schema_version = 3, .rom_checksum = std.mem.readInt(u32, result.program.image[12..16], .little), .symbols = result.program.symbols, .locations = locations, .variables = variables };
+    const map: maps.Map = .{ .schema_version = 3, .rom_checksum = std.mem.readInt(u32, result.program.image[12..16], .little), .symbols = result.program.symbols, .locations = locations, .variables = variables[0..variable_count] };
     try std.json.Stringify.value(map, .{}, w);
+    try w.writeByte('\n');
+}
+
+/// Deterministic size accounting. Entries partition the actual assembled payload;
+/// compiler scaffolding includes boot, trap handlers and alignment outside units.
+pub fn writeSizeReport(w: *std.Io.Writer, a: std.mem.Allocator, result: Result) !void {
+    const Unit = struct { name: []const u8, bytes: usize };
+    var functions: std.ArrayList(Unit) = .empty;
+    defer functions.deinit(a);
+    var libraries: std.ArrayList(Unit) = .empty;
+    defer libraries.deinit(a);
+    var attributed: usize = 0;
+    var removed_functions: usize = 0;
+    for (result.context.functions.items) |function| {
+        if (!function.reachable) {
+            removed_functions += 1;
+            continue;
+        }
+        const name = result.context.tree.nodes[function.node].token.text;
+        const begin = try std.fmt.allocPrint(a, "_c_f_{s}", .{name});
+        defer a.free(begin);
+        const end = try std.fmt.allocPrint(a, "_c_end_{s}", .{name});
+        defer a.free(end);
+        const bytes = try symbolAddress(result, end) - try symbolAddress(result, begin);
+        try functions.append(a, .{ .name = name, .bytes = bytes });
+        attributed += bytes;
+    }
+    const payload = result.program.image.len - 32;
+    const blocks = result.context.library_plan.?.blocks;
+    var removed: usize = 0;
+    for (blocks, 0..) |block, index| {
+        if (!block.retained) {
+            removed += 1;
+            continue;
+        }
+        const begin = try symbolAddress(result, block.name);
+        var end: u32 = @intCast(0xe000 + payload);
+        for (blocks[index + 1 ..]) |next| {
+            if (next.retained) {
+                end = try symbolAddress(result, next.name);
+                break;
+            }
+        }
+        const bytes = end - begin;
+        try libraries.append(a, .{ .name = block.name, .bytes = bytes });
+        attributed += bytes;
+    }
+    try std.json.Stringify.value(.{
+        .schema_version = @as(u16, 1),
+        .rom_payload_bytes = payload,
+        .rom_capacity_bytes = @as(usize, 8192),
+        .rom_percent = @as(f64, @floatFromInt(payload)) * 100 / 8192,
+        .static_ram_bytes = result.context.static_end - 0x100,
+        .frame_bytes = @as(u16, 256),
+        .functions = functions.items,
+        .library_blocks = libraries.items,
+        .removed_library_blocks = removed,
+        .removed_functions = removed_functions,
+        .compiler_bytes = payload - attributed,
+    }, .{}, w);
     try w.writeByte('\n');
 }
