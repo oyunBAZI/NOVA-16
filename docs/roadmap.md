@@ -45,3 +45,10 @@ replay tests with identical CPU/full memory state. Ball boundary reversal
 ends at x/2=16,y=44. Paint input differs from idle output. VBLANK read-clear,
 key edges and ordered input schedules pass. Frame budget is 20,000 retired
 instructions with an overall cap.
+
+## Phase 7 — passed
+GUI build (`zig build -Dgui=true --search-prefix /tmp/nova-host`), dummy-driver
+smoke and core tests passed. Real SDL windows were inspected using the desktop:
+512×384 splash, moving ball, keyboard paint stroke and clean Escape shutdown.
+Host-only pause/reset/pacing and integer texture scaling are implemented.
+The default headless build requires no SDL library. See gui.md for dependencies.

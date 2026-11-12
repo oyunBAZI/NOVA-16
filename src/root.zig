@@ -31,3 +31,4 @@ pub const runtime = @import("core/runtime.zig");
 test {
     _ = runtime;
 }
+pub const sdl = @import("frontend/sdl2.zig");

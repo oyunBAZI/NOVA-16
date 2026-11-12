@@ -11,6 +11,10 @@ pub fn build(b: *std.Build) void {
         const exe = b.addExecutable(.{ .name = item[0], .root_module = b.createModule(.{ .root_source_file = b.path(item[1]), .target = target, .optimize = optimize }) });
         exe.root_module.addImport("nova16", core);
         exe.root_module.addOptions("options", options);
+        if (gui and std.mem.eql(u8, item[0], "nova16")) {
+            exe.root_module.link_libc = true;
+            exe.root_module.linkSystemLibrary("SDL2", .{});
+        }
         b.installArtifact(exe);
     }
     const unit = b.addTest(.{ .root_module = core });
