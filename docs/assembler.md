@@ -66,3 +66,25 @@ are rejected. All artifacts are staged before replacing destinations; ROM is
 replaced last. Each replacement is atomic where the host supports it. A crash
 or replacement-time filesystem failure is not a cross-file transaction; the
 ROM is the commit marker and checksum-bound maps reject stale ROM associations.
+
+## Local multi-file projects
+
+```sh
+zig-out/bin/n16asm examples/projects/counter/main.asm --project-root examples/projects/counter --out zig-out/counter.n16 --debug-symbols zig-out/counter.sym2
+zig-out/bin/nova16 run zig-out/counter.n16
+```
+
+`.include "lib/graphics.asm"` expands at its position, relative to the containing
+file. Symbols share one case-sensitive namespace; repeated definitions fail.
+Includes have no include-once behavior. Relative `..` is allowed only inside the
+canonical project root. Absolute include paths, backslashes, drive/URL colons,
+NUL and quote escapes are rejected. Canonical paths check symlink destinations;
+cycles, missing files, depth >32, >128 file visits, >1 MiB aggregate input or
+expanded output and >32,768 expanded lines fail before output publication.
+No manifest, linker, network access or dependency installation is involved.
+
+The root defaults to the entry file's directory. Source maps use root-relative
+forward-slash paths and original per-file lines, so checkout locations do not
+change ROM/map bytes. Listings use original per-file line numbers. Includes
+are trusted local build input: concurrent hostile filesystem replacement during
+a build is outside the boundary guarantee; build from an immutable checkout.
