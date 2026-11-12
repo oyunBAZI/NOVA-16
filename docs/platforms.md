@@ -18,3 +18,12 @@ Release packaging/native extraction checks are additional gates introduced in
 builds with no SDL dependency; optional graphical source builds need platform
 SDL2 development libraries. macOS signing/notarization and installers are not
 provided. See INSTALL.md and releasing.md for the exact artifact contract.
+
+## Developer-platform candidate verification
+0.3 candidate CI 43165008976 passed Linux/macOS ReleaseSafe extracted project/
+game/debugger checks, cross builds, all three native SDL gates (including genuine
+SDL2 on macOS), benchmarks, fuzzing and source coverage. Windows passed its
+build/core/original-ROM checks and caught a CRLF diagnostic defect in the new
+acceptance; the corrected code is in the final Release checkpoint. Do not infer
+that the candidate's failed Windows job passed. The published 0.3 release's
+Verification link must show all native jobs green before 0.3 support is claimed.

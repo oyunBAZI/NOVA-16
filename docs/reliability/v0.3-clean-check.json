@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "zig_version": "0.17.1",
+  "checks": [
+    {
+      "command": [
+        "zig",
+        "build",
+        "fmt"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "zig",
+        "build"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "zig",
+        "build",
+        "test",
+        "--test-timeout",
+        "2m",
+        "--summary",
+        "all"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "zig",
+        "build",
+        "demos"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "zig",
+        "build",
+        "v2-model-test",
+        "--summary",
+        "all"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/acceptance.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/developer_acceptance.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/game_acceptance.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/project_stress.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "zig",
+        "build",
+        "-Doptimize=ReleaseSafe",
+        "-Dstrip=true",
+        "-Dcpu=baseline"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "zig",
+        "build",
+        "test",
+        "-Doptimize=ReleaseSafe",
+        "--test-timeout",
+        "2m",
+        "--summary",
+        "all"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "zig",
+        "build",
+        "v2-model-test",
+        "-Doptimize=ReleaseSafe",
+        "--summary",
+        "all"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/acceptance.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/developer_acceptance.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/game_acceptance.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/package.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/verify_package.py",
+        "dist/nova16-0.3.0-rc.1-linux-x86_64.zip"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/security_check.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "zig",
+        "build",
+        "gui-test",
+        "-Dgui=true",
+        "--search-prefix",
+        "/workspace/scratch/3a93092b993c/sdl-sdk/prefix"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "local_commit": "83757ea383be9e2833ed3b8bf0db8118a9a07401",
+  "public_source_commit": "617004451963e2dcd61c28ccf53e61cba5d8fd07",
+  "public_source_tree": "13e37532a7a32b8c49764c81919cd347a8409aaa",
+  "publication_note": "Git data API publication preserves the exact measured tree; local/public commit identities differ. Final Release CI reruns against its own commit."
+}

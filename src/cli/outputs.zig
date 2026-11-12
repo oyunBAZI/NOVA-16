@@ -28,7 +28,7 @@ pub fn publish(a: std.mem.Allocator, io: std.Io, sources: []const []const u8, ar
         errdefer a.free(path);
         for (inputs.items) |input| if (std.ascii.eqlIgnoreCase(input, path)) return error.OutputAliasesSource;
         for (normalized.items) |p| if (std.ascii.eqlIgnoreCase(p, path)) return error.DuplicateOutputPath;
-        // Existing symlink/hardlink destinations are rejected to avoid alias edits.
+        // Reject symlinks/non-files. Replacing a regular hardlink preserves its other names.
         if (cwd.statFile(io, item.path, .{ .follow_symlinks = false })) |stat| {
             if (stat.kind != .file) return error.InvalidOutputPath;
             const canonical = try cwd.realPathFileAlloc(io, item.path, a);
