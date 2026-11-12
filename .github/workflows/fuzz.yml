@@ -29,9 +29,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/setup_zig.py
-      - run: sudo apt-get update && sudo apt-get install -y kcov
+      - name: Build pinned kcov v43 (not packaged by this runner image)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ pkg-config libcurl4-openssl-dev libdw-dev binutils-dev zlib1g-dev
+          git init "$RUNNER_TEMP/kcov"
+          git -C "$RUNNER_TEMP/kcov" remote add origin https://github.com/SimonKagstrom/kcov.git
+          git -C "$RUNNER_TEMP/kcov" fetch --depth 1 origin a39874f938ce13f7a65f253120d1ec946b349ffe
+          git -C "$RUNNER_TEMP/kcov" checkout --detach FETCH_HEAD
+          cmake -S "$RUNNER_TEMP/kcov" -B "$RUNNER_TEMP/kcov-build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/kcov-install"
+          cmake --build "$RUNNER_TEMP/kcov-build" --parallel 2
+          cmake --install "$RUNNER_TEMP/kcov-build"
+          echo "$RUNNER_TEMP/kcov-install/bin" >> "$GITHUB_PATH"
       - name: Build standalone tests with debug information
-        run: zig test --test-no-exec --dep examples -Mroot=src/root.zig -Mexamples=examples/sources.zig -femit-bin=nova16-tests
+        run: zig test -fllvm --test-no-exec --dep examples -Mroot=src/root.zig -Mexamples=examples/sources.zig -femit-bin=nova16-tests
       - name: Measure source coverage
         run: kcov --include-path=${{ github.workspace }}/src coverage ./nova16-tests
       - uses: actions/upload-artifact@v4

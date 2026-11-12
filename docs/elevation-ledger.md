@@ -81,3 +81,8 @@ workflows. `zig build test`, build and full CLI acceptance passed. Actual
 runs / 174 unique / 841 of 15441 feedback PCs. Default Debug backend's zero-PC
 coverage failure is documented; the successful LLVM mode is explicit in CI.
 No failures were suppressed. kcov publication remains pending CI execution.
+
+### Coverage dependency correction
+The guided fuzz CI job passed. Source coverage failed because kcov is absent from
+the Ubuntu runner's package repositories. CI now builds kcov v43 at exact upstream
+commit a39874f938ce13f7a65f253120d1ec946b349ffe; coverage is still pending execution.
