@@ -6,6 +6,7 @@ pub fn build(b: *std.Build) void {
     const options = b.addOptions();
     options.addOption(bool, "gui", gui);
     const core = b.addModule("nova16", .{ .root_source_file = b.path("src/root.zig"), .target = target, .optimize = optimize });
+    core.addAnonymousImport("examples", .{ .root_source_file = b.path("examples/sources.zig") });
     inline for (.{ .{ "nova16", "src/cli/nova16_main.zig" }, .{ "n16asm", "src/cli/assembler_main.zig" } }) |item| {
         const exe = b.addExecutable(.{ .name = item[0], .root_module = b.createModule(.{ .root_source_file = b.path(item[1]), .target = target, .optimize = optimize }) });
         exe.root_module.addImport("nova16", core);

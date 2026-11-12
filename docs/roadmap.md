@@ -30,3 +30,10 @@ all directives, symbols, negative diagnostics and the n16asm CLI work.
 Exhaustive legal-word disassemble/reassemble tests preserve instruction bytes,
 including negative offsets and unknown-data fallbacks. Golden forward-reference
 bytes match the manual encoding. No external assembler is used.
+
+## Phase 5 — passed
+`zig build test`, `zig build`, actual `n16asm` and `nova16 run` pass.
+Splash retires 70,481 instructions, HALTs, CRC32(VRAM)=249464469.
+PPM SHA-256 is recorded in video.md and asserted in the boot integration test.
+Nibble endpoints, palette changes, disable behavior, dimensions and deterministic
+PPM bytes pass. Frame scheduling is implemented in the next phase.

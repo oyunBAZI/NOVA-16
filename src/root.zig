@@ -19,3 +19,11 @@ test {
     _ = assembler;
     _ = disasm;
 }
+pub const video = @import("devices/video.zig");
+pub const state = @import("cli/state.zig");
+test {
+    _ = video;
+}
+test {
+    _ = @import("integration_tests.zig");
+}
