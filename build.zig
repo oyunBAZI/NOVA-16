@@ -9,6 +9,11 @@ fn executable(b: *std.Build, name: []const u8, source: []const u8, target: std.B
     exe.root_module.addImport("nova16", core);
     return exe;
 }
+fn linkGui(b: *std.Build, exe: *std.Build.Step.Compile) void {
+    exe.root_module.link_libc = true;
+    exe.root_module.addCSourceFile(.{ .file = b.path("src/frontend/sdl_adapter.c"), .flags = &.{ "-std=c11", "-Wall", "-Wextra", "-Werror" } });
+    exe.root_module.linkSystemLibrary("SDL2", .{});
+}
 pub fn build(b: *std.Build) void {
     const v = @import("builtin").zig_version;
     if (v.major != 0 or v.minor != 17 or v.patch != 1) @compileError("NOVA-16 requires Zig 0.17.1");
@@ -25,10 +30,14 @@ pub fn build(b: *std.Build) void {
         const exe = executable(b, item[0], item[1], target, optimize, core);
         exe.root_module.addOptions("options", options);
         if (gui and std.mem.eql(u8, item[0], "nova16")) {
-            exe.root_module.link_libc = true;
-            exe.root_module.linkSystemLibrary("SDL2", .{});
+            linkGui(b, exe);
         }
         b.installArtifact(exe);
+    }
+    if (gui) {
+        const test_gui = executable(b, "n16gui-tests", "src/cli/gui_test_main.zig", target, optimize, core);
+        linkGui(b, test_gui);
+        b.step("gui-test", "Verify SDL events, controls, actual renderer output and integer scaling").dependOn(&b.addRunArtifact(test_gui).step);
     }
     const demos = b.step("demos", "Assemble platform-independent guest ROMs with a native build-host tool");
     inline for (.{ "boot_splash", "bouncing_pixel", "paint", "diagnostics" }) |name| {

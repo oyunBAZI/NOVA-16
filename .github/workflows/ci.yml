@@ -32,12 +32,41 @@ jobs:
       - run: python3 scripts/setup_zig.py
       - run: python3 scripts/cross_acceptance.py
   sdl2:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - run: python3 scripts/setup_zig.py
-      - run: sudo apt-get update && sudo apt-get install -y libsdl2-dev xvfb xauth
-      - run: zig build -Dgui=true
-      - run: zig build test -Dgui=true
-      - run: xvfb-run -a zig-out/bin/nova16 run zig-out/demos/paint.n16 --gui --frames 6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/setup_zig.py
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev xvfb xauth
+      - if: runner.os == 'macOS'
+        run: |
+          brew install sdl2
+          echo "NOVA_SDL_PREFIX=$(brew --prefix sdl2)" >> "$GITHUB_ENV"
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          vcpkg install sdl2:x64-windows
+          echo "NOVA_SDL_PREFIX=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows" >> $env:GITHUB_ENV
+          echo "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" >> $env:GITHUB_PATH
+      - if: runner.os == 'Linux'
+        run: |
+          zig build -Dgui=true
+          xvfb-run -a zig build gui-test -Dgui=true
+      - if: runner.os == 'macOS'
+        run: |
+          zig build -Dgui=true --search-prefix "$NOVA_SDL_PREFIX"
+          zig build gui-test -Dgui=true --search-prefix "$NOVA_SDL_PREFIX"
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          zig build -Dgui=true --search-prefix "$env:NOVA_SDL_PREFIX"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          zig build gui-test -Dgui=true --search-prefix "$env:NOVA_SDL_PREFIX"

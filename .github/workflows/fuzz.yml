@@ -32,7 +32,7 @@ jobs:
       - name: Build pinned kcov v43 (not packaged by this runner image)
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++ pkg-config libcurl4-openssl-dev libdw-dev binutils-dev zlib1g-dev
+          sudo apt-get install -y cmake g++ pkg-config libcurl4-openssl-dev libdw-dev libelf-dev libssl-dev libiberty-dev binutils-dev zlib1g-dev
           git init "$RUNNER_TEMP/kcov"
           git -C "$RUNNER_TEMP/kcov" remote add origin https://github.com/SimonKagstrom/kcov.git
           git -C "$RUNNER_TEMP/kcov" fetch --depth 1 origin a39874f938ce13f7a65f253120d1ec946b349ffe

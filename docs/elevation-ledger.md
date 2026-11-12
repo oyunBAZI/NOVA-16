@@ -86,3 +86,18 @@ No failures were suppressed. kcov publication remains pending CI execution.
 The guided fuzz CI job passed. Source coverage failed because kcov is absent from
 the Ubuntu runner's package repositories. CI now builds kcov v43 at exact upstream
 commit a39874f938ce13f7a65f253120d1ec946b349ffe; coverage is still pending execution.
+
+## Phase 6 — SDL2 ABI and graphical acceptance
+Replaced handwritten SDL structs/constants with a header-compiled C adapter and
+checked project-owned input ABI. Added resizable/high-DPI integer scaling,
+performance-counter pacing, event-based held keys/focus release, cleanup/error
+paths and native graphical acceptance matrix. Changed build, frontend C/Zig,
+gui-test executable, CI and graphics documentation.
+
+Local `zig build -Dgui=true --search-prefix ../sdl-sdk/prefix` and dummy-driver
+`zig build gui-test` passed against official SDL2 2.32.4 headers/runtime. The test
+boots three guests, measures all renderer pixels, verifies resized letterboxing,
+all keys, releases, controls, quit/focus and guest paint. A viewport-clipped
+readback defect was caught and fixed without weakening the pixel comparison.
+Core tests and full black-box acceptance pass with no golden changes. Native
+Windows/macOS graphical acceptance is pending the new CI jobs; not yet claimed.
