@@ -114,3 +114,18 @@ Windows 2022 and macOS 15, plus all native Debug/ReleaseSafe and cross-build job
 Fuzzing passed separately. kcov's build needed its v43 tag for git-describe;
 the shallow pinned checkout now supplies that local tag. Source coverage remains
 pending a successful measurement; it has not been represented as passing.
+
+## Phase 7 — measured performance baseline
+Added native benchmark tool/build targets, isolated peak-RSS collector and per-
+commit CI artifacts. Measured CPU/frames, initialization/reset, bus, RGB rendering,
+ROM validation/load and assembly; hardware/compiler/mode and executable hashes
+are recorded. Exact commands/results are in performance.md. Local benchmark,
+core tests, default build and CLI acceptance all passed. No speculative engine
+optimization or golden change. Linux profile measured 51.40 ns/instruction,
+1.019 ms/frame and 13,312 KiB benchmark process peak RSS. Host perf is unavailable;
+component timing is reported accurately rather than claimed as sampling analysis.
+
+### Phase 5 source coverage — closed
+GitHub Fuzz and coverage run 43140891457 passed both guided fuzz and kcov source
+coverage jobs and published the source-coverage artifact. The tooling failures
+were fixed; no failed step was masked or made optional.

@@ -70,3 +70,14 @@ jobs:
           zig build -Dgui=true --search-prefix "$env:NOVA_SDL_PREFIX"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           zig build gui-test -Dgui=true --search-prefix "$env:NOVA_SDL_PREFIX"
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/setup_zig.py
+      - run: python3 scripts/benchmark.py --out zig-out/benchmark.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: performance-baseline
+          path: zig-out/benchmark.json

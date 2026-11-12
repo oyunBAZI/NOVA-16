@@ -34,6 +34,13 @@ pub fn build(b: *std.Build) void {
         }
         b.installArtifact(exe);
     }
+    const benchmark = executable(b, "n16bench", "src/cli/benchmark_main.zig", b.graph.host, optimize, host_core);
+    benchmark.root_module.addImport("examples", host_core.import_table.get("examples").?);
+    const run_bench = b.addRunArtifact(benchmark);
+    run_bench.addPassthruArgs();
+    run_bench.has_side_effects = true;
+    b.step("bench", "Measure CPU, frames, initialization, reset, bus, video, loader and assembler").dependOn(&run_bench.step);
+    b.step("bench-build", "Install native benchmark executable").dependOn(&b.addInstallArtifact(benchmark, .{}).step);
     if (gui) {
         const test_gui = executable(b, "n16gui-tests", "src/cli/gui_test_main.zig", target, optimize, core);
         linkGui(b, test_gui);
