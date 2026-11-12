@@ -74,6 +74,18 @@ pub fn build(b: *std.Build) void {
         demos.dependOn(&file.step);
         b.getInstallStep().dependOn(&file.step);
     }
+    const host_compiler = executable(b, "n16c-build-host", "src/cli/compiler_main.zig", b.graph.host, optimize, host_core, strip);
+    inline for (.{ "crates", "pixel_studio" }) |name| {
+        const compile_app = b.addRunArtifact(host_compiler);
+        compile_app.addFileArg(b.path("examples/projects/" ++ name ++ "/main.n16c"));
+        inline for (.{ .{ "--out", ".n16" }, .{ "--debug-symbols", ".map.json" }, .{ "--assembly", ".asm" }, .{ "--layout", ".layout.json" } }) |output| {
+            compile_app.addArg(output[0]);
+            const asset = compile_app.addOutputFileArg(name ++ output[1]);
+            const install = b.addInstallFile(asset, "demos/" ++ name ++ output[1]);
+            demos.dependOn(&install.step);
+            b.getInstallStep().dependOn(&install.step);
+        }
+    }
     // `test` always executes native host tests. Native OS CI validates each target.
     const unit = b.addTest(.{ .root_module = host_core });
     b.step("test", "Run native build-host automated tests").dependOn(&b.addRunArtifact(unit).step);

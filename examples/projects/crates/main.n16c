@@ -1,0 +1,94 @@
+// CRATES: three warehouse puzzles. All logic and drawing execute on ISA V1.
+var walls:[36]u16;
+var player:u16=13;
+var crates:[2]u16;
+var goals:[2]u16;
+var level:u16=0;
+var state:u16=0;
+var moves:u16=0;
+var old_player:u16;
+var old_crates:[2]u16;
+var old_moves:u16;
+var undo_valid:bool=false;
+fn setup()->u16 {
+    var i:u16=0;
+    while(i<36) {
+        walls[i]=u16(i<6 || i>=30 || i%6==0 || i%6==5);
+        i=i+1;
+    }
+    player=13; crates[0]=14;crates[1]=20;goals[0]=16;goals[1]=22;
+    if(level==1) { player=8;crates[0]=14;crates[1]=15;goals[0]=26;goals[1]=27; }
+    if(level==2) { player=16;crates[0]=15;crates[1]=21;goals[0]=13;goals[1]=19; }
+    moves=0; undo_valid=false;
+    return 0;
+}
+fn draw()->u16 {
+    clear(0);
+    var i:u16=0;
+    while(i<36) {
+        var shade:u16=1;
+        if(walls[i]!=0) { shade=5; }
+        if((i==goals[0] || i==goals[1])) { shade=10; }
+        color(shade);
+        var x:u16=28+i%6*12;
+        var y:u16=13+i/6*12;
+        rect(x,y,11,11);
+        if((i==crates[0] || i==crates[1])) { color(6);rect(x+2,y+2,7,7); }
+        if(i==player) { color(12);rect(x+3,y+3,5,5); }
+        i=i+1;
+    }
+    color(15); number(28,3,level+1); number(72,3,moves);
+    glyph(42,3,67);glyph(46,3,82);glyph(50,3,65);glyph(54,3,84);glyph(58,3,69);glyph(62,3,83);
+    color(state+8);rect(28,88,72,5);
+    // Status 0 title, 1 playing, 2 solved, 3 blocked, 4 all solved.
+    color(15); number(104,88,state);
+    return 0;
+}
+fn move(delta:i16)->u16 {
+    var target:u16=u16(i16(player)+delta);
+    if(walls[target]!=0) { return 0; }
+    var pushed:u16=2;
+    if(target==crates[0]) { pushed=0; }
+    if(target==crates[1]) { pushed=1; }
+    var destination:u16=target;
+    if(pushed<2) {
+        destination=u16(i16(target)+delta);
+        if(walls[destination]!=0 || destination==crates[0] || destination==crates[1]) { return 0; }
+    }
+    old_player=player;old_crates[0]=crates[0];old_crates[1]=crates[1];old_moves=moves;undo_valid=true;
+    player=target;moves=moves+1;
+    if(pushed<2) { crates[pushed]=destination; }
+    if((crates[0]==goals[0] || crates[0]==goals[1]) && (crates[1]==goals[0] || crates[1]==goals[1])) { state=2; }
+    else {
+        if(pushed<2 && destination!=goals[0] && destination!=goals[1]) {
+            if((destination%6==1 || destination%6==4) && (destination/6==1 || destination/6==4)) { state=3; }
+        }
+    }
+    return 1;
+}
+fn main()->u16 {
+    setup();draw();
+    while(true) {
+        wait_frame(frame());
+        var pressed:u16=peek8(55297);
+        var dirty:bool=false;
+        if((pressed&128)!=0) { state=0;level=0;setup();dirty=true; }
+        if((pressed&64)!=0) { state=1;setup();dirty=true; }
+        if((pressed&16)!=0 && state==2) {
+            level=level+1;
+            if(level==3) { state=4;level=2; } else { state=1;setup(); }
+            dirty=true;
+        }
+        if((pressed&32)!=0 && undo_valid) {
+            player=old_player;crates[0]=old_crates[0];crates[1]=old_crates[1];moves=old_moves;undo_valid=false;state=1;dirty=true;
+        }
+        if(state==1) {
+            if((pressed&1)!=0) { move(i16(65530));dirty=true; }
+            else { if((pressed&2)!=0) { move(i16(6));dirty=true; }
+            else { if((pressed&4)!=0) { move(i16(65535));dirty=true; }
+            else { if((pressed&8)!=0) { move(i16(1));dirty=true; } } } }
+        }
+        if(dirty) { draw(); }
+    }
+    return 0;
+}

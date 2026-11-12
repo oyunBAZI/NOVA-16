@@ -1,0 +1,68 @@
+// PIXEL STUDIO: 16x12 canvas, palette, miniature preview and one-edit undo.
+var canvas:[192]u16;
+var cursor:u16=0;
+var ink:u16=12;
+var undo_pos:u16;
+var undo_color:u16;
+var undo_valid:bool=false;
+var confirm_clear:bool=false;
+var edits:u16=0;
+fn tile(index:u16)->u16 {
+    color(canvas[index]);
+    rect(4+index%16*5,18+index/16*5,5,5);
+    pixel(96+index%16,48+index/16,canvas[index]);
+    return 0;
+}
+fn marker()->u16 {
+    color(15);
+    var x:u16=4+cursor%16*5;
+    var y:u16=18+cursor/16*5;
+    rect(x,y,5,1);rect(x,y+4,5,1);rect(x,y,1,5);rect(x+4,y,1,5);
+    return 0;
+}
+fn toolbar()->u16 {
+    var i:u16=0;
+    while(i<16) { color(i);rect(4+i*7,85,6,5);i=i+1; }
+    color(ink);rect(96,18,16,16);
+    color(0);rect(4,3,124,7);
+    color(15);number(4,3,edits);number(96,3,ink);
+    if(confirm_clear) { color(8);rect(4,92,112,3); }
+    else { color(1);rect(4,92,112,3); }
+    return 0;
+}
+fn redraw()->u16 {
+    clear(1);
+    var i:u16=0;
+    while(i<192) { tile(i);i=i+1; }
+    toolbar();marker();
+    return 0;
+}
+fn main()->u16 {
+    redraw();
+    while(true) {
+        wait_frame(frame());
+        var pressed:u16=peek8(55297);
+        var held:u16=buttons();
+        var before:u16=cursor;
+        if((pressed&1)!=0 && cursor>=16) { cursor=cursor-16; }
+        if((pressed&2)!=0 && cursor<176) { cursor=cursor+16; }
+        if((pressed&4)!=0 && cursor%16!=0) { cursor=cursor-1; }
+        if((pressed&8)!=0 && cursor%16!=15) { cursor=cursor+1; }
+        if((pressed&128)!=0) { ink=(ink+1)%16;toolbar(); }
+        if((pressed&64)!=0) {
+            if(confirm_clear) {
+                zero(256,384);edits=0;undo_valid=false;confirm_clear=false;redraw();
+            } else { confirm_clear=true;toolbar(); }
+        }
+        if((pressed&32)!=0 && undo_valid) {
+            canvas[undo_pos]=undo_color;undo_valid=false;edits=edits+1;tile(undo_pos);toolbar();
+        }
+        if((pressed&16)!=0 || ((held&16)!=0 && before!=cursor)) {
+            undo_pos=cursor;undo_color=canvas[cursor];undo_valid=true;
+            canvas[cursor]=ink;edits=edits+1;tile(cursor);toolbar();
+        }
+        if(before!=cursor) { tile(before); }
+        marker();
+    }
+    return 0;
+}

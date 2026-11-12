@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "name": "crates",
+  "language": "n16c",
+  "entry": "main.n16c",
+  "files": [
+    "main.n16c",
+    "win.input",
+    "undo.input",
+    "collision.input",
+    "restart.input",
+    "blocked.input"
+  ],
+  "tests": [
+    {
+      "frames": 30,
+      "halted": false,
+      "ppm_sha256": "e607b022d418d895a9dba1a7c23e376e93efce2f0550913140e986679a414d01"
+    },
+    {
+      "frames": 460,
+      "halted": false,
+      "ppm_sha256": "14c6a7d3146af8c29df93b872cbf75fe9779ab07b02cc8640e2dd8555c98de76",
+      "input": "win.input"
+    },
+    {
+      "frames": 100,
+      "halted": false,
+      "ppm_sha256": "77b7c2db01f34f0eb8c7c67f5c34a1f94380460231a084259c3ae6243bac5913",
+      "input": "undo.input"
+    },
+    {
+      "frames": 90,
+      "halted": false,
+      "ppm_sha256": "77b7c2db01f34f0eb8c7c67f5c34a1f94380460231a084259c3ae6243bac5913",
+      "input": "collision.input"
+    },
+    {
+      "frames": 100,
+      "halted": false,
+      "ppm_sha256": "77b7c2db01f34f0eb8c7c67f5c34a1f94380460231a084259c3ae6243bac5913",
+      "input": "restart.input"
+    },
+    {
+      "frames": 180,
+      "halted": false,
+      "ppm_sha256": "ddd9cf177b663f01cb7c3c1f8ebf8d1fb4aa04f5d2e7529f9d5b58b0b75d1788",
+      "input": "blocked.input"
+    }
+  ]
+}

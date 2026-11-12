@@ -1,0 +1,12 @@
+{
+  "crates-blocked": "ddd9cf177b663f01cb7c3c1f8ebf8d1fb4aa04f5d2e7529f9d5b58b0b75d1788",
+  "crates-collision": "77b7c2db01f34f0eb8c7c67f5c34a1f94380460231a084259c3ae6243bac5913",
+  "crates-restart": "77b7c2db01f34f0eb8c7c67f5c34a1f94380460231a084259c3ae6243bac5913",
+  "crates-title": "e607b022d418d895a9dba1a7c23e376e93efce2f0550913140e986679a414d01",
+  "crates-undo": "77b7c2db01f34f0eb8c7c67f5c34a1f94380460231a084259c3ae6243bac5913",
+  "crates-win": "14c6a7d3146af8c29df93b872cbf75fe9779ab07b02cc8640e2dd8555c98de76",
+  "pixel_studio-blank": "a1b1d6b7d1b980f39be146fd683e3217768aea72d50d6ff9f10a6afab41c9c76",
+  "pixel_studio-clear": "a1b1d6b7d1b980f39be146fd683e3217768aea72d50d6ff9f10a6afab41c9c76",
+  "pixel_studio-drawing": "d5fc0c4d7dbcbae26b4891f66b8dce1ab5fb6e4e4d885e82ea87b0768a180d6d",
+  "pixel_studio-undo": "9457773afcc7696df707dce74648dc6af1721603eaa15618ca82b88b9b7a298d"
+}
