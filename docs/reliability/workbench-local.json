@@ -293,7 +293,56 @@
       "exit_code": 0,
       "seconds": 0.122,
       "output": "Project stress: depth/files/bytes/lines, 100 seeded adversaries and symlink boundary passed\n"
+    },
+    {
+      "command": [
+        "node",
+        "--check",
+        "workbench/app.js"
+      ],
+      "exit_code": 0,
+      "output": "JavaScript syntax check passed after frontend race/render improvements and whitespace formatting."
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/workbench_acceptance.py"
+      ],
+      "exit_code": 0,
+      "output": "Final suite: 5 tests passed, including static frontend IDs/labels, failure-history retention, native parity, replay, build and HTTP boundaries."
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/package.py"
+      ],
+      "exit_code": 0,
+      "output": "Native ReleaseSafe SDK created from clean local code commit."
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/package_reproducibility.py"
+      ],
+      "exit_code": 0,
+      "output": "Native SDK exact-byte reproducibility after project rebuilds passed."
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/verify_package.py",
+        "dist/nova16-0.5.0-dev-linux-x86_64.zip"
+      ],
+      "exit_code": 0,
+      "output": "Extracted SDK checksums, original five V1 ROM identities, typed compiler, projects, ten application replays, V2 independent vectors/audio/IRQ/snapshot, five Workbench acceptance tests and application packages passed."
     }
   ],
-  "browser_visual_gate": "Blocked: cloud browser loopback inaccessible; local Chromium socket operation denied. No rendered-browser pass claimed."
+  "browser_visual_gate": "Blocked: cloud browser loopback inaccessible; local Chromium socket operation denied. No rendered-browser pass claimed.",
+  "verified_code_commit": "de565987cc6953ddfa8f87b72722d514ba2a4cdb",
+  "verified_package": {
+    "sha256": "6e0c5f9b591ecefa3e12d271e5e7431d08dba543e2e89a2e0035207cf4aa3e49",
+    "bytes": 7296812,
+    "source_commit": "de565987cc6953ddfa8f87b72722d514ba2a4cdb",
+    "source_dirty": false
+  }
 }

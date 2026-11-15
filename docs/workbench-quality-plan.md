@@ -67,3 +67,10 @@ Seven ReleaseSafe fresh-process measurements of NOVA Sound (one V2 frame,
 3.32 ms for the frame-action-undo bridge including JSON output. Raw samples
 and comparison limits are in `docs/benchmarks/workbench-linux.json`. This is
 the intended history-granularity tradeoff, not a claim that the CPU is 20× faster.
+
+All 30 original Debug/ReleaseSafe build/regression checks passed, followed by
+final frontend syntax/static checks, the expanded five-case Workbench suite,
+exact-byte SDK reproducibility and extracted-SDK validation including Workbench.
+The package verification used local code commit `de56598`; this subsequent
+evidence update changes documentation only. New cross-OS execution is left to
+the configured native CI matrix; no Windows/macOS execution is claimed locally.
