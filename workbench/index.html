@@ -10,7 +10,7 @@
 
 <div class="toolbar">
 <div>
-<select id="demos" aria-label="Guest program"></select><button id="load">Load ROM</button>
+<select id="demos" aria-label="Guest program"></select><button id="load">Load ROM</button><button id="edit-demo" disabled>Open source</button>
 </div>
 <div class="transport">
 <button id="reset" title="Reset machine">Reset</button><button id="reverse" title="Undo last instruction or frame action">← Reverse</button><button id="step" title="One instruction, F10">Step</button><button id="next" title="Next source line">Next line</button><button id="frame" title="Complete one logical frame">Frame</button><button id="run" class="primary" title="Run / pause, F5">▶ Run</button>
@@ -26,6 +26,10 @@
 <section class="panel editor-panel">
 <div class="panel-heading">
 <h1><span class="file-dot"></span>main.n16c</h1><span id="source-status">N16C · ABI 1</span><button id="build" class="small primary">Build & load</button>
+</div>
+<div class="editor-options">
+<label for="build-architecture">Target</label><select id="build-architecture"><option value="nova16-v1">NOVA-16 V1</option><option value="nova16-v2">NOVA-16 V2 · sound + timer</option></select>
+<label for="build-optimization">Codegen</label><select id="build-optimization"><option value="size">Optimize size</option><option value="none">Baseline</option></select>
 </div>
 <div class="editor">
 <pre id="line-numbers" aria-hidden="true">1</pre><textarea id="source" maxlength="65536" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="N16C source code" wrap="off"></textarea>

@@ -1,0 +1,135 @@
+// NOVA TRACKER: four real hardware voices, sixteen editable steps per voice.
+// Arrows select; A cycles note; B clears; Start plays/pauses.
+// Hold Select + Up/Down for tempo, Select + Left/Right for waveform.
+var notes:[64]u16;
+var low:[12]u16;
+var high:[12]u16;
+var waves:[4]u16;
+var cursor:u16=0;
+var play_step:u16=0;
+var playing:bool=true;
+var tempo:u16=8;
+var ticks:u16=0;
+var edits:u16=0;
+fn rgb(index:u16,r:u16,g:u16,b:u16)->u16 {
+    poke8(55328+index*3,r);poke8(55329+index*3,g);poke8(55330+index*3,b);return 0;
+}
+fn palette()->u16 {
+    rgb(0,8,13,23);rgb(1,19,32,49);rgb(2,47,185,185);rgb(3,57,201,142);
+    rgb(4,95,181,245);rgb(5,139,160,240);rgb(6,238,190,98);rgb(7,105,126,150);
+    rgb(8,243,113,104);rgb(9,237,146,94);rgb(10,72,219,168);rgb(11,249,205,100);
+    rgb(12,89,186,244);rgb(13,182,160,230);rgb(14,218,151,197);rgb(15,232,242,250);
+    return 0;
+}
+fn cell(index:u16)->u16 {
+    var x:u16=19+(index%16)*6;
+    var y:u16=24+(index/16)*13;
+    var note:u16=notes[index];
+    color(1);rect(x,y,5,11);
+    if(note!=0){color(2+note%13);rect(x+1,y+8-note*7/12,3,2+note*7/12);}
+    if(index==cursor){color(15);rect(x,y,5,1);rect(x,y+10,5,1);}
+    return 0;
+}
+fn header()->u16 {
+    color(0);rect(0,0,128,13);
+    color(15);glyph(4,3,84);glyph(10,3,82);glyph(16,3,65);glyph(22,3,67);glyph(28,3,75);glyph(34,3,69);glyph(40,3,82);
+    color(playing?10:8);rect(52,4,4,5);
+    color(15);number(61,3,tempo);number(88,3,notes[cursor]);number(111,3,waves[cursor/16]);
+    return 0;
+}
+fn marker(old:u16)->u16 {
+    color(0);rect(19+old*6,17,5,3);
+    color(playing?10:8);rect(19+play_step*6,17,5,3);
+    return 0;
+}
+fn redraw()->u16 {
+    clear(0);
+    header();
+    var i:u16=0;
+    while(i<64){cell(i);i=i+1;}
+    i=0;while(i<4){color(10+i);number(4,27+i*13,i+1);i=i+1;}
+    color(7);glyph(4,85,65);glyph(24,85,66);glyph(44,85,83);glyph(64,85,84);
+    color(15);number(84,85,edits);
+    marker(play_step);
+    return 0;
+}
+fn silence()->u16 {
+    var voice:u16=0;
+    while(voice<4){poke8(55558+voice*16,0);voice=voice+1;}
+    return 0;
+}
+fn trigger()->u16 {
+    var voice:u16=0;
+    while(voice<4){
+        var note:u16=notes[voice*16+play_step];
+        var base:u16=55552+voice*16;
+        poke8(base+6,0);
+        if(note!=0){
+            poke16(base,low[note-1]);poke16(base+2,high[note-1]);
+            poke16(base+4,160+waves[voice]*256);poke8(base+6,3);
+        }
+        voice=voice+1;
+    }
+    return 0;
+}
+fn initialize()->u16 {
+    low[0]=13507;high[0]=357;
+    low[1]=29273;high[1]=378;
+    low[2]=62278;high[2]=400;
+    low[3]=51907;high[3]=424;
+    low[4]=3374;high[4]=450;
+    low[5]=53277;high[5]=476;
+    low[6]=10860;high[6]=505;
+    low[7]=13397;high[7]=535;
+    low[8]=1923;high[8]=567;
+    low[9]=48933;high[9]=600;
+    low[10]=30731;high[10]=636;
+    low[11]=20665;high[11]=674;
+    waves[0]=2;waves[1]=0;waves[2]=1;waves[3]=3;
+    notes[0]=1;notes[4]=5;notes[8]=8;notes[12]=5;
+    notes[16]=1;notes[24]=8;
+    notes[34]=8;notes[38]=12;notes[42]=8;notes[46]=5;
+    notes[48]=1;notes[52]=1;notes[56]=1;notes[60]=1;
+    return 0;
+}
+fn main()->u16 {
+    palette();initialize();
+    poke8(55617,220);poke8(55616,1);
+    // One timer event per 20,000 transition slots; IE remains disabled.
+    poke16(55650,0);poke16(55648,20000);poke8(55656,1);
+    redraw();trigger();
+    while(true){
+        wait_frame(frame());
+        var pressed:u16=peek8(55297);
+        var held:u16=buttons();
+        var previous:u16=cursor;
+        var changed:bool=false;
+        if((held&128)!=0){
+            if((pressed&1)!=0 && tempo>2){tempo=tempo-1;changed=true;}
+            if((pressed&2)!=0 && tempo<30){tempo=tempo+1;changed=true;}
+            if((pressed&4)!=0){waves[cursor/16]=(waves[cursor/16]+3)%4;changed=true;}
+            if((pressed&8)!=0){waves[cursor/16]=(waves[cursor/16]+1)%4;changed=true;}
+        }else{
+            if((pressed&1)!=0){cursor=(cursor+48)%64;}
+            if((pressed&2)!=0){cursor=(cursor+16)%64;}
+            if((pressed&4)!=0){cursor=cursor/16*16+(cursor+15)%16;}
+            if((pressed&8)!=0){cursor=cursor/16*16+(cursor+1)%16;}
+        }
+        if((pressed&16)!=0){notes[cursor]=(notes[cursor]+1)%13;edits=edits+1;changed=true;}
+        if((pressed&32)!=0){notes[cursor]=0;edits=edits+1;changed=true;}
+        if((pressed&64)!=0){playing=!playing;ticks=0;silence();if(playing){trigger();}changed=true;}
+        if(cursor!=previous){cell(previous);changed=true;}
+        if(changed){cell(cursor);header();marker(play_step);color(15);number(84,85,edits);}
+        if((peek8(55632)&2)!=0){
+            poke8(55632,2);
+            if(playing){
+                ticks=ticks+1;
+                if(ticks>=tempo){
+                    ticks=0;var old:u16=play_step;play_step=(play_step+1)%16;
+                    trigger();marker(old);
+                }
+            }
+        }
+    }
+    return 0;
+}

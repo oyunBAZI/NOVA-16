@@ -23,14 +23,15 @@ for path in sorted((root / 'zig-out/demos').glob('*')):
 for pattern in ('docs/**/*.md', 'docs/**/*.png', 'docs/**/*.json', 'docs/**/*.txt', 'docs/**/*.zig',
                 'examples/**/*.asm', 'examples/**/*.n16c', 'examples/**/*.json', 'examples/**/*.input', 'examples/sources.zig',
                 'guest/**/*.asm', 'guest/**/*.md', 'guest/**/*.zig', 'src/**/*.zig', 'src/**/*.c', 'src/**/*.h',
-                'scripts/*.py', 'scripts/*.json', 'workbench/*.html', 'workbench/*.css', 'workbench/*.js'):
+                'scripts/*.py', 'scripts/*.json', 'scripts/*.mjs', 'wasm/*.mjs', 'workbench/*.html', 'workbench/*.css', 'workbench/*.js'):
     for path in sorted(root.glob(pattern)):
         if '.n16' in path.relative_to(root).parts:
             continue
         files[path.relative_to(root).as_posix()] = path.read_bytes()
+files['wasm/nova16.wasm'] = (root/'zig-out/wasm/nova16.wasm').read_bytes()
 for filename in ('README.md', 'INSTALL.md', 'LICENSE', 'CHANGELOG.md', 'SECURITY.md', 'CONTRIBUTING.md', 'build.zig', 'build.zig.zon'):
     files[filename] = (root / filename).read_bytes()
-for app in ('crates', 'pixel_studio'):
+for app in ('crates', 'pixel_studio', 'nova_tracker', 'starfall'):
     import sys
     project = root/'examples/projects'/app
     import tempfile
@@ -46,14 +47,19 @@ for demo in ('nova_sound', 'interrupt_canvas'):
                         'run', str(root/'zig-out/demos'/(demo+'.n16')), '--frames', '180', '--wav', str(wav)],
                        check=True, capture_output=True, timeout=60)
         files['demos/'+demo+'.wav'] = wav.read_bytes()
+import tempfile
+with tempfile.TemporaryDirectory() as temporary:
+    html = Path(temporary)/'NOVA16-Offline-Workbench.html'
+    subprocess.run([sys.executable, str(root/'scripts/package_web.py'), '--out', str(html)], check=True, timeout=60)
+    files['web/NOVA16-Offline-Workbench.html'] = html.read_bytes()
 build_info = json.loads(subprocess.check_output([str(root / 'zig-out/bin' / ('nova16.exe' if system == 'windows' else 'nova16')), '--build-info'], text=True))
 assert build_info['arch'] == arch and not build_info['gui'] and build_info['optimization'] == 'safe', 'package a native ReleaseSafe headless build'
 manifest = {'build_info': build_info, 'package_schema': 1, 'version': version, 'zig_version': '0.17.1',
             'isa_version': 1, 'rom_version': 1, 'snapshot_version': 1,
-            'optional_frontends': ['workbench'], 'workbench_protocol_version': 1,
+            'optional_frontends': ['workbench'], 'workbench_protocol_version': 1, 'wasm_abi_version': 1, 'wasm_max_memory_bytes': 67108864,
             'supported_profiles': [1, 2], 'supported_rom_versions': [1, 2], 'supported_snapshot_versions': [1, 2],
             'os': system, 'arch': arch, 'frontend': 'headless',
-            'source_dirty': subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'src', 'guest', 'build.zig', 'build.zig.zon', 'scripts', 'docs', 'examples', 'workbench', 'README.md', 'INSTALL.md'], cwd=root).returncode != 0 or bool(subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard', '--', 'src', 'guest', 'examples', 'scripts', 'docs', 'workbench'], cwd=root)),
+            'source_dirty': subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'src', 'guest', 'build.zig', 'build.zig.zon', 'scripts', 'docs', 'examples', 'workbench', 'wasm', 'README.md', 'INSTALL.md'], cwd=root).returncode != 0 or bool(subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard', '--', 'src', 'guest', 'examples', 'scripts', 'docs', 'workbench', 'wasm'], cwd=root)),
             'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
             'files': {name: {'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data)} for name, data in sorted(files.items())}}
 files['manifest.json'] = (json.dumps(manifest, indent=2, sort_keys=True) + '\n').encode()

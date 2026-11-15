@@ -1,13 +1,17 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const hex = (n, width = 4) => Number(n).toString(16).padStart(width, '0').toUpperCase();
-const token = location.hash.slice(1) || sessionStorage.getItem('nova-token') || '';
-if (token) sessionStorage.setItem('nova-token', token);
-history.replaceState(null, '', '/');
+const offline=Boolean(window.NovaOfflineRequest);
+const token=offline?'':location.hash.slice(1)||sessionStorage.getItem('nova-token')||'';
+if(!offline) {
+  if(token) sessionStorage.setItem('nova-token',token);
+  history.replaceState(null,'','/');
+}
 let revision = 0, current, previous, address = 0, running = false, serial = Promise.resolve();
 let sourceMatches = false, romBytes = null, held = 0, sound = null, audioTime = 0;
 let runGeneration = 0;
 let highlightedSource = null, highlightedLine = -1;
+let typedDemos = {};
 const audioNodes = new Set();
 const log = text => {
   $('console').textContent = ($('console').textContent + '\n' + text).slice(-18000);
@@ -31,7 +35,8 @@ function pause() {
 }
 function api(payload) {
   const operation = async () => {
-    const response = await fetch('/api', {
+    const request={...payload,revision};
+    const response = offline ? await window.NovaOfflineRequest(request) : await fetch('/api', {
       method: 'POST', headers: {
         'Content-Type': 'application/json', 'X-Nova-Token': token
       }, body: JSON.stringify({
@@ -85,7 +90,7 @@ function render(result) {
   previous = current;
   current = result;
   const s = result.state;
-  $('connection').textContent = 'CONNECTED / NATIVE';
+  $('connection').textContent = offline?'CONNECTED / WASM':'CONNECTED / NATIVE';
   const status = s.trapped ? 'TRAP' : s.halted ? 'HALT' : s.paused ? 'BRK' : running ? 'RUNNING' : 'READY';
   $('machine-status').textContent = status;
   $('status-dot').style.background = s.trapped ? '#f2ad98' : running ? '#a1edbc' : '#edc887';
@@ -314,17 +319,37 @@ $('load').onclick=async()=> {
     $('diagnostics').textContent='ROM loaded. Focus the display to use controller keys.';
   }
 };
+$('demos').onchange=()=> { $('edit-demo').disabled=!typedDemos[$('demos').value]; };
+$('edit-demo').onclick=async()=> {
+  if (!confirm('Replace the editor with this demo source? Save any edits first.')) return;
+  pause();
+  const result=await api({op:'edit_demo',demo:$('demos').value});
+  $('source').value=result.editor_source;
+  $('build-architecture').value=result.editor_architecture;
+  $('build-optimization').value=result.editor_optimization;
+  sourceMatches=false;
+  $('source-status').textContent='SOURCE OPENED · BUILD TO RUN';
+  updateEditor();
+};
+for (const id of ['build-architecture','build-optimization']) $(id).onchange=()=> {
+  sourceMatches=false;
+  $('source-status').textContent='UNBUILT CHANGES';
+  updateEditor();
+};
 $('build').onclick = async () => {
   pause();
   $('build').disabled = true;
   const builtSource = $('source').value;
+  const builtArchitecture = $('build-architecture').value;
+  const builtOptimization = $('build-optimization').value;
   try {
     const result = await api({
-      op: 'build', source: builtSource
+      op: 'build', source: builtSource,
+      architecture: builtArchitecture, optimization: builtOptimization
     });
     $('diagnostics').classList.toggle('error', !result.ok);
     if (result.ok) {
-      sourceMatches = $('source').value === builtSource;
+      sourceMatches = $('source').value === builtSource && $('build-architecture').value === builtArchitecture && $('build-optimization').value === builtOptimization;
       romBytes = unhex(result.rom);
       $('download-rom').disabled = false;
       $('source-status').textContent = sourceMatches ? 'BUILD SUCCEEDED' : 'UNBUILT CHANGES';
@@ -519,20 +544,24 @@ $('wav').onclick=()=> {
 api({
   op:'bootstrap'
 }).then(result=> {
-  $('source').value=result.source;
+  $('source').value=result.editor_source;
+  typedDemos=result.typed_demos;
+  $('build-architecture').value=result.editor_architecture;
+  $('build-optimization').value=result.editor_optimization;
   for(const [id,title]of Object.entries(result.demos)) {
     const option=document.createElement('option');
     option.value=id;
     option.textContent=title;
     $('demos').append(option);
   }
+  $('edit-demo').disabled=!typedDemos[$('demos').value];
   updateEditor();
 }).catch(()=> {
   $('connection').textContent='SESSION UNAVAILABLE';
   log('Open the full local URL printed by scripts/workbench.py to connect.');
 });
 // Event promises terminate here, including browser audio/file API failures.
-for (const [id, event] of [['load','onclick'], ['build','onclick'],
+for (const [id, event] of [['load','onclick'], ['build','onclick'], ['edit-demo','onclick'],
 ['save-snapshot','onclick'], ['snapshot-file','onchange'],
 ['listen','onclick'], ['replay-start','onclick']]) {
   const handler = $(id)[event];

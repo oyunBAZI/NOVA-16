@@ -1,0 +1,812 @@
+{
+  "schema_version": 1,
+  "zig_version": "0.17.1",
+  "optimization": "safe",
+  "os": "linux",
+  "arch": "x86_64",
+  "cpu_model": "emeraldrapids",
+  "guard": 19191960830,
+  "history_full_bytes_32": 2157824,
+  "samples": [
+    {
+      "name": "cpu_instruction",
+      "operations": 1000000,
+      "nanoseconds": 40124817
+    },
+    {
+      "name": "headless_frame",
+      "operations": 50,
+      "nanoseconds": 54046273
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 56851158
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 63072957
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 6500338
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 34686422
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 5390661
+    },
+    {
+      "name": "assemble_4097_symbols",
+      "operations": 10,
+      "nanoseconds": 239020958
+    },
+    {
+      "name": "debugger_step",
+      "operations": 10000,
+      "nanoseconds": 1387470
+    },
+    {
+      "name": "history_full_step",
+      "operations": 10000,
+      "nanoseconds": 99506887
+    },
+    {
+      "name": "history_delta32_step",
+      "operations": 10000,
+      "nanoseconds": 5431873
+    },
+    {
+      "name": "history_delta_step",
+      "operations": 10000,
+      "nanoseconds": 6761544
+    },
+    {
+      "name": "history_delta_reverse",
+      "operations": 2048,
+      "nanoseconds": 394428
+    },
+    {
+      "name": "history_candidate_capture_lower_bound",
+      "operations": 10000,
+      "nanoseconds": 216647
+    },
+    {
+      "name": "snapshot_encode",
+      "operations": 1000,
+      "nanoseconds": 629739395
+    },
+    {
+      "name": "snapshot_restore",
+      "operations": 1000,
+      "nanoseconds": 634989060
+    },
+    {
+      "name": "breakout_frame",
+      "operations": 200,
+      "nanoseconds": 239424193
+    },
+    {
+      "name": "compile_crates",
+      "operations": 10,
+      "nanoseconds": 313499533
+    },
+    {
+      "name": "crates_frame",
+      "operations": 120,
+      "nanoseconds": 172362531
+    },
+    {
+      "name": "compile_pixel_studio",
+      "operations": 10,
+      "nanoseconds": 261462533
+    },
+    {
+      "name": "pixel_studio_frame",
+      "operations": 120,
+      "nanoseconds": 162325541
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 65141875
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 1000000,
+      "nanoseconds": 39263554
+    },
+    {
+      "name": "headless_frame",
+      "operations": 50,
+      "nanoseconds": 62009521
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 59006702
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 61735471
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 2317339
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 22143927
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 1396134
+    },
+    {
+      "name": "assemble_4097_symbols",
+      "operations": 10,
+      "nanoseconds": 197383200
+    },
+    {
+      "name": "debugger_step",
+      "operations": 10000,
+      "nanoseconds": 1138797
+    },
+    {
+      "name": "history_full_step",
+      "operations": 10000,
+      "nanoseconds": 102323042
+    },
+    {
+      "name": "history_delta32_step",
+      "operations": 10000,
+      "nanoseconds": 5585348
+    },
+    {
+      "name": "history_delta_step",
+      "operations": 10000,
+      "nanoseconds": 6448765
+    },
+    {
+      "name": "history_delta_reverse",
+      "operations": 2048,
+      "nanoseconds": 152606
+    },
+    {
+      "name": "history_candidate_capture_lower_bound",
+      "operations": 10000,
+      "nanoseconds": 411119
+    },
+    {
+      "name": "snapshot_encode",
+      "operations": 1000,
+      "nanoseconds": 635737339
+    },
+    {
+      "name": "snapshot_restore",
+      "operations": 1000,
+      "nanoseconds": 533558658
+    },
+    {
+      "name": "breakout_frame",
+      "operations": 200,
+      "nanoseconds": 271319844
+    },
+    {
+      "name": "compile_crates",
+      "operations": 10,
+      "nanoseconds": 427268240
+    },
+    {
+      "name": "crates_frame",
+      "operations": 120,
+      "nanoseconds": 167680550
+    },
+    {
+      "name": "compile_pixel_studio",
+      "operations": 10,
+      "nanoseconds": 294553682
+    },
+    {
+      "name": "pixel_studio_frame",
+      "operations": 120,
+      "nanoseconds": 148566494
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 60087965
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 1000000,
+      "nanoseconds": 41165431
+    },
+    {
+      "name": "headless_frame",
+      "operations": 50,
+      "nanoseconds": 53771467
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 67105354
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 65692899
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 2861431
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 30150579
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 1652416
+    },
+    {
+      "name": "assemble_4097_symbols",
+      "operations": 10,
+      "nanoseconds": 225858490
+    },
+    {
+      "name": "debugger_step",
+      "operations": 10000,
+      "nanoseconds": 1592441
+    },
+    {
+      "name": "history_full_step",
+      "operations": 10000,
+      "nanoseconds": 91017695
+    },
+    {
+      "name": "history_delta32_step",
+      "operations": 10000,
+      "nanoseconds": 1675056
+    },
+    {
+      "name": "history_delta_step",
+      "operations": 10000,
+      "nanoseconds": 6556844
+    },
+    {
+      "name": "history_delta_reverse",
+      "operations": 2048,
+      "nanoseconds": 140212
+    },
+    {
+      "name": "history_candidate_capture_lower_bound",
+      "operations": 10000,
+      "nanoseconds": 255208
+    },
+    {
+      "name": "snapshot_encode",
+      "operations": 1000,
+      "nanoseconds": 603928912
+    },
+    {
+      "name": "snapshot_restore",
+      "operations": 1000,
+      "nanoseconds": 533951576
+    },
+    {
+      "name": "breakout_frame",
+      "operations": 200,
+      "nanoseconds": 244783372
+    },
+    {
+      "name": "compile_crates",
+      "operations": 10,
+      "nanoseconds": 324634687
+    },
+    {
+      "name": "crates_frame",
+      "operations": 120,
+      "nanoseconds": 157338102
+    },
+    {
+      "name": "compile_pixel_studio",
+      "operations": 10,
+      "nanoseconds": 264097015
+    },
+    {
+      "name": "pixel_studio_frame",
+      "operations": 120,
+      "nanoseconds": 161773223
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 54266802
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 1000000,
+      "nanoseconds": 48073647
+    },
+    {
+      "name": "headless_frame",
+      "operations": 50,
+      "nanoseconds": 43282221
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 71198780
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 56487560
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 3004626
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 32563813
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 5402060
+    },
+    {
+      "name": "assemble_4097_symbols",
+      "operations": 10,
+      "nanoseconds": 200637745
+    },
+    {
+      "name": "debugger_step",
+      "operations": 10000,
+      "nanoseconds": 1271748
+    },
+    {
+      "name": "history_full_step",
+      "operations": 10000,
+      "nanoseconds": 96780487
+    },
+    {
+      "name": "history_delta32_step",
+      "operations": 10000,
+      "nanoseconds": 1400334
+    },
+    {
+      "name": "history_delta_step",
+      "operations": 10000,
+      "nanoseconds": 2573433
+    },
+    {
+      "name": "history_delta_reverse",
+      "operations": 2048,
+      "nanoseconds": 146888
+    },
+    {
+      "name": "history_candidate_capture_lower_bound",
+      "operations": 10000,
+      "nanoseconds": 224526
+    },
+    {
+      "name": "snapshot_encode",
+      "operations": 1000,
+      "nanoseconds": 616521610
+    },
+    {
+      "name": "snapshot_restore",
+      "operations": 1000,
+      "nanoseconds": 563458157
+    },
+    {
+      "name": "breakout_frame",
+      "operations": 200,
+      "nanoseconds": 222610761
+    },
+    {
+      "name": "compile_crates",
+      "operations": 10,
+      "nanoseconds": 204851120
+    },
+    {
+      "name": "crates_frame",
+      "operations": 120,
+      "nanoseconds": 83471678
+    },
+    {
+      "name": "compile_pixel_studio",
+      "operations": 10,
+      "nanoseconds": 134414001
+    },
+    {
+      "name": "pixel_studio_frame",
+      "operations": 120,
+      "nanoseconds": 85376678
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 24975836
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 1000000,
+      "nanoseconds": 28427603
+    },
+    {
+      "name": "headless_frame",
+      "operations": 50,
+      "nanoseconds": 21405284
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 29739592
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 23000151
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 2516429
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 26525063
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 1378120
+    },
+    {
+      "name": "assemble_4097_symbols",
+      "operations": 10,
+      "nanoseconds": 107779299
+    },
+    {
+      "name": "debugger_step",
+      "operations": 10000,
+      "nanoseconds": 1607646
+    },
+    {
+      "name": "history_full_step",
+      "operations": 10000,
+      "nanoseconds": 46159499
+    },
+    {
+      "name": "history_delta32_step",
+      "operations": 10000,
+      "nanoseconds": 2155461
+    },
+    {
+      "name": "history_delta_step",
+      "operations": 10000,
+      "nanoseconds": 2286030
+    },
+    {
+      "name": "history_delta_reverse",
+      "operations": 2048,
+      "nanoseconds": 277074
+    },
+    {
+      "name": "history_candidate_capture_lower_bound",
+      "operations": 10000,
+      "nanoseconds": 275216
+    },
+    {
+      "name": "snapshot_encode",
+      "operations": 1000,
+      "nanoseconds": 325321700
+    },
+    {
+      "name": "snapshot_restore",
+      "operations": 1000,
+      "nanoseconds": 298555322
+    },
+    {
+      "name": "breakout_frame",
+      "operations": 200,
+      "nanoseconds": 119595278
+    },
+    {
+      "name": "compile_crates",
+      "operations": 10,
+      "nanoseconds": 138214979
+    },
+    {
+      "name": "crates_frame",
+      "operations": 120,
+      "nanoseconds": 81244882
+    },
+    {
+      "name": "compile_pixel_studio",
+      "operations": 10,
+      "nanoseconds": 121269767
+    },
+    {
+      "name": "pixel_studio_frame",
+      "operations": 120,
+      "nanoseconds": 86216437
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 28834601
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 1000000,
+      "nanoseconds": 31776517
+    },
+    {
+      "name": "headless_frame",
+      "operations": 50,
+      "nanoseconds": 19768013
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 30273862
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 23655141
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 2666245
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 25702955
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 1595016
+    },
+    {
+      "name": "assemble_4097_symbols",
+      "operations": 10,
+      "nanoseconds": 107385745
+    },
+    {
+      "name": "debugger_step",
+      "operations": 10000,
+      "nanoseconds": 1518476
+    },
+    {
+      "name": "history_full_step",
+      "operations": 10000,
+      "nanoseconds": 44552597
+    },
+    {
+      "name": "history_delta32_step",
+      "operations": 10000,
+      "nanoseconds": 1784599
+    },
+    {
+      "name": "history_delta_step",
+      "operations": 10000,
+      "nanoseconds": 2060719
+    },
+    {
+      "name": "history_delta_reverse",
+      "operations": 2048,
+      "nanoseconds": 548069
+    },
+    {
+      "name": "history_candidate_capture_lower_bound",
+      "operations": 10000,
+      "nanoseconds": 364610
+    },
+    {
+      "name": "snapshot_encode",
+      "operations": 1000,
+      "nanoseconds": 340473552
+    },
+    {
+      "name": "snapshot_restore",
+      "operations": 1000,
+      "nanoseconds": 267168755
+    },
+    {
+      "name": "breakout_frame",
+      "operations": 200,
+      "nanoseconds": 127040434
+    },
+    {
+      "name": "compile_crates",
+      "operations": 10,
+      "nanoseconds": 133164907
+    },
+    {
+      "name": "crates_frame",
+      "operations": 120,
+      "nanoseconds": 89164867
+    },
+    {
+      "name": "compile_pixel_studio",
+      "operations": 10,
+      "nanoseconds": 151774472
+    },
+    {
+      "name": "pixel_studio_frame",
+      "operations": 120,
+      "nanoseconds": 90427463
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 36370119
+    },
+    {
+      "name": "cpu_instruction",
+      "operations": 1000000,
+      "nanoseconds": 21388487
+    },
+    {
+      "name": "headless_frame",
+      "operations": 50,
+      "nanoseconds": 20628939
+    },
+    {
+      "name": "initialize",
+      "operations": 10000,
+      "nanoseconds": 28824805
+    },
+    {
+      "name": "reset",
+      "operations": 10000,
+      "nanoseconds": 41143214
+    },
+    {
+      "name": "rom_load",
+      "operations": 1000,
+      "nanoseconds": 2852599
+    },
+    {
+      "name": "assemble_splash",
+      "operations": 100,
+      "nanoseconds": 13997501
+    },
+    {
+      "name": "bus_word_pair",
+      "operations": 100000,
+      "nanoseconds": 1286630
+    },
+    {
+      "name": "assemble_4097_symbols",
+      "operations": 10,
+      "nanoseconds": 116134161
+    },
+    {
+      "name": "debugger_step",
+      "operations": 10000,
+      "nanoseconds": 1342094
+    },
+    {
+      "name": "history_full_step",
+      "operations": 10000,
+      "nanoseconds": 61328886
+    },
+    {
+      "name": "history_delta32_step",
+      "operations": 10000,
+      "nanoseconds": 1721805
+    },
+    {
+      "name": "history_delta_step",
+      "operations": 10000,
+      "nanoseconds": 4146170
+    },
+    {
+      "name": "history_delta_reverse",
+      "operations": 2048,
+      "nanoseconds": 172571
+    },
+    {
+      "name": "history_candidate_capture_lower_bound",
+      "operations": 10000,
+      "nanoseconds": 262335
+    },
+    {
+      "name": "snapshot_encode",
+      "operations": 1000,
+      "nanoseconds": 321639420
+    },
+    {
+      "name": "snapshot_restore",
+      "operations": 1000,
+      "nanoseconds": 253957609
+    },
+    {
+      "name": "breakout_frame",
+      "operations": 200,
+      "nanoseconds": 104998976
+    },
+    {
+      "name": "compile_crates",
+      "operations": 10,
+      "nanoseconds": 121024110
+    },
+    {
+      "name": "crates_frame",
+      "operations": 120,
+      "nanoseconds": 72733652
+    },
+    {
+      "name": "compile_pixel_studio",
+      "operations": 10,
+      "nanoseconds": 109690269
+    },
+    {
+      "name": "pixel_studio_frame",
+      "operations": 120,
+      "nanoseconds": 69449620
+    },
+    {
+      "name": "video_rgb_frame",
+      "operations": 1000,
+      "nanoseconds": 24178947
+    }
+  ],
+  "host": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "hardware_cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+  "commit": "14c6b546986064d1cd06e03bc4aa3c36b35825c5",
+  "source_dirty": true,
+  "binary_sha256": "d2ccd4e355467ea71c20a1d1c161af346e7cffcfcf65be1e9de3b02a5e702179",
+  "peak_rss_kib": 67756.0,
+  "median_ns_per_operation": {
+    "cpu_instruction": 39.263554,
+    "headless_frame": 865644.42,
+    "initialize": 5685.1158,
+    "reset": 5648.756,
+    "rom_load": 2852.599,
+    "assemble_splash": 265250.63,
+    "bus_word_pair": 15.95016,
+    "assemble_4097_symbols": 19738320.0,
+    "debugger_step": 138.747,
+    "history_full_step": 9101.7695,
+    "history_delta32_step": 178.4599,
+    "history_delta_step": 414.617,
+    "history_delta_reverse": 84.26318359375,
+    "history_candidate_capture_lower_bound": 26.2335,
+    "snapshot_encode": 603928.912,
+    "snapshot_restore": 533558.658,
+    "breakout_frame": 1113053.805,
+    "compile_crates": 20485112.0,
+    "crates_frame": 743040.5583333333,
+    "compile_pixel_studio": 15177447.2,
+    "pixel_studio_frame": 753562.1916666667,
+    "video_rgb_frame": 36370.119
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "seed": 85973271531604,
+  "cases": 100000,
+  "rom_executions": 200000,
+  "retired": 388515245,
+  "optimized_bytes": 62933118,
+  "baseline_bytes": 87224834,
+  "optimized_instructions": 172136768,
+  "baseline_instructions": 216378477,
+  "maximum_source_bytes": 453
+}

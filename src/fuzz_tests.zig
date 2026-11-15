@@ -9,7 +9,7 @@ const Debugger = @import("debug/debugger.zig").Debugger;
 const runtime = @import("core/runtime.zig");
 pub fn exercise(a: std.mem.Allocator, data: []const u8) !void {
     if (data.len == 0) return;
-    switch (data[0] % 14) {
+    switch (data[0] % 15) {
         0 => {
             _ = rom.parse(data[1..]) catch {};
         },
@@ -119,6 +119,19 @@ pub fn exercise(a: std.mem.Allocator, data: []const u8) !void {
             var diagnostic: assembler.Diagnostic = .{};
             if (assembler.assembleProfile(a, data[1..], &diagnostic, .v2)) |result| result.deinit() else |_| {}
         },
+        14 => {
+            const image = try rom.packProfile(a, &.{ 1, 0 }, 0, .v2);
+            defer a.free(image);
+            var m: Machine = .{};
+            try m.load(image);
+            var debugger: Debugger = .{ .machine = &m, .recorder = .{ .allocator = a } };
+            defer debugger.deinit();
+            var session: @import("workbench/session.zig").Session = .{ .debugger = &debugger };
+            var output: std.Io.Writer.Allocating = .init(a);
+            defer output.deinit();
+            @import("workbench/protocol.zig").process(a, &session, data[1..], &output.writer) catch {};
+            try m.validateState();
+        },
         else => unreachable,
     }
 }
@@ -129,14 +142,14 @@ fn guided(_: void, smith: *std.testing.Smith) !void {
     try exercise(std.testing.allocator, data[0..len]);
 }
 test "coverage guided bounded machine toolchain and snapshot inputs" {
-    try std.testing.fuzz({}, guided, .{ .corpus = &.{ "\x01.entry missing\nHALT", "\x02frame 1", "\x03 0 16\n1 0", "\x04seed", "\x05\x01\x00", "\x08fn main()->u16{return 7;}", "\x08fn main()->u16{var a:[2]u16;return a[3];}", "\x09{\"schema_version\":3}", "\x0bseed", "\x0c\x06\x00\x08\x00", "\x0dEI\nDI\nIRET" } });
+    try std.testing.fuzz({}, guided, .{ .corpus = &.{ "\x01.entry missing\nHALT", "\x02frame 1", "\x03 0 16\n1 0", "\x04seed", "\x05\x01\x00", "\x08fn main()->u16{return 7;}", "\x08fn main()->u16{var a:[2]u16;return a[3];}", "\x09{\"schema_version\":3}", "\x0bseed", "\x0c\x06\x00\x08\x00", "\x0dEI\nDI\nIRET", "\x0e{\"op\":\"frame\"}", "\x0e{\"op\":\"command\",\"command\":\"history delta 16\"}", "\x0e{\"op\":\"restore\",\"data\":\"00\"}" } });
 }
-test "deterministic malformed input smoke across all fourteen target families" {
+test "deterministic malformed input smoke across all fifteen target families" {
     var random = std.Random.DefaultPrng.init(0x4e313653);
     var bytes: [256]u8 = undefined;
     for (0..1000) |k| {
         random.random().bytes(&bytes);
-        bytes[0] = @intCast(k % 14);
+        bytes[0] = @intCast(k % 15);
         try exercise(std.testing.allocator, bytes[0..random.random().intRangeAtMost(usize, 1, bytes.len)]);
     }
 }

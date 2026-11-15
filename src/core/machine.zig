@@ -131,7 +131,7 @@ pub const Machine = struct {
         }
         self.bus.input.inject(input);
         const remaining = 20000 - self.slots % 20000;
-        for (0..remaining) |_| if (!self.transition(self.cpu.retired < cap, output)) return false;
+        for (0..@as(usize, @intCast(remaining))) |_| if (!self.transition(self.cpu.retired < cap, output)) return false;
         return true;
     }
     /// Shared V2 scheduler for run, step, frame and debugger. False means no slot.

@@ -39,6 +39,7 @@ jobs:
       - run: python scripts/v2_acceptance.py
       - run: python scripts/game_acceptance.py
       - run: python scripts/workbench_acceptance.py
+      - run: python scripts/evolution_acceptance.py
       - if: matrix.mode == 'ReleaseSafe'
         run: python scripts/package.py
       - if: matrix.mode == 'ReleaseSafe'
@@ -121,9 +122,29 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 scripts/security_check.py
+  wasm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: python3 scripts/setup_zig.py
+      - run: zig build -Doptimize=ReleaseSafe
+      - run: node scripts/wasm_acceptance.mjs
+      - run: python3 scripts/package_web.py
+      - run: node scripts/offline_acceptance.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wasm-runtime
+          path: |
+            zig-out/wasm/nova16.wasm
+            wasm/nova16.mjs
+            wasm/offline-host.mjs
+            zig-out/web/NOVA16-Offline-Workbench.html
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'Release:')
-    needs: [native, cross, sdl2, benchmark, reliability, security]
+    needs: [native, cross, sdl2, benchmark, reliability, security, wasm]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

@@ -384,55 +384,59 @@ test "V2 clock overflow halted stepping fault slots and complete reset" {
 }
 
 test "V2 debugger reverse restores audio timer IRQ and partial frame boundaries exactly" {
-    var m = try machine("LDI R0, 0xd940\nLDI R1, 0xff01\nSTW R1, [R0]\nEI\nloop: B.AL loop\n");
-    var recorder: @import("debug/history.zig").Recorder = .{ .allocator = t.allocator };
-    defer recorder.deinit();
-    try recorder.configure(32);
-    for (0..26) |_| {
+    for ([_]bool{ false, true }) |delta| {
+        var m = try machine("LDI R0, 0xd940\nLDI R1, 0xff01\nSTW R1, [R0]\nEI\nloop: B.AL loop\n");
+        var recorder: @import("debug/history.zig").Recorder = .{ .allocator = t.allocator };
+        defer recorder.deinit();
+        if (delta) try recorder.configureDelta(256) else try recorder.configure(32);
+        for (0..26) |_| {
+            const before = m;
+            recorder.step(&m);
+            const after = m;
+            try recorder.reverse(&m);
+            try identical(&before, &m);
+            recorder.step(&m);
+            try identical(&after, &m);
+        }
+        m.bus.irq.pending = 2;
+        m.bus.irq.mask = 1;
+        try m.bus.write16(0x42, 0xe00e); // loop instruction
         const before = m;
         recorder.step(&m);
-        const after = m;
+        try t.expectEqual(1, m.irq_entries);
+        try t.expectEqual(1, recorder.trace[(recorder.trace_next + 127) % 128].irq_entry.?);
         try recorder.reverse(&m);
         try identical(&before, &m);
+        m.bus.irq.ie = false;
+        for (0..19999 - m.slots) |_| m.step();
+        const boundary = m;
         recorder.step(&m);
-        try identical(&after, &m);
+        try t.expectEqual(20000, m.slots);
+        try t.expectEqual(800, m.bus.audio.generated);
+        try recorder.reverse(&m);
+        try identical(&boundary, &m);
+        m.step();
+        try m.validateState();
     }
-    m.bus.irq.pending = 2;
-    m.bus.irq.mask = 1;
-    try m.bus.write16(0x42, 0xe00e); // loop instruction
-    const before = m;
-    recorder.step(&m);
-    try t.expectEqual(1, m.irq_entries);
-    try t.expectEqual(1, recorder.trace[(recorder.trace_next + 127) % 128].irq_entry.?);
-    try recorder.reverse(&m);
-    try identical(&before, &m);
-    m.bus.irq.ie = false;
-    for (0..19999 - m.slots) |_| m.step();
-    const boundary = m;
-    recorder.step(&m);
-    try t.expectEqual(20000, m.slots);
-    try t.expectEqual(800, m.bus.audio.generated);
-    try recorder.reverse(&m);
-    try identical(&boundary, &m);
-    m.step();
-    try m.validateState();
 }
 test "V2 debugger frame on HALT advances devices and undo restores final idle slot" {
-    var m = try machine("HALT");
-    var debugger: @import("debug/debugger.zig").Debugger = .{ .machine = &m, .recorder = .{ .allocator = t.allocator } };
-    defer debugger.deinit();
-    var output: std.Io.Writer.Allocating = .init(t.allocator);
-    defer output.deinit();
-    _ = try debugger.command("history 32", &output.writer);
-    _ = try debugger.command("frame", &output.writer);
-    try t.expectEqual(20000, m.slots);
-    try t.expectEqual(1, m.cpu.retired);
-    _ = try debugger.command("reverse", &output.writer);
-    try t.expectEqual(19999, m.slots);
-    try t.expectEqual(799, m.bus.audio.prefix);
-    try m.validateState();
-    _ = try debugger.command("devices", &output.writer);
-    try t.expect(std.mem.indexOf(u8, output.written(), "profile=2 slots=19999") != null);
+    for ([_]bool{ false, true }) |delta| {
+        var m = try machine("HALT");
+        var debugger: @import("debug/debugger.zig").Debugger = .{ .machine = &m, .recorder = .{ .allocator = t.allocator } };
+        defer debugger.deinit();
+        var output: std.Io.Writer.Allocating = .init(t.allocator);
+        defer output.deinit();
+        _ = try debugger.command(if (delta) "history delta 256" else "history 32", &output.writer);
+        _ = try debugger.command("frame", &output.writer);
+        try t.expectEqual(20000, m.slots);
+        try t.expectEqual(1, m.cpu.retired);
+        _ = try debugger.command("reverse", &output.writer);
+        try t.expectEqual(19999, m.slots);
+        try t.expectEqual(799, m.bus.audio.prefix);
+        try m.validateState();
+        _ = try debugger.command("devices", &output.writer);
+        try t.expect(std.mem.indexOf(u8, output.written(), "profile=2 slots=19999") != null);
+    }
 }
 test "V2 maximum nesting masks DI and ninth IRQ preserve complete frames" {
     var m = try machine("EI\nDI\nB.AL 0xe000");

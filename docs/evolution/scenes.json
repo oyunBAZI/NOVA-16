@@ -1,0 +1,180 @@
+{
+  "starfall-title": {
+    "frames": 30,
+    "input": null,
+    "sha256": "798746088a8894b2e52733e5f82a2f1ab8862c358b8b62e8e41df0ef493bff02",
+    "values": {
+      "ship": 60,
+      "score": 0,
+      "lives": 3,
+      "wave": 1,
+      "state": 0,
+      "paused": 0,
+      "tick": 0,
+      "cooldown": 0,
+      "invincible": 0,
+      "fx": 0
+    },
+    "audible": false,
+    "last_frame_audible": false
+  },
+  "starfall-play": {
+    "frames": 90,
+    "input": "start",
+    "sha256": "54969996315e49a4fdc4cddb5c5880fc008c3b2a8ccad3896cc9b5aed4128e15",
+    "values": {
+      "ship": 60,
+      "score": 0,
+      "lives": 3,
+      "wave": 1,
+      "state": 1,
+      "paused": 0,
+      "tick": 59,
+      "cooldown": 0,
+      "invincible": 0,
+      "fx": 0
+    },
+    "audible": true,
+    "last_frame_audible": true
+  },
+  "starfall-win": {
+    "frames": 380,
+    "input": "win",
+    "sha256": "c82e6b007f96672372034572591823a6af7a8c7a8509ba6405ae38915110c428",
+    "values": {
+      "ship": 104,
+      "score": 180,
+      "lives": 2,
+      "wave": 3,
+      "state": 3,
+      "paused": 0,
+      "tick": 324,
+      "cooldown": 6,
+      "invincible": 0,
+      "fx": 3
+    },
+    "audible": true,
+    "last_frame_audible": false
+  },
+  "starfall-loss": {
+    "frames": 600,
+    "input": "start",
+    "sha256": "b88bc4ce7eaa3e104b98e11ac8e1d2a0a3f830cc0ab6fe31ab9f101da27e0c91",
+    "values": {
+      "ship": 60,
+      "score": 0,
+      "lives": 0,
+      "wave": 1,
+      "state": 2,
+      "paused": 0,
+      "tick": 240,
+      "cooldown": 0,
+      "invincible": 20,
+      "fx": 4
+    },
+    "audible": true,
+    "last_frame_audible": false
+  },
+  "starfall-paused": {
+    "frames": 120,
+    "input": "pause",
+    "sha256": "92fe74f0296860f7a7bfeaf2cbd91286fddde30114f92f559cecaf613036d2e6",
+    "values": {
+      "ship": 60,
+      "score": 0,
+      "lives": 3,
+      "wave": 1,
+      "state": 1,
+      "paused": 1,
+      "tick": 29,
+      "cooldown": 0,
+      "invincible": 0,
+      "fx": 0
+    },
+    "audible": true,
+    "last_frame_audible": false
+  },
+  "starfall-resumed": {
+    "frames": 220,
+    "input": "pause",
+    "sha256": "a3812d8dab84611866538b6c4d6b815ac0a124680c69785a9dd092f93d2d67a9",
+    "values": {
+      "ship": 60,
+      "score": 0,
+      "lives": 3,
+      "wave": 1,
+      "state": 1,
+      "paused": 0,
+      "tick": 89,
+      "cooldown": 0,
+      "invincible": 0,
+      "fx": 0
+    },
+    "audible": true,
+    "last_frame_audible": true
+  },
+  "starfall-restart": {
+    "frames": 640,
+    "input": "restart",
+    "sha256": "50895664a021d177f80edb93d735502952e03212dd68ee0ef26adcca866c071a",
+    "values": {
+      "ship": 60,
+      "score": 0,
+      "lives": 3,
+      "wave": 1,
+      "state": 1,
+      "paused": 0,
+      "tick": 19,
+      "cooldown": 0,
+      "invincible": 0,
+      "fx": 0
+    },
+    "audible": true,
+    "last_frame_audible": true
+  },
+  "nova_tracker-pattern": {
+    "frames": 60,
+    "input": null,
+    "sha256": "28189d01b9d39223e407d9fc223ab1e8e5f6b0db143f9be5a6fbd26d666bd497",
+    "values": {
+      "cursor": 0,
+      "play_step": 7,
+      "playing": 1,
+      "tempo": 8,
+      "ticks": 0,
+      "edits": 0
+    },
+    "audible": true,
+    "last_frame_audible": true
+  },
+  "nova_tracker-edited": {
+    "frames": 120,
+    "input": "edit",
+    "sha256": "cb4a263ad1de9b787b2f14c226eac85e766e1f25ffdb0899d1e62c92d5c66e20",
+    "values": {
+      "cursor": 17,
+      "play_step": 11,
+      "playing": 0,
+      "tempo": 7,
+      "ticks": 0,
+      "edits": 3
+    },
+    "audible": true,
+    "last_frame_audible": false
+  },
+  "nova_tracker-resumed": {
+    "frames": 180,
+    "input": "resume",
+    "sha256": "10afa04b5f65055426a46a2fa8c825b2879a82beeae00035792951435f54e741",
+    "values": {
+      "cursor": 17,
+      "play_step": 0,
+      "playing": 1,
+      "tempo": 7,
+      "ticks": 4,
+      "edits": 3
+    },
+    "audible": true,
+    "last_frame_audible": true
+  }
+}

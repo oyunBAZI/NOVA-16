@@ -54,7 +54,7 @@ data['binary_sha256'] = hashlib.sha256(binary.read_bytes()).hexdigest()
 data['peak_rss_kib'] = peak_rss
 for sample in data['samples']:
     assert sample['operations'] > 0 and sample['nanoseconds'] > 0
-assert {sample['name'] for sample in data['samples']} == {'cpu_instruction', 'headless_frame', 'initialize', 'reset', 'rom_load', 'assemble_splash', 'bus_word_pair', 'video_rgb_frame', 'assemble_4097_symbols', 'debugger_step', 'snapshot_encode', 'snapshot_restore', 'breakout_frame', 'compile_crates', 'compile_pixel_studio', 'crates_frame', 'pixel_studio_frame', 'history_full_step', 'history_candidate_capture_lower_bound'}
+assert {sample['name'] for sample in data['samples']} == {'cpu_instruction', 'headless_frame', 'initialize', 'reset', 'rom_load', 'assemble_splash', 'bus_word_pair', 'video_rgb_frame', 'assemble_4097_symbols', 'debugger_step', 'snapshot_encode', 'snapshot_restore', 'breakout_frame', 'compile_crates', 'compile_pixel_studio', 'crates_frame', 'pixel_studio_frame', 'history_full_step', 'history_candidate_capture_lower_bound', 'history_delta32_step', 'history_delta_step', 'history_delta_reverse'}
 groups = {}
 for sample in data['samples']:
     groups.setdefault(sample['name'], []).append(sample['nanoseconds'] / sample['operations'])

@@ -68,5 +68,12 @@ input, caller-owned randomness, stack and saved-register sentinels.
 Profile2 assembly helpers live in `v2.asm`: `n16v2_voice` programs one voice
 while disabled; `n16v2_timer` rearms the timer with explicit split writes. Register
 contracts are documented at each routine. The two V2 demonstration projects
-carry identical copies so projects/packages stay self-contained. These helpers
-require explicit V2 assembly; N16C remains a V1 compiler.
+carry identical copies so projects/packages stay self-contained. These assembly helpers require explicit V2 assembly. N16C now also supports
+explicit V2 ROM targets; its raw peek/poke intrinsics use the same MMIO contract.
+
+
+Rectangle filling now writes packed byte spans with independent boundary-nibble
+preservation, while clear writes four aligned words per iteration. Register,
+clipping, status, scratch and pixel-layout contracts above are unchanged. Both
+routines remain ordinary guest instructions; exact instruction counts and
+independent pixel-oracle cases are recorded in the platform evolution evidence.

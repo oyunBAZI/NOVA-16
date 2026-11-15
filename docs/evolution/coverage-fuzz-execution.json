@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/workspace/scratch/08176eda05f9/NOVA-16/.zig-toolchain/zig-x86_64-linux-0.17.1/zig",
+    "build",
+    "test",
+    "-Doptimize=ReleaseSafe",
+    "--fuzz=100K",
+    "--test-timeout",
+    "10m",
+    "--seed=0x4e31360e"
+  ],
+  "exit_code": 0,
+  "seconds": 214.622
+}

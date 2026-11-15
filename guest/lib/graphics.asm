@@ -55,6 +55,7 @@ n16_rect:
     PUSH R4
     PUSH R5
     PUSH R6
+    PUSH R7
     CMPI R0, 128
     B.CS n16_rect_done
     CMPI R1, 96
@@ -75,25 +76,67 @@ n16_rect_width:
     B.LS n16_rect_height
     MOV R3, R4
 n16_rect_height:
-    MOV R4, R0
     MOV R5, R2
     MOV R6, R3
+    MOV R4, R1
+    LDI R1, 64
+    MUL R4, R1
+    MOV R2, R0
+    LDI R1, 1
+    SHR R2, R1
+    ADD R4, R2
+    ADDI R4, 0xc000
+    AND R0, R1
+    LDI R1, 0x00e0
+    LDB R7, [R1]
+    LDI R1, 15
+    AND R7, R1
+    MOV R2, R7
+    LDI R1, 4
+    SHL R2, R1
+    OR R7, R2
 n16_rect_row:
+    PUSH R4
     PUSH R5
-    MOV R0, R4
-n16_rect_column:
-    LDI R2, 0x00e0
-    LDB R2, [R2]
-    CALL n16_pixel
-    INC R0
+    CMPI R0, 0
+    B.EQ n16_rect_pairs
+    LDB R1, [R4]
+    LDI R2, 15
+    AND R1, R2
+    MOV R2, R7
+    LDI R3, 240
+    AND R2, R3
+    OR R1, R2
+    STB R1, [R4]
+    INC R4
     DEC R5
-    B.NE n16_rect_column
+n16_rect_pairs:
+    CMPI R5, 2
+    B.CC n16_rect_tail
+    STB R7, [R4]
+    INC R4
+    ADDI R5, -2
+    B.AL n16_rect_pairs
+n16_rect_tail:
+    CMPI R5, 0
+    B.EQ n16_rect_next
+    LDB R1, [R4]
+    LDI R2, 240
+    AND R1, R2
+    MOV R2, R7
+    LDI R3, 15
+    AND R2, R3
+    OR R1, R2
+    STB R1, [R4]
+n16_rect_next:
     POP R5
-    INC R1
+    POP R4
+    ADDI R4, 64
     DEC R6
     B.NE n16_rect_row
 n16_rect_done:
     LDI R3, 0
+    POP R7
     POP R6
     POP R5
     POP R4
@@ -112,10 +155,13 @@ n16_clear:
     SHL R1, R2
     OR R1, R0
     LDI R0, 0xc000
-    LDI R4, 3072
+    LDI R4, 768
 n16_clear_loop:
     STW R1, [R0]
-    ADDI R0, 2
+    STW R1, [R0 + 2]
+    STW R1, [R0 + 4]
+    STW R1, [R0 + 6]
+    ADDI R0, 8
     DEC R4
     B.NE n16_clear_loop
     POP R4

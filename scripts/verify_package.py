@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import shutil
 import tempfile
 import zipfile
 
@@ -72,11 +73,16 @@ with tempfile.TemporaryDirectory(prefix='nova16-package-') as temp:
         run('nova16', 'run', root/'demos/breakout.n16', '--frames', '1000', '--max-instructions', '20000000',
             '--input', root/'docs/gameplay'/schedule, '--screenshot', shot)
         assert hashlib.sha256(shot.read_bytes()).hexdigest() == hashes[scene]
-    for script in ('compatibility_acceptance.py', 'compiler_acceptance.py', 'project_acceptance.py', 'application_acceptance.py', 'v2_contract_vectors.py', 'v2_acceptance.py', 'workbench_acceptance.py'):
+    for script in ('compatibility_acceptance.py', 'compiler_acceptance.py', 'project_acceptance.py', 'application_acceptance.py', 'v2_contract_vectors.py', 'v2_acceptance.py', 'workbench_acceptance.py', 'evolution_acceptance.py'):
         subprocess.run([sys.executable, str(root/'scripts'/script)], cwd=root, check=True, timeout=180)
-    for app in ('crates', 'pixel_studio'):
+    for app in ('crates', 'pixel_studio', 'nova_tracker', 'starfall'):
         destination = root/(app+'-project')
         with zipfile.ZipFile(root/'applications'/(app+'.zip')) as project:
             project.extractall(destination)
         subprocess.run([sys.executable, str(root/'scripts/n16.py'), 'test', str(destination)], cwd=root, check=True, timeout=120)
+    assert (root/'wasm/nova16.wasm').read_bytes().startswith(b'\x00asm\x01\x00\x00\x00')
+    node = os.environ.get('NOVA_NODE') or shutil.which('node')
+    if node:
+        subprocess.run([node, str(root/'scripts/wasm_acceptance.mjs')], cwd=root, check=True, timeout=180)
+        subprocess.run([node, str(root/'scripts/offline_acceptance.mjs')], cwd=root, check=True, timeout=180)
     print(f"Package {manifest['version']} {manifest['os']}/{manifest['arch']}: checksums, assembly, boot and debugger passed")

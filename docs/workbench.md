@@ -137,3 +137,23 @@ nonacknowledging MMIO reads, limits, line resynchronization and HTTP boundaries.
 CI runs this suite on Linux, Windows and macOS in Debug and ReleaseSafe, and
 again from extracted native SDK packages. These are execution/HTTP tests;
 browser layout, accessibility and actual sound-device testing remain separate.
+
+
+## Platform evolution additions
+
+The editor can explicitly select V1/V2 and size/baseline code generation.
+**Open source** copies a typed demo into the editor after confirming replacement;
+loading a ROM alone still leaves edits independent. Bootstrap distinguishes the
+editor text (`editor_source`) from the VM's current source-location record.
+The demo list adds NOVA Tracker and Starfall; their controls are documented in
+[evolution applications](evolution/applications.md).
+
+Native Workbench history now defaults to the bounded 2048-entry delta mode.
+`history delta 4096`, `history 32` and `history 0` select deeper delta, original
+complete-state, or disabled history. Retention also depends on journal pressure.
+
+The optional [offline export](wasm.md) runs this same interface against a dedicated
+Wasm Worker. It embeds all assets/cartridges and denies network connections.
+Source/ROM/snapshot downloads and guest PCM remain generated from the real core.
+The native HTTP token/origin policy applies to the Python service; it is not an
+authentication layer for an independent offline tab.
