@@ -6,6 +6,9 @@ const Id = s.Id;
 const none = s.none;
 const asm16 = @import("../asm/assembler.zig");
 pub const Diagnostic = asm16.Diagnostic;
+pub const Optimization = enum { none, size };
+pub const Options = struct { optimization: Optimization = .size, profile: @import("../arch/profile.zig").Profile = .v1 };
+pub const OptimizationStats = struct { folded: usize = 0, immediate: usize = 0, direct_memory: usize = 0, constant_index: usize = 0, direct_condition: usize = 0, call_arguments: usize = 0, strength_reduced: usize = 0 };
 pub const Origin = struct { line: usize, column: usize };
 pub const Variable = struct { name: []const u8, ty: Id, address: u16, function: Id, constant: bool, constant_value: ?u16 = null, visible: bool = true, end_block: usize = none };
 pub const Function = struct { node: Id, words: u16 = 0, reachable: bool = false };
@@ -25,6 +28,8 @@ pub const Context = struct {
     fixed: std.heap.FixedBufferAllocator,
     a: std.mem.Allocator = undefined,
     source: []const u8,
+    options: Options = .{},
+    optimization_stats: OptimizationStats = .{},
     diag: *Diagnostic,
     tree: s.Syntax = undefined,
     variables: std.ArrayList(Variable) = .empty,
@@ -208,7 +213,12 @@ pub const Context = struct {
                 const value = try self.constant(n.a);
                 break :blk if (eq(n.token.text, "-")) 0 -% value else if (eq(n.token.text, "~")) ~value else @intFromBool(value == 0);
             },
-            .binary => binaryValue(n.token.text, try self.constant(n.a), try self.constant(n.b), try self.infer(n.a)),
+            .binary => blk: {
+                const left = try self.constant(n.a);
+                if (eq(n.token.text, "&&") and left == 0) break :blk 0;
+                if (eq(n.token.text, "||") and left != 0) break :blk 1;
+                break :blk try binaryValue(n.token.text, left, try self.constant(n.b), try self.infer(n.a));
+            },
             .select => if (try self.constant(n.a) != 0) self.constant(n.b) else self.constant(n.c),
             .call => blk: {
                 if (n.items.len != 1) return error.NonConstantInitializer;
@@ -242,6 +252,14 @@ pub const Context = struct {
             },
             .index => {
                 const array = self.tree.types[try self.infer(n.a)];
+                if (self.options.optimization == .size) {
+                    if (self.constant(n.b)) |index| {
+                        try self.address(n.a);
+                        if (index != 0) try self.emit("ADDI R0, {d}", .{index * 2});
+                        self.optimization_stats.constant_index += @intFromBool(self.emitting);
+                        return;
+                    } else |_| {}
+                }
                 try self.address(n.a);
                 try self.emit("PUSH R0", .{});
                 try self.expression(n.b);
@@ -260,6 +278,82 @@ pub const Context = struct {
         const skip = self.nextLabel();
         try self.emit("CMPI R0, 0\nB.NE _c_L{d}\nJMP _c_L{d}\n_c_L{d}:", .{ skip, label, skip });
     }
+    fn optimized(self: *const Context) bool {
+        return self.options.optimization == .size;
+    }
+    fn comparisonCondition(self: *Context, id: Id) ![]const u8 {
+        const n = self.tree.nodes[id];
+        const op = n.token.text;
+        const signed = try self.infer(n.a) == 1;
+        return if (eq(op, "==")) "EQ" else if (eq(op, "!=")) "NE" else if (eq(op, "<")) (if (signed) "LT" else "CC") else if (eq(op, ">")) (if (signed) "GT" else "HI") else if (eq(op, "<=")) (if (signed) "LE" else "LS") else (if (signed) "GE" else "CS");
+    }
+    fn operands(self: *Context, id: Id) anyerror!void {
+        const n = self.tree.nodes[id];
+        try self.expression(n.a);
+        if (self.optimized()) {
+            if (self.constant(n.b)) |value| {
+                try self.emit("LDI R1, {d}", .{value});
+                self.optimization_stats.immediate += @intFromBool(self.emitting);
+                return;
+            } else |_| {}
+        }
+        try self.emit("PUSH R0", .{});
+        try self.expression(n.b);
+        try self.emit("MOV R1, R0\nPOP R0", .{});
+    }
+    fn conditionFalse(self: *Context, id: Id, label: usize) anyerror!void {
+        const n = self.tree.nodes[id];
+        _ = try self.infer(id);
+        if (self.optimized() and n.tag == .binary and isCompare(n.token.text)) {
+            try self.operands(id);
+            try self.emit("CMP R0, R1", .{});
+            const skip = self.nextLabel();
+            try self.emit("B.{s} _c_L{d}\nJMP _c_L{d}\n_c_L{d}:", .{ try self.comparisonCondition(id), skip, label, skip });
+            self.optimization_stats.direct_condition += @intFromBool(self.emitting);
+        } else {
+            try self.expression(id);
+            try self.branchFalse(label);
+        }
+    }
+    /// A statically known RAM location has no evaluation effects or bounds trap.
+    fn storage(self: *Context, id: Id) anyerror!?struct { local: bool, offset: u16 } {
+        const n = self.tree.nodes[id];
+        _ = try self.infer(id);
+        switch (n.tag) {
+            .name => {
+                const v = self.variables.items[n.binding];
+                return .{ .local = v.function != none, .offset = v.address };
+            },
+            .member, .index => {
+                var base = (try self.storage(n.a)) orelse return null;
+                const offset: u16 = if (n.tag == .member) n.value else (self.constant(n.b) catch return null) * 2;
+                base.offset += offset;
+                return base;
+            },
+            else => return null,
+        }
+    }
+    fn loadStorage(self: *Context, id: Id) anyerror!bool {
+        if (!self.optimized()) return false;
+        const loc = (try self.storage(id)) orelse return false;
+        if (loc.local and loc.offset <= 31) {
+            try self.emit("LDW R0, [R7+{d}]", .{loc.offset});
+            self.optimization_stats.direct_memory += @intFromBool(self.emitting);
+            return true;
+        }
+        return false;
+    }
+    fn storeStorage(self: *Context, id: Id, value: Id) anyerror!bool {
+        if (!self.optimized()) return false;
+        const loc = (try self.storage(id)) orelse return false;
+        try self.expression(value);
+        if (loc.local and loc.offset <= 31) try self.emit("STW R0, [R7+{d}]", .{loc.offset}) else {
+            if (loc.local) try self.emit("MOV R4, R7\nADDI R4, {d}", .{loc.offset}) else try self.emit("LDI R4, {d}", .{loc.offset});
+            try self.emit("STW R0, [R4]", .{});
+        }
+        self.optimization_stats.direct_memory += @intFromBool(self.emitting);
+        return true;
+    }
     pub fn expression(self: *Context, id: Id) anyerror!void {
         const n = self.tree.nodes[id];
         const ty = try self.infer(id);
@@ -271,19 +365,30 @@ pub const Context = struct {
             self.line = previous;
             self.column = previous_column;
         }
+        if (self.optimized() and n.tag != .number and n.tag != .boolean) {
+            if (self.constant(id)) |value| {
+                try self.emit("LDI R0, {d}", .{value});
+                self.optimization_stats.folded += @intFromBool(self.emitting);
+                return;
+            } else |_| {}
+        }
         switch (n.tag) {
             .number, .boolean => try self.emit("LDI R0, {d}", .{n.value}),
             .name => {
                 const v = self.variables.items[self.tree.nodes[id].binding];
                 if (v.constant_value) |value| try self.emit("LDI R0, {d}", .{value}) else {
                     if (ty > 2) return error.AggregateValue;
-                    try self.address(id);
-                    try self.emit("LDW R0, [R0]", .{});
+                    if (!try self.loadStorage(id)) {
+                        try self.address(id);
+                        try self.emit("LDW R0, [R0]", .{});
+                    }
                 }
             },
             .index, .member => {
-                try self.address(id);
-                try self.emit("LDW R0, [R0]", .{});
+                if (!try self.loadStorage(id)) {
+                    try self.address(id);
+                    try self.emit("LDW R0, [R0]", .{});
+                }
             },
             .unary => {
                 try self.expression(n.a);
@@ -302,16 +407,28 @@ pub const Context = struct {
                     try self.emit("_c_L{d}:", .{done});
                     return;
                 }
-                try self.expression(n.a);
-                try self.emit("PUSH R0", .{});
-                try self.expression(n.b);
-                try self.emit("MOV R1, R0\nPOP R0", .{});
                 const op = n.token.text;
+                if (self.optimized()) {
+                    if (self.constant(n.b)) |value| {
+                        if (eq(op, "+") or eq(op, "-")) {
+                            try self.expression(n.a);
+                            const amount = if (eq(op, "+")) value else 0 -% value;
+                            if (amount == 1) try self.emit("INC R0", .{}) else if (amount == 65535) try self.emit("DEC R0", .{}) else if (amount != 0) try self.emit("ADDI R0, {d}", .{amount});
+                            self.optimization_stats.immediate += @intFromBool(self.emitting);
+                            return;
+                        }
+                        if (value != 0 and std.math.isPowerOfTwo(value) and (eq(op, "*") or ((eq(op, "/") or eq(op, "%")) and try self.infer(n.a) == 0))) {
+                            try self.expression(n.a);
+                            if (eq(op, "%")) try self.emit("LDI R1, {d}\nAND R0, R1", .{value - 1}) else if (value != 1) try self.emit("LDI R1, {d}\n{s} R0, R1", .{ @ctz(value), if (eq(op, "*")) @as([]const u8, "SHL") else "SHR" });
+                            self.optimization_stats.strength_reduced += @intFromBool(self.emitting);
+                            return;
+                        }
+                    } else |_| {}
+                }
+                try self.operands(id);
                 if (isCompare(op)) {
                     try self.emit("CMP R0, R1", .{});
-                    const signed = try self.infer(n.a) == 1;
-                    const cond: []const u8 = if (eq(op, "==")) "EQ" else if (eq(op, "!=")) "NE" else if (eq(op, "<")) (if (signed) "LT" else "CC") else if (eq(op, ">")) (if (signed) "GT" else "HI") else if (eq(op, "<=")) (if (signed) "LE" else "LS") else (if (signed) "GE" else "CS");
-                    try self.flagResult(cond);
+                    try self.flagResult(try self.comparisonCondition(id));
                 } else if (eq(op, "/") or eq(op, "%")) {
                     try self.emit("CALL {s}", .{if (try self.infer(n.a) == 1) "n16_sdiv" else "n16_udiv"});
                     const valid = self.nextLabel();
@@ -339,14 +456,28 @@ pub const Context = struct {
                     if (ty == 2) try self.booleanResult("NE");
                     return;
                 }
-                for (n.items) |arg| {
-                    try self.expression(arg);
-                    try self.emit("PUSH R0", .{});
-                }
-                var i = n.items.len;
-                while (i > 0) {
-                    i -= 1;
-                    try self.emit("POP R{d}", .{i});
+                var direct = self.optimized();
+                var constants: [4]u16 = @splat(0);
+                if (n.items.len > 1) for (n.items[1..], 1..) |arg, index| {
+                    constants[index] = self.constant(arg) catch {
+                        direct = false;
+                        break;
+                    };
+                };
+                if (direct) {
+                    if (n.items.len > 0) try self.expression(n.items[0]);
+                    if (n.items.len > 1) for (1..n.items.len) |index| try self.emit("LDI R{d}, {d}", .{ index, constants[index] });
+                    self.optimization_stats.call_arguments += @intFromBool(self.emitting);
+                } else {
+                    for (n.items) |arg| {
+                        try self.expression(arg);
+                        try self.emit("PUSH R0", .{});
+                    }
+                    var i = n.items.len;
+                    while (i > 0) {
+                        i -= 1;
+                        try self.emit("POP R{d}", .{i});
+                    }
                 }
                 if (builtin(name)) |b| {
                     if (eq(name, "peek8") or eq(name, "peek16")) try self.emit("{s} R0, [R0]", .{if (eq(name, "peek8")) "LDB" else "LDW"}) else if (eq(name, "poke8") or eq(name, "poke16")) try self.emit("{s} R1, [R0]\nLDI R0, 0", .{if (eq(name, "poke8")) "STB" else "STW"}) else {
@@ -363,13 +494,22 @@ pub const Context = struct {
         try self.flagResult(cond);
     }
     fn flagResult(self: *Context, cond: []const u8) !void {
+        if (self.optimized()) {
+            const end = self.nextLabel();
+            const opposite: []const u8 = if (eq(cond, "EQ")) "NE" else if (eq(cond, "NE")) "EQ" else if (eq(cond, "LT")) "GE" else if (eq(cond, "GT")) "LE" else if (eq(cond, "LE")) "GT" else if (eq(cond, "GE")) "LT" else if (eq(cond, "CC")) "CS" else if (eq(cond, "CS")) "CC" else if (eq(cond, "HI")) "LS" else "HI";
+            try self.emit("LDI R0, 0\nB.{s} _c_L{d}\nLDI R0, 1\n_c_L{d}:", .{ opposite, end, end });
+            return;
+        }
         const yes = self.nextLabel();
         const end = self.nextLabel();
         try self.emit("B.{s} _c_L{d}\nLDI R0, 0\nJMP _c_L{d}\n_c_L{d}:\nLDI R0, 1\n_c_L{d}:", .{ cond, yes, end, yes, end });
     }
     fn storeVariable(self: *Context, variable: Id) !void {
         const v = self.variables.items[variable];
-        if (v.function == none) try self.emit("LDI R4, {d}\nSTW R0, [R4]", .{v.address}) else try self.emit("MOV R4, R7\nADDI R4, {d}\nSTW R0, [R4]", .{v.address});
+        if (self.optimized() and v.function != none and v.address <= 31) {
+            try self.emit("STW R0, [R7+{d}]", .{v.address});
+            self.optimization_stats.direct_memory += @intFromBool(self.emitting);
+        } else if (v.function == none) try self.emit("LDI R4, {d}\nSTW R0, [R4]", .{v.address}) else try self.emit("MOV R4, R7\nADDI R4, {d}\nSTW R0, [R4]", .{v.address});
     }
     fn statement(self: *Context, id: Id) anyerror!void {
         const n = self.tree.nodes[id];
@@ -411,10 +551,12 @@ pub const Context = struct {
                 const ty = try self.infer(n.a);
                 if (ty > 2) return error.AggregateAssignment;
                 try self.coerce(ty, n.b);
-                try self.address(n.a);
-                try self.emit("PUSH R0", .{});
-                try self.expression(n.b);
-                try self.emit("POP R1\nSTW R0, [R1]", .{});
+                if (!try self.storeStorage(n.a, n.b)) {
+                    try self.address(n.a);
+                    try self.emit("PUSH R0", .{});
+                    try self.expression(n.b);
+                    try self.emit("POP R1\nSTW R0, [R1]", .{});
+                }
             },
             .expression => try self.expression(n.a),
             .ret => {
@@ -427,8 +569,7 @@ pub const Context = struct {
                 if (try self.infer(n.a) != 2) return error.ExpectedBool;
                 const no = self.nextLabel();
                 const end = self.nextLabel();
-                try self.expression(n.a);
-                try self.branchFalse(no);
+                try self.conditionFalse(n.a, no);
                 try self.statement(n.b);
                 try self.emit("JMP _c_L{d}\n_c_L{d}:", .{ end, no });
                 if (n.c != none) try self.statement(n.c);
@@ -439,8 +580,7 @@ pub const Context = struct {
                 const begin = self.nextLabel();
                 const end = self.nextLabel();
                 try self.emit("_c_L{d}:", .{begin});
-                try self.expression(n.a);
-                try self.branchFalse(end);
+                try self.conditionFalse(n.a, end);
                 try self.statement(n.b);
                 try self.emit("JMP _c_L{d}\n_c_L{d}:", .{ begin, end });
             },
@@ -596,8 +736,11 @@ pub fn binaryValue(op: []const u8, x: u16, y: u16, ty: Id) !u16 {
     return @truncate(@as(u32, @bitCast(value)));
 }
 pub fn compile(owner: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Result {
+    return compileWithOptions(owner, source, diag, .{});
+}
+pub fn compileWithOptions(owner: std.mem.Allocator, source: []const u8, diag: *Diagnostic, options: Options) !Result {
     diag.* = .{};
-    return compileInner(owner, source, diag) catch |err| {
+    return compileInner(owner, source, diag, options) catch |err| {
         const offset = @min(diag.offset, source.len);
         diag.token = source[offset..][0..@min(diag.length, source.len - offset)];
         diag.code = @errorName(err);
@@ -605,13 +748,13 @@ pub fn compile(owner: std.mem.Allocator, source: []const u8, diag: *Diagnostic) 
         return err;
     };
 }
-fn compileInner(owner: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Result {
+fn compileInner(owner: std.mem.Allocator, source: []const u8, diag: *Diagnostic, options: Options) !Result {
     if (source.len > 1024 * 1024) return error.SourceTooLarge;
     const ctx = try owner.create(Context);
     errdefer owner.destroy(ctx);
     const buffer = try owner.alloc(u8, 16 * 1024 * 1024);
     errdefer owner.free(buffer);
-    ctx.* = .{ .owner = owner, .buffer = buffer, .fixed = .init(buffer), .source = source, .diag = diag };
+    ctx.* = .{ .owner = owner, .buffer = buffer, .fixed = .init(buffer), .source = source, .diag = diag, .options = options };
     ctx.a = ctx.fixed.allocator();
     ctx.source = try ctx.a.dupe(u8, source);
     const tokens = try @import("lexer.zig").lex(ctx.a, ctx.source, diag);
@@ -620,7 +763,7 @@ fn compileInner(owner: std.mem.Allocator, source: []const u8, diag: *Diagnostic)
     try ctx.lower();
     const assembly = ctx.out.written();
     var ad: asm16.Diagnostic = .{};
-    const program = asm16.assemble(ctx.a, assembly, &ad) catch |err| {
+    const program = asm16.assembleProfile(ctx.a, assembly, &ad, options.profile) catch |err| {
         if (ad.line > 0 and ad.line <= ctx.origins.items.len) diag.line = ctx.origins.items[ad.line - 1].line;
         return err;
     };
@@ -717,6 +860,9 @@ pub fn writeSizeReport(w: *std.Io.Writer, a: std.mem.Allocator, result: Result) 
     }
     try std.json.Stringify.value(.{
         .schema_version = @as(u16, 1),
+        .optimization = @tagName(result.context.options.optimization),
+        .architecture = if (result.context.options.profile == .v1) "nova16-v1" else "nova16-v2",
+        .optimizations = result.context.optimization_stats,
         .rom_payload_bytes = payload,
         .rom_capacity_bytes = @as(usize, 8192),
         .rom_percent = @as(f64, @floatFromInt(payload)) * 100 / 8192,

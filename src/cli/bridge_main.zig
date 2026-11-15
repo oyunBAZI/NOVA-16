@@ -30,7 +30,7 @@ fn run(init: std.process.Init) !void {
     defer symbols.deinit();
     var d: n.Debugger = .{ .machine = &m, .symbols = symbols.symbols, .sources = symbols.locations, .variables = symbols.variables };
     defer d.deinit();
-    try d.recorder.configure(32);
+    try d.recorder.configureDelta(2048);
     var session: n.workbench.Session = .{ .debugger = &d };
     // Reused bounded input allocation; all parsed/request/output allocations have
     // a per-request lifetime instead of accumulating in process.Init's arena.
@@ -60,32 +60,7 @@ fn run(init: std.process.Init) !void {
         if (overflow) {
             try response.writer.writeAll("{\"version\":1,\"ok\":false,\"error\":\"RequestTooLarge\"}\n");
         } else {
-            const request = std.json.parseFromSlice(n.workbench.Request, a, line.items, .{ .allocate = .alloc_always }) catch {
-                try std.Io.File.stdout().writeStreamingAll(init.io, "{\"version\":1,\"ok\":false,\"error\":\"BadRequest\"}\n");
-                continue;
-            };
-            var output: std.Io.Writer.Allocating = .init(a);
-            var failure: ?[]const u8 = null;
-            const saved = session.apply(a, request.value, &output.writer) catch |err| blk: {
-                failure = @errorName(err);
-                break :blk null;
-            };
-            try response.writer.writeAll("{\"version\":1,\"ok\":");
-            try std.json.Stringify.value(failure == null, .{}, &response.writer);
-            try response.writer.writeAll(",\"error\":");
-            try std.json.Stringify.value(failure, .{}, &response.writer);
-            try response.writer.writeAll(",\"output\":");
-            try std.json.Stringify.value(output.written(), .{}, &response.writer);
-            if (saved) |bytes| {
-                try response.writer.writeAll(",\"snapshot\":\"");
-                try n.workbench.writeHex(&response.writer, bytes);
-                try response.writer.writeByte('"');
-            }
-            // Invalid address windows do not make error reporting fail.
-            var view = request.value;
-            if (view.length > 256 or @as(u32, view.address) + view.length > 65536) view = .{};
-            try session.writeObservation(a, &response.writer, view);
-            try response.writer.writeAll("}\n");
+            try n.workbench_protocol.process(a, &session, line.items, &response.writer);
         }
         try std.Io.File.stdout().writeStreamingAll(init.io, response.written());
     }

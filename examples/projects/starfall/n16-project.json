@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "name": "Starfall",
+  "language": "n16c",
+  "architecture": "nova16-v2",
+  "entry": "main.n16c",
+  "files": [
+    "main.n16c",
+    "pause.input",
+    "restart.input",
+    "start.input",
+    "win.input"
+  ],
+  "tests": [
+    {
+      "frames": 30,
+      "halted": false,
+      "ppm_sha256": "798746088a8894b2e52733e5f82a2f1ab8862c358b8b62e8e41df0ef493bff02"
+    },
+    {
+      "frames": 380,
+      "halted": false,
+      "ppm_sha256": "c82e6b007f96672372034572591823a6af7a8c7a8509ba6405ae38915110c428",
+      "input": "win.input"
+    },
+    {
+      "frames": 600,
+      "halted": false,
+      "ppm_sha256": "b88bc4ce7eaa3e104b98e11ac8e1d2a0a3f830cc0ab6fe31ab9f101da27e0c91",
+      "input": "start.input"
+    }
+  ]
+}

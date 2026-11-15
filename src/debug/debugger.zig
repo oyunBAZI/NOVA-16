@@ -42,7 +42,7 @@ pub const Debugger = struct {
             if (count > 1) return error.ArgumentCount;
             const budget = if (count == 1) try number(tokens[0], 1_000_000) else if (eq(cmd, "step")) @as(u64, 1) else 1_000_000;
             self.machine.cpu.paused = false;
-            for (0..budget) |_| {
+            for (0..@as(usize, @intCast(budget))) |_| {
                 const c = &self.machine.cpu;
                 if (c.halted or c.paused or c.trap != null) break;
                 if (!try self.runOne(out, eq(cmd, "continue"))) break;
@@ -79,7 +79,7 @@ pub const Debugger = struct {
             const budget = if (count == 1) try number(tokens[0], 1_000_000) else 100_000;
             const origin = self.sourceAt(self.machine.cpu.pc) orelse return error.NoSourceLocation;
             self.machine.cpu.paused = false;
-            for (0..budget) |_| {
+            for (0..@as(usize, @intCast(budget))) |_| {
                 if (!try self.runOne(out, false)) break;
                 if (self.breaks[self.machine.cpu.pc / 2]) break;
                 const current = self.sourceAt(self.machine.cpu.pc) orelse break;
@@ -106,11 +106,11 @@ pub const Debugger = struct {
             if (count > 1) return error.ArgumentCount;
             const frames = if (count == 1) try number(tokens[0], 1000) else 1;
             if (self.machine.bus.profile == .v2) {
-                for (0..frames) |_| {
+                for (0..@as(usize, @intCast(frames))) |_| {
                     const remaining = 20000 - self.machine.slots % 20000;
                     self.recorder.capture(self.machine);
                     self.machine.injectInput(self.machine.bus.input.held);
-                    for (0..remaining) |_| {
+                    for (0..@as(usize, @intCast(remaining))) |_| {
                         if (self.machine.cpu.halted or self.machine.cpu.paused or self.machine.cpu.trap != null) {
                             self.recorder.capture(self.machine);
                             if (!self.machine.transition(false, null)) break;
@@ -121,7 +121,7 @@ pub const Debugger = struct {
                 }
             } else {
                 self.machine.cpu.paused = false;
-                for (0..frames) |_| {
+                for (0..@as(usize, @intCast(frames))) |_| {
                     if (self.machine.cpu.halted or self.machine.cpu.paused or self.machine.cpu.trap != null) break;
                     self.machine.bus.input.inject(self.machine.bus.input.held);
                     var running = true;
@@ -140,9 +140,12 @@ pub const Debugger = struct {
             if (count > 1) return error.ArgumentCount;
             try self.recorder.print(out, @intCast(if (count == 1) try number(tokens[0], 128) else 16));
         } else if (eq(cmd, "history")) {
-            if (count > 1) return error.ArgumentCount;
-            if (count == 1) try self.recorder.configure(@intCast(try number(tokens[0], 32)));
-            try out.print("history={d} trace={d}\n", .{ self.recorder.undo_count, self.recorder.trace_count });
+            if (count > 2) return error.ArgumentCount;
+            if (count == 2) {
+                if (!eq(tokens[0], "delta")) return error.ArgumentCount;
+                try self.recorder.configureDelta(@intCast(try number(tokens[1], 4096)));
+            } else if (count == 1) try self.recorder.configure(@intCast(try number(tokens[0], 32)));
+            try out.print("history={d} trace={d} capacity={d} bytes={d} mode={s}\n", .{ self.recorder.undo_count, self.recorder.trace_count, self.recorder.capacity(), self.recorder.allocatedBytes(), if (self.recorder.timeline != null) @as([]const u8, "delta") else "full" });
         } else if (eq(cmd, "reverse")) {
             try arity(count, 0);
             try self.recorder.reverse(self.machine);
@@ -189,7 +192,7 @@ pub const Debugger = struct {
             var addr = @as(u64, try self.address(tokens[0]));
             const len = try number(tokens[1], 4096);
             if (addr & 1 != 0) return error.Unaligned;
-            for (0..len) |_| {
+            for (0..@as(usize, @intCast(len))) |_| {
                 if (addr > 65534) break;
                 for (self.symbols) |s| if (s.value == addr) {
                     try out.print("{s}:\n", .{s.name});
@@ -211,7 +214,7 @@ pub const Debugger = struct {
             try arity(count, 1);
             const len = try number(tokens[0], 1024);
             const c = &self.machine.cpu;
-            for (0..@min(len, c.depth)) |k| {
+            for (0..@as(usize, @intCast(@min(len, c.depth)))) |k| {
                 const addr: u16 = @intCast(@as(u32, c.sp) + k * 2);
                 try out.print("{x:0>4}: {x:0>4}\n", .{ addr, try self.machine.bus.read16(addr) });
             }
@@ -408,70 +411,74 @@ test "source commands reporting and malformed source locations have bounded beha
 }
 
 test "undo captures input and exact frame-boundary state" {
-    const a = std.testing.allocator;
-    var diag: asm16.Diagnostic = .{};
-    const rom = try asm16.assemble(a, "loop: LDI R0, 0xd801\nLDB R1, [R0]\nLDI R2, 0xc000\nSTB R1, [R2]\nJMP loop", &diag);
-    defer rom.deinit();
-    var m: Machine = .{};
-    try m.load(rom.image);
-    var d: Debugger = .{ .machine = &m, .recorder = .{ .allocator = a } };
-    defer d.deinit();
-    var out: std.Io.Writer.Allocating = .init(a);
-    defer out.deinit();
-    _ = try d.command("history 32", &out.writer);
-    _ = try d.command("input 16", &out.writer);
-    _ = try d.command("reverse", &out.writer);
-    try std.testing.expectEqual(0, m.bus.input.held);
-    try std.testing.expectEqual(0, m.bus.input.pressed);
-    _ = try d.command("input 32", &out.writer);
-    _ = try d.command("frame", &out.writer);
-    try std.testing.expectEqual(1, m.bus.frame);
-    const after = m;
-    _ = try d.command("reverse", &out.writer);
-    try std.testing.expectEqual(0, m.bus.frame);
-    try std.testing.expect(!m.bus.vblank);
-    try std.testing.expectEqual(after.cpu.retired, m.cpu.retired);
-    try std.testing.expectEqualSlices(u8, &after.bus.bytes, &m.bus.bytes);
-    // Reapply the boundary, then compare deterministic serialized state.
-    m.bus.frame +%= 1;
-    m.bus.vblank = true;
-    const snapshot = @import("../core/snapshot.zig");
-    const expected = try snapshot.encode(a, &after);
-    defer a.free(expected);
-    const actual = try snapshot.encode(a, &m);
-    defer a.free(actual);
-    try std.testing.expectEqualSlices(u8, expected, actual);
-}
-
-test "reverse restores RAM stack VRAM palette read-clear latches and traps" {
-    const a = std.testing.allocator;
-    var diagnostic: asm16.Diagnostic = .{};
-    const rom = try asm16.assemble(a, "LDI R0, 0x1234\nPUSH R0\nLDI R1, 0x100\nSTW R0, [R1]\nLDI R1, 0xc000\nSTW R0, [R1]\nLDI R1, 0xd820\nSTB R0, [R1]\nLDI R1, 0xd801\nLDB R0, [R1]\nLDI R1, 0xd804\nLDB R0, [R1]\nPOP R0\nLDI R1, 0xd900\nLDB R0, [R1]", &diagnostic);
-    defer rom.deinit();
-    var m: Machine = .{};
-    try m.load(rom.image);
-    m.bus.input.inject(48);
-    m.bus.vblank = true;
-    var recorder: @import("history.zig").Recorder = .{ .allocator = a };
-    defer recorder.deinit();
-    try recorder.configure(32);
-    const snapshot = @import("../core/snapshot.zig");
-    for (0..15) |_| {
-        const before = try snapshot.encode(a, &m);
-        defer a.free(before);
-        recorder.step(&m);
+    for ([_]bool{ false, true }) |delta| {
+        const a = std.testing.allocator;
+        var diag: asm16.Diagnostic = .{};
+        const rom = try asm16.assemble(a, "loop: LDI R0, 0xd801\nLDB R1, [R0]\nLDI R2, 0xc000\nSTB R1, [R2]\nJMP loop", &diag);
+        defer rom.deinit();
+        var m: Machine = .{};
+        try m.load(rom.image);
+        var d: Debugger = .{ .machine = &m, .recorder = .{ .allocator = a } };
+        defer d.deinit();
+        var out: std.Io.Writer.Allocating = .init(a);
+        defer out.deinit();
+        _ = try d.command(if (delta) "history delta 256" else "history 32", &out.writer);
+        _ = try d.command("input 16", &out.writer);
+        _ = try d.command("reverse", &out.writer);
+        try std.testing.expectEqual(0, m.bus.input.held);
+        try std.testing.expectEqual(0, m.bus.input.pressed);
+        _ = try d.command("input 32", &out.writer);
+        _ = try d.command("frame", &out.writer);
+        try std.testing.expectEqual(1, m.bus.frame);
         const after = m;
-        try recorder.reverse(&m);
-        const restored = try snapshot.encode(a, &m);
-        defer a.free(restored);
-        try std.testing.expectEqualSlices(u8, before, restored);
-        // Replay the instruction and verify the exact resulting persistent state.
-        recorder.step(&m);
+        _ = try d.command("reverse", &out.writer);
+        try std.testing.expectEqual(0, m.bus.frame);
+        try std.testing.expect(!m.bus.vblank);
+        try std.testing.expectEqual(after.cpu.retired, m.cpu.retired);
+        try std.testing.expectEqualSlices(u8, &after.bus.bytes, &m.bus.bytes);
+        // Reapply the boundary, then compare deterministic serialized state.
+        m.bus.frame +%= 1;
+        m.bus.vblank = true;
+        const snapshot = @import("../core/snapshot.zig");
         const expected = try snapshot.encode(a, &after);
         defer a.free(expected);
         const actual = try snapshot.encode(a, &m);
         defer a.free(actual);
         try std.testing.expectEqualSlices(u8, expected, actual);
     }
-    try std.testing.expect(m.cpu.trap != null);
+}
+
+test "reverse restores RAM stack VRAM palette read-clear latches and traps" {
+    for ([_]bool{ false, true }) |delta| {
+        const a = std.testing.allocator;
+        var diagnostic: asm16.Diagnostic = .{};
+        const rom = try asm16.assemble(a, "LDI R0, 0x1234\nPUSH R0\nLDI R1, 0x100\nSTW R0, [R1]\nLDI R1, 0xc000\nSTW R0, [R1]\nLDI R1, 0xd820\nSTB R0, [R1]\nLDI R1, 0xd801\nLDB R0, [R1]\nLDI R1, 0xd804\nLDB R0, [R1]\nPOP R0\nLDI R1, 0xd900\nLDB R0, [R1]", &diagnostic);
+        defer rom.deinit();
+        var m: Machine = .{};
+        try m.load(rom.image);
+        m.bus.input.inject(48);
+        m.bus.vblank = true;
+        var recorder: @import("history.zig").Recorder = .{ .allocator = a };
+        defer recorder.deinit();
+        if (delta) try recorder.configureDelta(256) else try recorder.configure(32);
+        const snapshot = @import("../core/snapshot.zig");
+        for (0..15) |_| {
+            const before = try snapshot.encode(a, &m);
+            defer a.free(before);
+            recorder.step(&m);
+            const after = m;
+            try recorder.reverse(&m);
+            const restored = try snapshot.encode(a, &m);
+            defer a.free(restored);
+            try std.testing.expectEqualSlices(u8, before, restored);
+            // Replay the instruction and verify the exact resulting persistent state.
+            recorder.step(&m);
+            const expected = try snapshot.encode(a, &after);
+            defer a.free(expected);
+            const actual = try snapshot.encode(a, &m);
+            defer a.free(actual);
+            try std.testing.expectEqualSlices(u8, expected, actual);
+        }
+        try std.testing.expect(m.cpu.trap != null);
+    }
 }

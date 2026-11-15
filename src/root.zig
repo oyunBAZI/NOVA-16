@@ -83,3 +83,7 @@ test {
     _ = workbench;
     _ = @import("v2_tests.zig");
 }
+
+pub const compiler_campaign = @import("compiler/campaign.zig");
+
+pub const workbench_protocol = @import("workbench/protocol.zig");

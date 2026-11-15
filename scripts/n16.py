@@ -37,8 +37,8 @@ def load(root):
     fields = {'schema_version', 'name', 'language', 'entry', 'files', 'tests'}
     if manifest['schema_version'] == 2:
         fields.add('architecture')
-        if manifest.get('architecture') not in ('nova16-v1', 'nova16-v2') or manifest.get('language') != 'asm':
-            raise ValueError('manifest2 requires explicit assembly architecture')
+        if manifest.get('architecture') not in ('nova16-v1', 'nova16-v2'):
+            raise ValueError('manifest2 requires an explicit architecture')
     elif manifest['schema_version'] != 1:
         raise ValueError('unsupported project manifest')
     if set(manifest) != fields:
@@ -124,6 +124,8 @@ def build(root, bins):
             if manifest['schema_version'] == 2:
                 args += ['--architecture', manifest['architecture']]
             compiler = tool(bins, 'n16asm')
+        if manifest['language'] == 'n16c' and manifest['schema_version'] == 2:
+            args += ['--architecture', manifest['architecture']]
         try:
             execute(compiler, *args, capture=True)
         except subprocess.CalledProcessError as failure:
@@ -150,7 +152,7 @@ def test_project(root, bins, manifest):
     with tempfile.TemporaryDirectory() as temporary:
         image = Path(temporary)/'screen.ppm'
         for index, test in enumerate(manifest['tests']):
-            args = ['run', root/'.n16/program.n16', '--headless', '--frames', test['frames'], '--screenshot', image]
+            args = ['run', root/'.n16/program.n16', '--headless', '--frames', test['frames'], '--max-instructions', test['frames'] * 20000, '--screenshot', image]
             if 'input' in test:
                 args += ['--input', root/test['input']]
             state = json.loads(execute(tool(bins, 'nova16'), *args, capture=True).stdout)

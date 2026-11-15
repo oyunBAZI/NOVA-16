@@ -102,6 +102,19 @@ pub fn main(init: std.process.Init) !void {
         start = now(init.io);
         for (0..10000) |_| debugger.recorder.step(m);
         try results.append(a, .{ .name = "history_full_step", .operations = 10000, .nanoseconds = @intCast(now(init.io) - start) });
+        try debugger.recorder.configureDelta(32);
+        start = now(init.io);
+        for (0..10000) |_| debugger.recorder.step(m);
+        try results.append(a, .{ .name = "history_delta32_step", .operations = 10000, .nanoseconds = @intCast(now(init.io) - start) });
+        try debugger.recorder.configureDelta(2048);
+        start = now(init.io);
+        for (0..10000) |_| debugger.recorder.step(m);
+        try results.append(a, .{ .name = "history_delta_step", .operations = 10000, .nanoseconds = @intCast(now(init.io) - start) });
+        start = now(init.io);
+        for (0..2048) |_| try debugger.recorder.reverse(m);
+        try results.append(a, .{ .name = "history_delta_reverse", .operations = 2048, .nanoseconds = @intCast(now(init.io) - start) });
+        // Restore the benchmark's instruction count before independent fixtures.
+        for (0..2048) |_| m.step();
         // Capture-only candidate lower bound, not an exact reverse implementation.
         const Candidate = struct { cpu: @TypeOf(m.cpu), input: [2]u8, palette: [48]u8, frame: u16, enabled: bool, vblank: bool, writes: @TypeOf(m.bus.writes) };
         var candidates: [32]Candidate = undefined;
@@ -115,7 +128,7 @@ pub fn main(init: std.process.Init) !void {
         guard +%= @sizeOf(Candidate);
         debugger.deinit();
 
-        if (m.cpu.retired != 30000 or m.cpu.trap != null) return error.DebuggerBenchmarkMismatch;
+        if (m.cpu.retired != 50000 or m.cpu.trap != null) return error.DebuggerBenchmarkMismatch;
         start = now(init.io);
         for (0..1000) |_| {
             const data = try n.snapshot.encode(std.heap.smp_allocator, m);

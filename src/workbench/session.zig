@@ -37,9 +37,21 @@ pub const Session = struct {
             .frame => try self.frame(out),
             .replay_frame => {
                 if (m.bus.profile == .v1 and (m.cpu.halted or m.cpu.paused or m.cpu.trap != null)) return null;
-                d.recorder.capture(m);
+                d.recorder.beginGroup(m);
+                defer d.recorder.endGroup();
                 self.pcm_valid = false;
-                if (m.bus.profile == .v2) self.pcm_valid = m.frameAudio(m.bus.input.held, std.math.maxInt(u64), &self.pcm) else m.frame(m.bus.input.held, std.math.maxInt(u64));
+                m.injectInput(m.bus.input.held);
+                const remaining: u64 = if (m.bus.profile == .v2) 20000 - m.slots % 20000 else 20000;
+                for (0..@as(usize, @intCast(remaining))) |_| {
+                    if (m.cpu.halted or m.cpu.paused or m.cpu.trap != null) {
+                        if (m.bus.profile == .v1) break;
+                        if (!m.transition(false, &self.pcm)) break;
+                    } else d.recorder.stepAudio(m, &self.pcm);
+                }
+                if (m.bus.profile == .v1) {
+                    m.bus.frame +%= 1;
+                    m.bus.vblank = true;
+                } else self.pcm_valid = m.slots % 20000 == 0;
                 self.stopped = m.cpu.halted or m.cpu.paused or m.cpu.trap != null;
             },
             .command => {
@@ -95,7 +107,7 @@ pub const Session = struct {
         } else {
             const before_slots = m.slots;
             const remaining = 20000 - m.slots % 20000;
-            for (0..remaining) |_| {
+            for (0..@as(usize, @intCast(remaining))) |_| {
                 if (m.cpu.halted or m.cpu.paused or m.cpu.trap != null) {
                     self.stopped = true;
                     if (!m.transition(false, &self.pcm)) break;
@@ -117,7 +129,7 @@ pub const Session = struct {
         defer state_text.deinit();
         try @import("../cli/state.zig").json(&state_text.writer, m);
         try w.writeAll(std.mem.trimEnd(u8, state_text.written(), "\n"));
-        try w.print(",\"profile\":{d},\"stopped\":{s},\"history_count\":{d},\"history_capacity\":{d},\"display_enabled\":{s},\"vram\":\"", .{ @backingInt(m.bus.profile), if (self.stopped) "true" else "false", d.recorder.undo_count, if (d.recorder.undo) |u| u.len else 0, if (m.bus.enabled) "true" else "false" });
+        try w.print(",\"profile\":{d},\"stopped\":{s},\"history_count\":{d},\"history_capacity\":{d},\"display_enabled\":{s},\"vram\":\"", .{ @backingInt(m.bus.profile), if (self.stopped) "true" else "false", d.recorder.undo_count, d.recorder.capacity(), if (m.bus.enabled) "true" else "false" });
         try writeHex(w, m.bus.bytes[0xc000..0xd800]);
         try w.writeAll("\",\"palette\":");
         try std.json.Stringify.value(m.bus.palette, .{}, w);

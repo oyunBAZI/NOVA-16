@@ -219,3 +219,144 @@ test "unreachable typed cycles and their library dependencies are removed with v
     try std.testing.expectError(error.TypeMismatch, compiler.compile(std.testing.allocator, "fn dead()->u16{return true;}fn main()->u16{return 42;}", &diagnostic));
     try execute("fn a(n:u16)->u16{if(n==0){return 42;}else{return b(n-1);}}fn b(n:u16)->u16{return a(n);}fn main()->u16{return a(4);}", 42);
 }
+
+fn symbolAddressForTest(result: compiler.Result, name: []const u8) !u16 {
+    for (result.program.symbols) |symbol| if (std.mem.eql(u8, symbol.name, name)) return @intCast(symbol.value);
+    return error.MissingTestSymbol;
+}
+
+fn compareOptimization(source: []const u8) !void {
+    const Reference = @import("compiler/reference.zig").Interpreter;
+    var diagnostic: compiler.Diagnostic = .{};
+    const plain = try compiler.compileWithOptions(std.testing.allocator, source, &diagnostic, .{ .optimization = .none });
+    defer plain.deinit();
+    const small = try compiler.compileWithOptions(std.testing.allocator, source, &diagnostic, .{});
+    defer small.deinit();
+    var reference: Reference = .{ .context = plain.context };
+    const expected = try reference.run();
+    for ([_]compiler.Result{ plain, small }) |result| {
+        var machine: Machine = .{};
+        try machine.load(result.program.image);
+        const main_pc = try symbolAddressForTest(result, "_c_f_main");
+        var entered = false;
+        for (0..500000) |_| {
+            if (!entered and machine.cpu.pc == main_pc) {
+                entered = true;
+                machine.cpu.r[4] = 0xabcd;
+                machine.cpu.r[5] = 0x1234;
+                machine.cpu.r[6] = 0xfedc;
+            }
+            machine.step();
+            if (machine.cpu.halted or machine.cpu.paused or machine.cpu.trap != null) break;
+        }
+        try std.testing.expect(machine.cpu.halted and !machine.cpu.paused and machine.cpu.trap == null);
+        try std.testing.expectEqual(expected, machine.cpu.r[0]);
+        try std.testing.expectEqual(0xbffe, machine.cpu.sp);
+        try std.testing.expectEqual(0x8000, machine.cpu.r[7]);
+        try std.testing.expectEqual(0xabcd, machine.cpu.r[4]);
+        try std.testing.expectEqual(0x1234, machine.cpu.r[5]);
+        try std.testing.expectEqual(0xfedc, machine.cpu.r[6]);
+        for (result.context.variables.items, 0..) |variable, index| {
+            if (variable.function != compiler.syntax.none or variable.constant) continue;
+            for (0..result.context.tree.types[variable.ty].words) |word| {
+                const actual = try machine.bus.read16(variable.address + @as(u16, @intCast(word * 2)));
+                try std.testing.expectEqual(reference.globals[reference.slots[index] + word], actual);
+            }
+        }
+    }
+    try std.testing.expect(small.program.image.len <= plain.program.image.len);
+}
+
+test "size codegen matches unoptimized instructions and independent effects oracle" {
+    for ([_][]const u8{
+        "var g:u16=0;fn touch(x:u16)->u16{g=g*31+x;return x;}fn main()->u16{var a:u16=touch(9)+touch(3);var b:u16=touch(7)*8;return a+b+g;}",
+        "var g:u16=0;fn touch(x:u16)->u16{g=g+1;return x;}fn add(a:u16,b:u16,c:u16,d:u16)->u16{return a+b+c+d;}fn main()->u16{return add(touch(9),2,3,4)+g;}",
+        "var g:u16=0;fn bad()->bool{g=99;return true;}fn main()->u16{var b:bool=false&&bad();var c:bool=true||bad();return u16(b)+u16(c)+g;}",
+        "struct P{x:u16;y:i16;}var out:u16=0;fn main()->u16{var p:P;p.x=27;p.y=-8;var a:[5]u16;a[4]=p.x+1;out=a[4]+u16(p.y);return out;}",
+        "fn main()->u16{var a:u16=65535;var b:u16=0;a=a+1;b=b-1;return a^b;}",
+        "fn main()->u16{var i:u16=0;var total:u16=0;while(i<10){if(i>=5){total=total+i;}else{total=total+2;}i=i+1;}return total;}",
+        "fn f(x:u16)->u16{return (x/1)+(x/2)+(x/32768)+(x%1)+(x%16)+(x*8);}fn main()->u16{return f(65535);}",
+        "fn f(x:i16)->u16{return u16(x/i16(2))+u16(x%i16(8))+u16(x>>i16(17));}fn main()->u16{return f(i16(-32768))+f(i16(-7))+f(i16(32767));}",
+        "fn f(x:u16)->u16{return u16(x<32768)+u16(x<=0)+u16(x>0)+u16(x>=65535)+u16(x==0)+u16(x!=65535);}fn main()->u16{return f(0)+f(65535)+f(32768);}",
+        "fn f(x:i16)->u16{return u16(x<i16(0))+u16(x<=i16(-1))+u16(x>i16(0))+u16(x>=i16(32767));}fn main()->u16{return f(i16(-32768))+f(i16(0))+f(i16(32767));}",
+        "var a:[4]u16;var i:u16=0;fn touch()->u16{i=3;return 42;}fn main()->u16{a[i]=touch();return a[0]+a[3]+i;}",
+    }) |source| try compareOptimization(source);
+}
+
+test "optimized constants retain semantic diagnostics and do not erase memory effects" {
+    var diagnostic: compiler.Diagnostic = .{};
+    const source = "fn main()->u16{return (65535+1)*8+u16(i16(-32768)/i16(-1));}";
+    const result = try compiler.compile(std.testing.allocator, source, &diagnostic);
+    defer result.deinit();
+    try std.testing.expect(result.context.optimization_stats.folded > 0);
+    try std.testing.expect(std.mem.indexOf(u8, result.assembly, "CALL n16_sdiv") == null);
+    try compareOptimization(source);
+    for ([_][]const u8{
+        "fn main()->u16{return u16(false&&(1/0==0));}",
+        "fn main()->u16{var a:[2]u16;return true?42:a[5];}",
+        "fn main()->u16{return true?42:missing;}",
+        "fn unused()->u16{return true;}fn main()->u16{return 0;}",
+    }) |invalid| {
+        if (compiler.compile(std.testing.allocator, invalid, &diagnostic)) |success| {
+            success.deinit();
+            return error.ExpectedDiagnostic;
+        } else |_| {}
+    }
+    const io_source = "fn main()->u16{poke8(55297,7);return peek8(55297)*0;}";
+    const io_result = try compiler.compile(std.testing.allocator, io_source, &diagnostic);
+    defer io_result.deinit();
+    try std.testing.expect(std.mem.indexOf(u8, io_result.assembly, "LDB R0, [R0]") != null);
+}
+
+test "typed explicit V2 profile creates ROM2 while default stays V1" {
+    var diagnostic: compiler.Diagnostic = .{};
+    const source = "fn main()->u16{poke8(55616,1);poke16(55552,0);poke16(55554,16384);poke16(55556,255);poke8(55558,3);return peek8(55616);}";
+    const v2 = try compiler.compileWithOptions(std.testing.allocator, source, &diagnostic, .{ .profile = .v2 });
+    defer v2.deinit();
+    const v1 = try compiler.compile(std.testing.allocator, source, &diagnostic);
+    defer v1.deinit();
+    try std.testing.expectEqualSlices(u8, v1.program.image[32..], v2.program.image[32..]);
+    var machine: Machine = .{};
+    try machine.load(v2.program.image);
+    var pcm: [800]i16 = undefined;
+    try std.testing.expect(machine.frameAudio(0, 1000000, &pcm));
+    try std.testing.expect(machine.cpu.halted and machine.cpu.trap == null);
+    try std.testing.expectEqual(1, machine.cpu.r[0]);
+    try std.testing.expect(machine.bus.audio.enabled and machine.bus.audio.voices[0].enabled);
+    try std.testing.expectEqual(0x40000000, machine.bus.audio.voices[0].step);
+    try std.testing.expectEqual(800, machine.bus.audio.generated);
+    var audible = false;
+    for (pcm) |sample| if (sample != 0) {
+        audible = true;
+    };
+    try std.testing.expect(audible);
+    try machine.load(v1.program.image);
+    machine.frame(0, 1000000);
+    try std.testing.expectEqual(error.WriteDenied, machine.cpu.trap.?.kind);
+}
+
+test "all 65536 input words preserve division strength reductions and signed shifts" {
+    const source = "fn main()->u16{var x:u16=peek16(256);return ((x/16)*8+(x%8)*2+u16(i16(x)>i16(0)))^u16(i16(x)>>31)^(x*32768);}";
+    var diagnostic: compiler.Diagnostic = .{};
+    for ([_]compiler.Optimization{ .none, .size }) |optimization| {
+        const result = try compiler.compileWithOptions(std.testing.allocator, source, &diagnostic, .{ .optimization = optimization });
+        defer result.deinit();
+        var m: Machine = .{};
+        try m.load(result.program.image);
+        for (0..65536) |word| {
+            const x: u16 = @intCast(word);
+            m.cpu.reset(m.entry);
+            std.mem.writeInt(u16, m.bus.bytes[256..258], x, .little);
+            for (0..2000) |_| {
+                m.step();
+                if (m.cpu.halted or m.cpu.paused or m.cpu.trap != null) break;
+            }
+            try std.testing.expect(m.cpu.halted and !m.cpu.paused and m.cpu.trap == null);
+            const signed: i32 = if (word < 32768) @intCast(word) else @as(i32, @intCast(word)) - 65536;
+            const sum: u16 = @intCast((word / 16) * 8 + (word % 8) * 2 + @intFromBool(signed > 0));
+            const sign: u16 = if (signed < 0) 65535 else 0;
+            const product: u16 = if (word % 2 == 1) 32768 else 0;
+            try std.testing.expectEqual(sum ^ sign ^ product, m.cpu.r[0]);
+        }
+    }
+}

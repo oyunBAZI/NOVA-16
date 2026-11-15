@@ -1,0 +1,367 @@
+{
+  "schema_version": 1,
+  "started_utc": "2026-11-15T05:44:49Z",
+  "source_commit": "14c6b546986064d1cd06e03bc4aa3c36b35825c5",
+  "checks": [
+    {
+      "command": [
+        "/workspace/scratch/08176eda05f9/NOVA-16/.zig-toolchain/zig-x86_64-linux-0.17.1/zig",
+        "build",
+        "fmt"
+      ],
+      "exit_code": 0,
+      "seconds": 0.068,
+      "output": ""
+    },
+    {
+      "command": [
+        "/workspace/scratch/08176eda05f9/NOVA-16/.zig-toolchain/zig-x86_64-linux-0.17.1/zig",
+        "build",
+        "-Doptimize=Debug"
+      ],
+      "exit_code": 0,
+      "seconds": 2.369,
+      "output": ""
+    },
+    {
+      "command": [
+        "/workspace/scratch/08176eda05f9/NOVA-16/.zig-toolchain/zig-x86_64-linux-0.17.1/zig",
+        "build",
+        "test",
+        "-Doptimize=Debug",
+        "--summary",
+        "all",
+        "--test-timeout",
+        "2m"
+      ],
+      "exit_code": 0,
+      "seconds": 0.023,
+      "output": "Build Summary: 3/3 steps succeeded\ntest success\n+- run test cached\n   +- compile test debug native cached 6ms MaxRSS:40M\n\n"
+    },
+    {
+      "command": [
+        "/workspace/scratch/08176eda05f9/NOVA-16/.zig-toolchain/zig-x86_64-linux-0.17.1/zig",
+        "build",
+        "v2-model-test",
+        "-Doptimize=Debug",
+        "--summary",
+        "all"
+      ],
+      "exit_code": 0,
+      "seconds": 0.021,
+      "output": "Build Summary: 3/3 steps succeeded\nv2-model-test success\n+- run test cached\n   +- compile test debug native cached 6ms MaxRSS:40M\n\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 1.433,
+      "output": "boot_splash: boot/debug/PPM OK, sha256=420c5fc58a7f204072d9dd257e24607f2d624f3b31a39c154cf5c8cb0152955c\nbouncing_pixel: boot/debug/PPM OK, sha256=39738b734e6d8c75277c462192e4ab0af156afe3cb28d8b1a65fba0e5c5d4ca5\npaint: boot/debug/PPM OK, sha256=cfadc70d6dba91154258e606e1313fec9a14f4583f954fc11525eb16cc49b2d6\ndiagnostics: boot/debug/PPM OK, sha256=b46b81b0ff39fe8e0e92b2ffd76c0107835e577e17d2f1e050adfea043ea3df6\nReplay, budgets, malformed CLI/source/ROM/debugger and snapshot checks OK\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/compatibility_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.032,
+      "output": "All five original V1 ROM byte identities match the v0.3 baseline\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/developer_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.982,
+      "output": "Developer diagnostics, bounded recovery, output preflight/staging OK\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/compiler_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.359,
+      "output": "Compiler CLI: real V1 ROM, ordinary assembly reassembly, source map/debugger, limits and artifact retention passed\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/project_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 2.134,
+      "output": "Projects: create/build/run/debug/test, isolated includes, deterministic packages/rebuild, failed-build retention passed\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/application_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 7.048,
+      "output": "crates/title: real ROM, framebuffer SHA and guest state passed\ncrates/win: real ROM, framebuffer SHA and guest state passed\ncrates/undo: real ROM, framebuffer SHA and guest state passed\ncrates/collision: real ROM, framebuffer SHA and guest state passed\ncrates/restart: real ROM, framebuffer SHA and guest state passed\ncrates/blocked: real ROM, framebuffer SHA and guest state passed\npixel_studio/blank: real ROM, framebuffer SHA and guest state passed\npixel_studio/drawing: real ROM, framebuffer SHA and guest state passed\npixel_studio/undo: real ROM, framebuffer SHA and guest state passed\npixel_studio/clear: real ROM, framebuffer SHA and guest state passed\nAll application replays passed\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/v2_contract_vectors.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.073,
+      "output": "V2 specification vectors, independent audio math, and V2 ROM activation and V1 snapshot profile isolation passed\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/v2_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 2.946,
+      "output": "nova_sound: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\ninterrupt_canvas: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\nV2 black-box acceptance passed; complete original V1 gates remain separate\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/game_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 3.747,
+      "output": "title: real guest replay/framebuffer SHA256 OK\nplay: real guest replay/framebuffer SHA256 OK\nwin: real guest replay/framebuffer SHA256 OK\nloss: real guest replay/framebuffer SHA256 OK\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/workbench_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 1.199,
+      "output": "test_build_commit_and_replay (__main__.WorkbenchAcceptance.test_build_commit_and_replay) ... ok\ntest_frontend_structure (__main__.WorkbenchAcceptance.test_frontend_structure) ... ok\ntest_http_boundaries_and_assets (__main__.WorkbenchAcceptance.test_http_boundaries_and_assets) ... ok\ntest_native_frame_and_pixel_parity (__main__.WorkbenchAcceptance.test_native_frame_and_pixel_parity) ... ok\ntest_protocol_rewind_restore_and_failure_atomicity (__main__.WorkbenchAcceptance.test_protocol_rewind_restore_and_failure_atomicity) ... ok\n\n----------------------------------------------------------------------\nRan 5 tests in 1.019s\n\nOK\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/evolution_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 18.418,
+      "output": "test_deep_frame_undo_and_reexecution_beyond_old_limit (__main__.EvolutionAcceptance.test_deep_frame_undo_and_reexecution_beyond_old_limit) ... ok\ntest_ten_application_scenes_and_native_replay_pcm_parity (__main__.EvolutionAcceptance.test_ten_application_scenes_and_native_replay_pcm_parity) ... ok\ntest_typed_v2_project_and_editor_target_failures_are_atomic (__main__.EvolutionAcceptance.test_typed_v2_project_and_editor_target_failures_are_atomic) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 18.281s\n\nOK\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/security_check.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.033,
+      "output": "Workflow pin/trigger/permissions, toolchain SHA256, version and source checkout policy passed\nRelease-only OIDC/attestation permissions and pinned genuine SDL2 source passed\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/project_stress.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.754,
+      "output": "Project stress: depth/files/bytes/lines, 100 seeded adversaries and symlink boundary passed\n"
+    },
+    {
+      "command": [
+        "/workspace/scratch/08176eda05f9/NOVA-16/.zig-toolchain/zig-x86_64-linux-0.17.1/zig",
+        "build",
+        "-Doptimize=ReleaseSafe"
+      ],
+      "exit_code": 0,
+      "seconds": 0.069,
+      "output": ""
+    },
+    {
+      "command": [
+        "/workspace/scratch/08176eda05f9/NOVA-16/.zig-toolchain/zig-x86_64-linux-0.17.1/zig",
+        "build",
+        "test",
+        "-Doptimize=ReleaseSafe",
+        "--summary",
+        "all",
+        "--test-timeout",
+        "2m"
+      ],
+      "exit_code": 0,
+      "seconds": 53.89,
+      "output": "Build Summary: 3/3 steps succeeded; 130/130 tests passed\ntest success\n+- run test 130 pass (130 total) 6s MaxRSS:54M\n   +- compile test safe native success 47s MaxRSS:693M\n\n"
+    },
+    {
+      "command": [
+        "/workspace/scratch/08176eda05f9/NOVA-16/.zig-toolchain/zig-x86_64-linux-0.17.1/zig",
+        "build",
+        "v2-model-test",
+        "-Doptimize=ReleaseSafe",
+        "--summary",
+        "all"
+      ],
+      "exit_code": 0,
+      "seconds": 0.044,
+      "output": "Build Summary: 3/3 steps succeeded\nv2-model-test success\n+- run test cached\n   +- compile test safe native cached 9ms MaxRSS:41M\n\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.339,
+      "output": "boot_splash: boot/debug/PPM OK, sha256=420c5fc58a7f204072d9dd257e24607f2d624f3b31a39c154cf5c8cb0152955c\nbouncing_pixel: boot/debug/PPM OK, sha256=39738b734e6d8c75277c462192e4ab0af156afe3cb28d8b1a65fba0e5c5d4ca5\npaint: boot/debug/PPM OK, sha256=cfadc70d6dba91154258e606e1313fec9a14f4583f954fc11525eb16cc49b2d6\ndiagnostics: boot/debug/PPM OK, sha256=b46b81b0ff39fe8e0e92b2ffd76c0107835e577e17d2f1e050adfea043ea3df6\nReplay, budgets, malformed CLI/source/ROM/debugger and snapshot checks OK\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/compatibility_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.03,
+      "output": "All five original V1 ROM byte identities match the v0.3 baseline\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/developer_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.703,
+      "output": "Developer diagnostics, bounded recovery, output preflight/staging OK\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/compiler_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.153,
+      "output": "Compiler CLI: real V1 ROM, ordinary assembly reassembly, source map/debugger, limits and artifact retention passed\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/project_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 1.743,
+      "output": "Projects: create/build/run/debug/test, isolated includes, deterministic packages/rebuild, failed-build retention passed\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/application_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 1.588,
+      "output": "crates/title: real ROM, framebuffer SHA and guest state passed\ncrates/win: real ROM, framebuffer SHA and guest state passed\ncrates/undo: real ROM, framebuffer SHA and guest state passed\ncrates/collision: real ROM, framebuffer SHA and guest state passed\ncrates/restart: real ROM, framebuffer SHA and guest state passed\ncrates/blocked: real ROM, framebuffer SHA and guest state passed\npixel_studio/blank: real ROM, framebuffer SHA and guest state passed\npixel_studio/drawing: real ROM, framebuffer SHA and guest state passed\npixel_studio/undo: real ROM, framebuffer SHA and guest state passed\npixel_studio/clear: real ROM, framebuffer SHA and guest state passed\nAll application replays passed\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/v2_contract_vectors.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.053,
+      "output": "V2 specification vectors, independent audio math, and V2 ROM activation and V1 snapshot profile isolation passed\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/v2_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 1.346,
+      "output": "nova_sound: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\ninterrupt_canvas: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\nV2 black-box acceptance passed; complete original V1 gates remain separate\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/game_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.676,
+      "output": "title: real guest replay/framebuffer SHA256 OK\nplay: real guest replay/framebuffer SHA256 OK\nwin: real guest replay/framebuffer SHA256 OK\nloss: real guest replay/framebuffer SHA256 OK\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/workbench_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 1.08,
+      "output": "test_build_commit_and_replay (__main__.WorkbenchAcceptance.test_build_commit_and_replay) ... ok\ntest_frontend_structure (__main__.WorkbenchAcceptance.test_frontend_structure) ... ok\ntest_http_boundaries_and_assets (__main__.WorkbenchAcceptance.test_http_boundaries_and_assets) ... ok\ntest_native_frame_and_pixel_parity (__main__.WorkbenchAcceptance.test_native_frame_and_pixel_parity) ... ok\ntest_protocol_rewind_restore_and_failure_atomicity (__main__.WorkbenchAcceptance.test_protocol_rewind_restore_and_failure_atomicity) ... ok\n\n----------------------------------------------------------------------\nRan 5 tests in 0.884s\n\nOK\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/evolution_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 4.33,
+      "output": "test_deep_frame_undo_and_reexecution_beyond_old_limit (__main__.EvolutionAcceptance.test_deep_frame_undo_and_reexecution_beyond_old_limit) ... ok\ntest_ten_application_scenes_and_native_replay_pcm_parity (__main__.EvolutionAcceptance.test_ten_application_scenes_and_native_replay_pcm_parity) ... ok\ntest_typed_v2_project_and_editor_target_failures_are_atomic (__main__.EvolutionAcceptance.test_typed_v2_project_and_editor_target_failures_are_atomic) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 4.192s\n\nOK\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/security_check.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.034,
+      "output": "Workflow pin/trigger/permissions, toolchain SHA256, version and source checkout policy passed\nRelease-only OIDC/attestation permissions and pinned genuine SDL2 source passed\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/project_stress.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.117,
+      "output": "Project stress: depth/files/bytes/lines, 100 seeded adversaries and symlink boundary passed\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "scripts/wasm_acceptance.mjs"
+      ],
+      "exit_code": 0,
+      "seconds": 1.319,
+      "output": "boot_splash.n16: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed\nbouncing_pixel.n16: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed\nbreakout.n16: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed\ncrates.n16: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed\ndiagnostics.n16: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed\ninterrupt_canvas.n16: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed\nnova_sound.n16: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed\nnova_tracker.n16: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed\npaint.n16: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed\npixel_studio.n16: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed\nstarfall.n16: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed\ncrates: native/Wasm compiler ROM bytes and failed-build retention passed\npixel_studio: native/Wasm compiler ROM bytes and failed-build retention passed\nnova_tracker: native/Wasm compiler ROM bytes and failed-build retention passed\nstarfall: native/Wasm compiler ROM bytes and failed-build retention passed\n{\"schema_version\":1,\"roms\":11,\"comparisons\":1782,\"compiler_replacement_cycles\":100,\"wasm_bytes\":694556,\"memory_pages\":655}\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/package_web.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.122,
+      "output": "{\"file\": \"/workspace/scratch/76081a104c43/NOVA-16/zig-out/web/NOVA16-Offline-Workbench.html\", \"bytes\": 1731584, \"sha256\": \"1f12472c742fa640bae4be69802d918521e51d8b3f8dbd32f5b7db9c5026d8cc\", \"roms\": 11}\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "scripts/offline_acceptance.mjs"
+      ],
+      "exit_code": 0,
+      "seconds": 0.514,
+      "output": "{\"schema_version\":1,\"offline_bytes\":1731584,\"cartridges\":11,\"inline_scripts\":2,\"worker_host\":\"build/replay/restore/rejection/isolation passed\"}\n"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/cross_acceptance.py"
+      ],
+      "exit_code": 0,
+      "seconds": 101.685,
+      "output": "native: build and ROM identity passed\nx86_64-windows: build and ROM identity passed\naarch64-macos: build and ROM identity passed\nx86_64-macos: build and ROM identity passed\n"
+    }
+  ],
+  "completed_utc": "2026-11-15T05:48:20Z",
+  "passed": true,
+  "source_dirty": true,
+  "subject_note": "Working-tree validation; native/portable source identity is pinned by the accompanying source manifest."
+}

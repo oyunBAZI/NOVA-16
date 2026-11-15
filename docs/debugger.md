@@ -74,3 +74,21 @@ a current breakpoint once, like `step`; it is statement stepping, not function
 step-over. Reverse is instruction-level. Traps include the saved encoding,
 disassembly, category/access/address and mapped source location. All inspection
 uses non-acknowledging reads; no host timer affects execution.
+
+
+## Deep exact history
+
+`history delta 2048` selects the new bounded delta ring; the maximum is 4096.
+`history 32` retains the complete-state mode, and `history 0` disables recording.
+The Workbench defaults to 2048 entries natively and 256 in Wasm. Each entry stores
+CPU/device/clock/partial-PCM state and original RAM/VRAM write bytes. Frame actions
+keep the earliest old byte per address. Device read-clear and failed-instruction
+metadata are restored from the complete small state, not guessed from writes.
+
+A separate bounded write journal can evict old whole actions before the entry
+limit is reached. An embedding group larger than the entire journal clears
+history rather than permit reverse to restore an incomplete action. The bounded
+Workbench frame budget fits the journal. Classic CLI instruction-level frame
+history semantics remain available. Reversing clears stale forward trace/host
+playback; snapshots and ROM formats are unchanged. Measured storage/copy costs
+and whole-state reference comparisons are recorded in the evolution evidence.

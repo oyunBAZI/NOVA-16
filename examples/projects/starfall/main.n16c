@@ -1,0 +1,170 @@
+// STARFALL: three waves, six enemies, four bullets, lives, pause and restart.
+// Arrows steer, hold A to fire, Start begins/pauses/restarts. All gameplay,
+// drawing, collision and sound generation execute as ordinary guest code.
+var ship:u16=60;
+var score:u16=0;
+var lives:u16=3;
+var wave:u16=1;
+var state:u16=0;
+var paused:bool=false;
+var tick:u16=0;
+var cooldown:u16=0;
+var invincible:u16=0;
+var fx:u16=0;
+var ex:[6]u16;
+var ey:[6]u16;
+var alive:[6]u16;
+var bx:[4]u16;
+var by:[4]u16;
+var active:[4]u16;
+var stars:[8]u16;
+fn rgb(index:u16,r:u16,g:u16,b:u16)->u16 {
+    poke8(55328+index*3,r);poke8(55329+index*3,g);poke8(55330+index*3,b);return 0;
+}
+fn palette()->u16 {
+    rgb(0,8,13,23);rgb(1,19,32,49);rgb(7,105,126,150);
+    rgb(8,243,113,104);rgb(10,72,219,168);rgb(11,249,205,100);
+    rgb(12,89,186,244);rgb(15,232,242,250);return 0;
+}
+fn text()->u16 {
+    color(15);glyph(37,28,83);glyph(43,28,84);glyph(49,28,65);glyph(55,28,82);glyph(61,28,70);glyph(67,28,65);glyph(73,28,76);glyph(79,28,76);
+    return 0;
+}
+fn hud()->u16 {
+    color(0);rect(0,0,128,11);
+    color(11);number(4,2,score);
+    color(10);number(58,2,lives);
+    color(12);number(94,2,wave);
+    if(paused){color(8);glyph(116,2,80);}
+    return 0;
+}
+fn sound(kind:u16)->u16 {
+    poke8(55574,0);poke16(55568,0);
+    if(kind==1){poke16(55570,1200);poke16(55572,180);}else{
+        poke16(55570,140);poke16(55572,948);
+    }
+    poke8(55574,3);fx=4;return 0;
+}
+fn music()->u16 {
+    var note:u16=(tick/12)%4;
+    var high:u16=179;
+    if(note==1){high=213;}
+    if(note==2){high=239;}
+    if(note==3){high=268;}
+    poke8(55558,0);poke16(55552,0);poke16(55554,high);
+    poke16(55556,602);poke8(55558,3);return 0;
+}
+fn player(ink:u16)->u16 {
+    color(ink);rect(ship,83,9,3);rect(ship+3,80,3,7);return 0;
+}
+fn enemy(index:u16,ink:u16)->u16 {
+    color(ink);rect(ex[index],ey[index],7,3);rect(ex[index]+1,ey[index]+3,5,2);return 0;
+}
+fn spawn()->u16 {
+    var i:u16=0;
+    while(i<6){
+        ex[i]=10+i*19;ey[i]=14+(i%2)*10;alive[i]=1;
+        enemy(i,8+wave);i=i+1;
+    }
+    return 0;
+}
+fn start()->u16 {
+    score=0;lives=3;wave=1;ship=60;tick=0;state=1;paused=false;
+    cooldown=0;invincible=0;fx=0;
+    var i:u16=0;while(i<4){active[i]=0;i=i+1;}
+    clear(0);hud();spawn();player(12);music();return 0;
+}
+fn finish(won:bool)->u16 {
+    state=won?3:2;poke8(55558,0);poke8(55574,0);
+    clear(0);text();color(won?10:8);
+    if(won){glyph(43,45,87);glyph(49,45,73);glyph(55,45,78);}
+    else{glyph(43,45,69);glyph(49,45,78);glyph(55,45,68);}
+    color(11);number(69,45,score);
+    color(7);glyph(37,65,83);glyph(43,65,84);glyph(49,65,65);glyph(55,65,82);glyph(61,65,84);
+    return 0;
+}
+fn fire()->u16 {
+    var i:u16=0;var fired:bool=false;
+    while(i<4){
+        if(active[i]==0 && !fired){bx[i]=ship+4;by[i]=79;active[i]=1;fired=true;}
+        i=i+1;
+    }
+    if(fired){cooldown=7;sound(1);}return 0;
+}
+fn bullets()->u16 {
+    var i:u16=0;
+    while(i<4){
+        if(active[i]!=0){
+            color(0);rect(bx[i],by[i],1,3);
+            if(by[i]<15){active[i]=0;}else{by[i]=by[i]-4;}
+            var j:u16=0;
+            while(j<6){
+                if(active[i]!=0 && alive[j]!=0 && bx[i]>=ex[j] && bx[i]<ex[j]+7 && by[i]+3>=ey[j] && by[i]<=ey[j]+5){
+                    enemy(j,0);alive[j]=0;active[i]=0;score=score+10;sound(2);hud();
+                }
+                j=j+1;
+            }
+            if(active[i]!=0){color(11);rect(bx[i],by[i],1,3);}
+        }
+        i=i+1;
+    }
+    return 0;
+}
+fn enemies()->u16 {
+    var i:u16=0;var remaining:u16=0;
+    while(i<6){
+        if(alive[i]!=0){
+            enemy(i,0);
+            ey[i]=ey[i]+1;
+            if(ey[i]>=79){
+                ey[i]=14;
+                if(invincible==0){lives=lives-1;invincible=20;sound(2);hud();}
+            }
+            enemy(i,8+wave);remaining=remaining+1;
+        }
+        i=i+1;
+    }
+    if(remaining==0){
+        if(wave==3){finish(true);}else{wave=wave+1;spawn();hud();}
+    }
+    if(lives==0){finish(false);}return 0;
+}
+fn sky()->u16 {
+    var i:u16=0;
+    while(i<8){
+        pixel(3+i*16,13+stars[i],0);
+        stars[i]=(stars[i]+1)%64;
+        pixel(3+i*16,13+stars[i],7);
+        i=i+1;
+    }
+    return 0;
+}
+fn main()->u16 {
+    palette();poke8(55616,1);poke8(55617,210);
+    clear(0);text();
+    color(10);glyph(40,49,83);glyph(46,49,84);glyph(52,49,65);glyph(58,49,82);glyph(64,49,84);
+    color(7);glyph(34,66,65);glyph(40,66,32);glyph(46,66,70);glyph(52,66,73);glyph(58,66,82);glyph(64,66,69);
+    var i:u16=0;while(i<8){stars[i]=i*7;i=i+1;}
+    while(true){
+        wait_frame(frame());var pressed:u16=peek8(55297);var held:u16=buttons();
+        if(state!=1){if((pressed&64)!=0){start();}}
+        else{
+            if((pressed&64)!=0){paused=!paused;hud();if(paused){poke8(55558,0);poke8(55574,0);}else{music();}}
+            if(!paused){
+                tick=tick+1;
+                if(invincible!=0){invincible=invincible-1;}
+                if(cooldown!=0){cooldown=cooldown-1;}
+                if(fx!=0){fx=fx-1;if(fx==0){poke8(55574,0);}}
+                player(0);
+                if((held&4)!=0 && ship>2){ship=ship-2;}
+                if((held&8)!=0 && ship<116){ship=ship+2;}
+                sky();player(invincible!=0?10:12);
+                if((held&16)!=0 && cooldown==0){fire();}
+                bullets();
+                if(tick%2==0){enemies();}
+                if(tick%12==0 && state==1){music();}
+            }
+        }
+    }
+    return 0;
+}

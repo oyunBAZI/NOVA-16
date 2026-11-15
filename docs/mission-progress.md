@@ -119,3 +119,14 @@ Phase 6 checkbox above described the earlier checkpoint: this adds a usable
 local-browser vertical slice, not all native desktop/editor/project/graphics-lab
 requirements of the original larger Phase 6. Native GUI visual validation and
 the rest of that mission are not silently marked complete.
+
+
+## Platform evolution milestone — 2026-11-15
+
+The larger follow-up implements instruction-level compact code generation,
+explicit typed V2 targets, measured packed guest rendering, bounded deep exact
+history, NOVA Tracker, Starfall, import-free Wasm execution/compilation and an
+offline Worker export of the Workbench. Existing contracts and old goldens remain
+fixed. The scoped plan, application controls, portable API and executed evidence
+are in `docs/evolution/` and `docs/wasm.md`. These delivered slices do not silently
+mark every historical mission phase or stable GUI release gate complete.

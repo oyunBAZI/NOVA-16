@@ -1,5 +1,12 @@
 # NOVA-16 — nova16-virtual-computer
 
+
+The platform evolution milestone adds an optimizing typed compiler, packed guest
+graphics, deep exact rewind, NOVA Tracker, Starfall and an import-free Wasm build.
+Generate the self-contained offline Workbench with `python3 scripts/package_web.py`
+after `zig build -Doptimize=ReleaseSafe`. See [portable runtime](docs/wasm.md),
+[applications](docs/evolution/applications.md) and [engineering plan](docs/evolution/plan.md).
+
 [![NOVA-16 CI](https://github.com/oyunBAZI/NOVA-16/actions/workflows/ci.yml/badge.svg)](https://github.com/oyunBAZI/NOVA-16/actions/workflows/ci.yml)
 
 A deterministic fictional 16-bit computer and development toolchain, primarily

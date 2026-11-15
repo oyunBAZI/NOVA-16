@@ -62,3 +62,16 @@ create undo entries, fixing previously incomplete frame-boundary reversal.
 load/snapshot load clear history. Tests compare exact serialized replay across
 RAM/stack/VRAM/palette/read-clear latches/traps and frame transitions. Trace
 records instructions; reversing an external event clears the forward trace.
+
+
+## Explicit architecture in schema 2
+
+Schema 2 adds the required `architecture` field (`nova16-v1` or `nova16-v2`) and
+now supports both `asm` and `n16c` projects. The compiler/assembler receive that
+explicit option. Schema 1 retains its original V1 default and exact field set.
+Native project test runs now supply the full frame-derived instruction budget,
+so late input events cannot be silently skipped by the runner's default cap.
+See the two V2 typed application manifests for reproducible examples.
+
+The earlier reverse-history decision above is historical. A separately measured,
+reference-tested delta mode is now available; see [debugger](debugger.md).

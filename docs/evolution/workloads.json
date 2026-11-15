@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "baseline_commit": "14c6b546986064d1cd06e03bc4aa3c36b35825c5",
+  "current_commit": "14c6b546986064d1cd06e03bc4aa3c36b35825c5",
+  "source_sha256": {
+    "src/compiler/compiler.zig": "a59d76bcc0db6bec0a86efa00d937db1a93186874a0e9190886b83a09addae6f",
+    "guest/lib/graphics.asm": "ea61790262909f5cb8e2edda994ccf61a656ed8b4cb1c4e2f32c1bdc3839e118",
+    "src/debug/history.zig": "41ef714d86891ffd4f3aae1754875bb800cf219dddacb462f6ca34d679fa013c",
+    "src/debug/timeline.zig": "95d8bab048136777bec425b2f3219e4f6b64736e62c76b75ece7cdd564ddd9b9"
+  },
+  "compiler": {
+    "crates": {
+      "baseline": {
+        "payload_bytes": 7100,
+        "compile_ns": [
+          67230032,
+          68308149,
+          13831536,
+          10572857,
+          11090852,
+          76086731,
+          82550651
+        ],
+        "median_compile_ns": 67230032
+      },
+      "optimized": {
+        "payload_bytes": 4240,
+        "compile_ns": [
+          70786444,
+          12450101,
+          9868980,
+          11723848,
+          61856100,
+          12941811,
+          9919166
+        ],
+        "median_compile_ns": 12450101
+      }
+    },
+    "pixel_studio": {
+      "baseline": {
+        "payload_bytes": 4222,
+        "compile_ns": [
+          10380793,
+          8895744,
+          67096629,
+          15888983,
+          12172275,
+          11610892,
+          10982778
+        ],
+        "median_compile_ns": 11610892
+      },
+      "optimized": {
+        "payload_bytes": 3190,
+        "compile_ns": [
+          8066788,
+          18914485,
+          8403543,
+          7863973,
+          12670700,
+          8020383,
+          11980313
+        ],
+        "median_compile_ns": 8403543
+      }
+    },
+    "nova_tracker": {
+      "baseline_compiles": false,
+      "baseline_diagnostic": "/workspace/scratch/76081a104c43/NOVA-16/examples/projects/nova_tracker/main.n16c:119:12: RomOverflow: 0",
+      "optimized_payload_bytes": 5666
+    },
+    "starfall": {
+      "baseline_compiles": false,
+      "baseline_diagnostic": "/workspace/scratch/76081a104c43/NOVA-16/examples/projects/starfall/main.n16c:147:12: RomOverflow: 0",
+      "optimized_payload_bytes": 7686
+    }
+  },
+  "graphics": {
+    "clear": {
+      "baseline": {
+        "retired_instructions": 12306,
+        "payload_bytes": 480,
+        "ppm_sha256": "5e8589c186c74eedb87de96546686fd5b19e46e7d267fc959da3666b13c38814",
+        "run_ns": [
+          1518116,
+          911921,
+          829397,
+          1587247,
+          1060575,
+          1038990,
+          1600555
+        ],
+        "median_run_ns": 1060575
+      },
+      "packed": {
+        "retired_instructions": 5394,
+        "payload_bytes": 594,
+        "ppm_sha256": "5e8589c186c74eedb87de96546686fd5b19e46e7d267fc959da3666b13c38814",
+        "run_ns": [
+          917412,
+          978753,
+          1067142,
+          1496782,
+          1262885,
+          1106199,
+          2970663
+        ],
+        "median_run_ns": 1106199
+      }
+    },
+    "full_rect": {
+      "baseline": {
+        "retired_instructions": 498280,
+        "payload_bytes": 500,
+        "ppm_sha256": "5e8589c186c74eedb87de96546686fd5b19e46e7d267fc959da3666b13c38814",
+        "run_ns": [
+          6375217,
+          6774402,
+          6057732,
+          7279657,
+          6095029,
+          6337569,
+          6092250
+        ],
+        "median_run_ns": 6337569
+      },
+      "packed": {
+        "retired_instructions": 38170,
+        "payload_bytes": 614,
+        "ppm_sha256": "5e8589c186c74eedb87de96546686fd5b19e46e7d267fc959da3666b13c38814",
+        "run_ns": [
+          1232262,
+          1245962,
+          1449090,
+          1303452,
+          1180511,
+          1061910,
+          1168970
+        ],
+        "median_run_ns": 1232262
+      }
+    },
+    "odd_clipped_rect": {
+      "baseline": {
+        "retired_instructions": 310907,
+        "payload_bytes": 500,
+        "ppm_sha256": "a3103628ee3cf1ba7e4ea46f504e6e7a5e573323a54c03e85ccfaf1d4dd62fa7",
+        "run_ns": [
+          4084889,
+          4099886,
+          4535112,
+          3885352,
+          4299360,
+          3998622,
+          3958377
+        ],
+        "median_run_ns": 4084889
+      },
+      "packed": {
+        "retired_instructions": 24629,
+        "payload_bytes": 614,
+        "ppm_sha256": "a3103628ee3cf1ba7e4ea46f504e6e7a5e573323a54c03e85ccfaf1d4dd62fa7",
+        "run_ns": [
+          1271253,
+          1319432,
+          892204,
+          1240723,
+          1092115,
+          926045,
+          858293
+        ],
+        "median_run_ns": 1092115
+      }
+    }
+  },
+  "limits": "Same-host fresh-process medians include loading, output and OS noise. Guest instruction counts isolate software changes; no hardware/CPU speedup is implied."
+}

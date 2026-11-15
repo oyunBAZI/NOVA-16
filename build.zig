@@ -37,6 +37,23 @@ pub fn build(b: *std.Build) void {
         }
         b.installArtifact(exe);
     }
+    const wasm_target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .freestanding });
+    const wasm_core = coreModule(b, wasm_target, .ReleaseSafe);
+    const wasm = executable(b, "nova16", "src/wasm/api.zig", wasm_target, .ReleaseSafe, wasm_core, true);
+    wasm.entry = .disabled;
+    wasm.rdynamic = true;
+    wasm.export_memory = true;
+    wasm.stack_size = 2 * 1024 * 1024;
+    wasm.max_memory = 64 * 1024 * 1024;
+    const wasm_install = b.addInstallArtifact(wasm, .{ .dest_dir = .{ .override = .{ .custom = "wasm" } } });
+    b.step("wasm", "Build the import-free Wasm VM/compiler embedding API").dependOn(&wasm_install.step);
+    b.getInstallStep().dependOn(&wasm_install.step);
+    const compiler_check = executable(b, "n16compiler-check", "src/cli/compiler_check_main.zig", b.graph.host, optimize, host_core, strip);
+    const run_compiler_check = b.addRunArtifact(compiler_check);
+    run_compiler_check.addPassthruArgs();
+    run_compiler_check.has_side_effects = true;
+    b.step("compiler-check", "Run seeded grammar-based differential compiler campaign (CASES SEED)").dependOn(&run_compiler_check.step);
+    b.step("compiler-check-build", "Install the optional compiler oracle executable").dependOn(&b.addInstallArtifact(compiler_check, .{}).step);
     const benchmark = executable(b, "n16bench", "src/cli/benchmark_main.zig", b.graph.host, optimize, host_core, strip);
     benchmark.root_module.addImport("examples", host_core.import_table.get("examples").?);
     const run_bench = b.addRunArtifact(benchmark);
@@ -91,9 +108,11 @@ pub fn build(b: *std.Build) void {
         b.getInstallStep().dependOn(&file.step);
     }
     const host_compiler = executable(b, "n16c-build-host", "src/cli/compiler_main.zig", b.graph.host, optimize, host_core, strip);
-    inline for (.{ "crates", "pixel_studio" }) |name| {
+    inline for (.{ "crates", "pixel_studio", "nova_tracker", "starfall" }) |name| {
         const compile_app = b.addRunArtifact(host_compiler);
         compile_app.addFileArg(b.path("examples/projects/" ++ name ++ "/main.n16c"));
+        compile_app.addArg("--architecture");
+        compile_app.addArg(if (std.mem.eql(u8, name, "nova_tracker") or std.mem.eql(u8, name, "starfall")) "nova16-v2" else "nova16-v1");
         inline for (.{ .{ "--out", ".n16" }, .{ "--debug-symbols", ".map.json" }, .{ "--assembly", ".asm" }, .{ "--layout", ".layout.json" } }) |output| {
             compile_app.addArg(output[0]);
             const asset = compile_app.addOutputFileArg(name ++ output[1]);

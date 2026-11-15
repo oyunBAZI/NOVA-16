@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "name": "NOVA Tracker",
+  "language": "n16c",
+  "architecture": "nova16-v2",
+  "entry": "main.n16c",
+  "files": [
+    "main.n16c",
+    "edit.input",
+    "resume.input"
+  ],
+  "tests": [
+    {
+      "frames": 60,
+      "halted": false,
+      "ppm_sha256": "28189d01b9d39223e407d9fc223ab1e8e5f6b0db143f9be5a6fbd26d666bd497"
+    },
+    {
+      "frames": 120,
+      "halted": false,
+      "ppm_sha256": "cb4a263ad1de9b787b2f14c226eac85e766e1f25ffdb0899d1e62c92d5c66e20",
+      "input": "edit.input"
+    },
+    {
+      "frames": 180,
+      "halted": false,
+      "ppm_sha256": "10afa04b5f65055426a46a2fa8c825b2879a82beeae00035792951435f54e741",
+      "input": "resume.input"
+    }
+  ]
+}

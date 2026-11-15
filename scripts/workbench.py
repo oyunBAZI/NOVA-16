@@ -28,8 +28,12 @@ DEMO_NAMES = {
     'paint': 'Paint', 'diagnostics': 'Diagnostics', 'breakout': 'Breakout',
     'crates': 'Crates', 'pixel_studio': 'Pixel Studio',
     'nova_sound': 'NOVA Sound · V2', 'interrupt_canvas': 'Interrupt Canvas · V2',
+    'nova_tracker': 'NOVA Tracker · V2', 'starfall': 'Starfall · V2',
 }
 
+
+TYPED_DEMOS = {'crates': 'nova16-v1', 'pixel_studio': 'nova16-v1',
+               'nova_tracker': 'nova16-v2', 'starfall': 'nova16-v2'}
 
 def executable(name):
     return str(BIN / (name + ('.exe' if sys.platform == 'win32' else '')))
@@ -106,6 +110,8 @@ class Workbench:
         self.generation = 0
         self.build_directory = None
         self.source = (ROOT / 'examples/typed/demo.n16c').read_text(encoding='utf-8')
+        self.editor_architecture = 'nova16-v1'
+        self.editor_optimization = 'size'
         try:
             self.load_demo('boot_splash')
         except Exception:
@@ -139,15 +145,32 @@ class Workbench:
             return 409, {'error': 'Session changed; refresh before continuing', 'revision': self.revision}
         if op == 'bootstrap':
             result = self.bridge.request({'op': 'observe'})
-            result.update(source=self.source, demos=DEMO_NAMES)
+            result.update(editor_source=self.source, demos=DEMO_NAMES, typed_demos=TYPED_DEMOS,
+                          editor_architecture=self.editor_architecture, editor_optimization=self.editor_optimization)
         elif op == 'load':
             result = self.load_demo(request.get('demo'))
             self.revision += 1
+        elif op == 'edit_demo':
+            name = request.get('demo')
+            if name not in TYPED_DEMOS:
+                raise ValueError('No typed source for this demo')
+            self.source = (ROOT / 'examples/projects' / name / 'main.n16c').read_text(encoding='utf-8')
+            self.editor_architecture = TYPED_DEMOS[name]
+            result = self.bridge.request({'op': 'observe'})
+            result.update(editor_source=self.source, editor_architecture=self.editor_architecture,
+                          editor_optimization=self.editor_optimization)
+            self.revision += 1
         elif op == 'build':
             source = request.get('source')
+            architecture = request.get('architecture', 'nova16-v1')
+            optimization = request.get('optimization', 'size')
+            if architecture not in ('nova16-v1', 'nova16-v2') or optimization not in ('size', 'none'):
+                raise ValueError('Invalid architecture or optimization')
             if not isinstance(source, str) or len(source.encode('utf-8')) > 65_536:
                 raise ValueError('Source must be text, at most 64 KiB')
             self.source = source
+            self.editor_architecture = architecture
+            self.editor_optimization = optimization
             self.generation += 1
             directory = self.directory / str(self.generation)
             directory.mkdir()
@@ -157,7 +180,8 @@ class Workbench:
             try:
                 process = subprocess.run([executable('n16c'), str(path), '--out', str(rom),
                                           '--debug-symbols', str(symbols), '--size-report', str(directory / 'size.json'),
-                                          '--diagnostics', 'json'], capture_output=True, timeout=15)
+                                          '--diagnostics', 'json', '--architecture', architecture,
+                                          '--optimize', optimization], capture_output=True, timeout=15)
                 if process.returncode:
                     result = self.bridge.request({'op': 'observe'})
                     result.update(ok=False, error='Build failed; previous machine retained',

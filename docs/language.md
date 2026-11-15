@@ -116,3 +116,34 @@ Only retained functions have ROM locations and local-variable debug records.
 Global variable layout is preserved. New compiler output has new ROM checksums;
 regenerate its checksum-bound map/snapshot artifacts together. Existing ROMs,
 legacy maps, V1 hardware and V2 hardware contracts are unchanged.
+
+
+## Size code generation and explicit targets
+
+Size optimization is now the default. `--optimize none` preserves the earlier
+instruction selection for investigation and comparison; demand linking remains
+active in both modes. The bounded pass folds well-typed constants, uses immediate
+arithmetic, lowers direct comparisons without materializing temporary booleans,
+uses short frame-relative loads/stores and static checked indices, simplifies
+constant trailing call arguments, and reduces unsigned power-of-two division/
+remainder and wrapping multiplication. It preserves evaluation order and does
+not discard potentially effectful reads/calls. Signed division is not replaced
+with a logical shift. Full type/static checks still run before folding.
+
+`--architecture nova16-v1` remains the default. Explicit `nova16-v2` emits ROM2
+and selects the already specified V2 hardware. Existing raw peek/poke intrinsics
+can access its documented MMIO; they remain denied when the same program is
+loaded as V1. Typed interrupt callbacks or new opcodes are not implied.
+Size reports add architecture, optimization and applied-rewrite counts. Output
+ROMs intentionally change; regenerate checksum-bound maps/snapshots together.
+The semantic/ABI/source-map formats remain fixed. The maintainer campaign runs
+both code-generation paths against the independent AST oracle:
+
+```sh
+zig build compiler-check -Doptimize=ReleaseSafe -- 1000 0x4e31364f5054 3 1
+zig build compiler-check -Doptimize=ReleaseSafe -- 1000 0x4e3136563244 4 2
+```
+
+Arguments are case count, seed, expression depth (2–4) and profile (1/2).
+The engineering evidence records larger local campaigns; no host interpreter
+executes application programs in any shipped frontend.

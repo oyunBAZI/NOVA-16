@@ -17,6 +17,10 @@ jobs:
       - run: python3 scripts/setup_zig.py
       - run: zig build -Doptimize=ReleaseSafe
       - run: python3 scripts/project_stress.py
+      - name: Independent compiler oracle campaigns
+        run: |
+          zig build compiler-check -Doptimize=ReleaseSafe -- 1000 0x4e31364f5054 3 1
+          zig build compiler-check -Doptimize=ReleaseSafe -- 1000 0x4e3136563244 4 2
       - name: Coverage-guided fuzzing
         run: zig build test -Doptimize=ReleaseSafe --fuzz=${{ github.event_name == 'schedule' && '100K' || '10K' }} --test-timeout 10m --seed=0x4e313603
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

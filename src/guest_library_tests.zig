@@ -198,3 +198,43 @@ test "guest input release sampling acknowledges only the pressed latch" {
     const counter = try call("n16_counter", .{ 4, 5, 0, 0 }, 0);
     try std.testing.expectEqual(0, counter.cpu.r[0]);
 }
+
+test "packed span rectangle matches independent pixel oracle across clipping and nibble edges" {
+    const a = std.testing.allocator;
+    const program = try std.fmt.allocPrint(a, ".entry start\nstart: CALL n16_rect\nHALT\n{s}", .{lib.graphics});
+    defer a.free(program);
+    var diagnostic: assembler.Diagnostic = .{};
+    const image = try assembler.assemble(a, program, &diagnostic);
+    defer image.deinit();
+    var prng = std.Random.DefaultPrng.init(0x52454354);
+    const boundaries = [_]u16{ 0, 1, 2, 31, 63, 95, 96, 126, 127, 128, 65535 };
+    for (0..160) |case| {
+        var m: Machine = .{};
+        try m.load(image.image);
+        const x = if (case < boundaries.len) boundaries[case] else prng.random().uintLessThan(u16, 140);
+        const y = if (case < boundaries.len) boundaries[case] else prng.random().uintLessThan(u16, 110);
+        const width = if (case < boundaries.len) boundaries[boundaries.len - 1 - case] else prng.random().int(u16);
+        const height = if (case < boundaries.len) @as(u16, 65535) else prng.random().int(u16);
+        const ink = prng.random().int(u8);
+        m.cpu.r = .{ x, y, width, height, 0x4444, 0x5555, 0x6666, 0x7777 };
+        m.bus.bytes[0xe0] = ink;
+        prng.random().bytes(m.bus.bytes[0xc000..0xd800]);
+        var expected: [6144]u8 = m.bus.bytes[0xc000..0xd800].*;
+        if (x < 128 and y < 96) {
+            for (y..@min(96, @as(usize, y) + height)) |row| for (x..@min(128, @as(usize, x) + width)) |column| {
+                const index = row * 128 + column;
+                const shift: u3 = if (index & 1 == 0) 0 else 4;
+                expected[index / 2] = (expected[index / 2] & ~(@as(u8, 15) << shift)) | ((ink & 15) << shift);
+            };
+        }
+        for (0..100000) |_| {
+            m.step();
+            if (m.cpu.halted or m.cpu.trap != null) break;
+        }
+        try std.testing.expect(m.cpu.halted and m.cpu.trap == null);
+        try std.testing.expectEqualSlices(u8, &expected, m.bus.bytes[0xc000..0xd800]);
+        try std.testing.expectEqualSlices(u16, &.{ 0x4444, 0x5555, 0x6666, 0x7777 }, m.cpu.r[4..]);
+        try std.testing.expectEqual(0xbffe, m.cpu.sp);
+        try std.testing.expectEqual(0, m.cpu.r[3]);
+    }
+}

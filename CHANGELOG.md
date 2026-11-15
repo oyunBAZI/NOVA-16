@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — platform evolution
+
+- Added size code generation with baseline mode, explicit typed V2 targets and independent compiler campaigns.
+- Added packed-span rectangles, faster guest clears and complete-state/delta history modes with up to 4,096 entries.
+- Added real V2 NOVA Tracker and Starfall applications with deterministic scene/input/PCM checks.
+- Added an import-free Wasm VM/compiler, owned symbol maps, JavaScript adapter and self-contained offline Worker Workbench export.
+- Expanded native/portable/fuzz/package CI and supplied one validation driver. Fixed the macOS oversized-request test race.
+- Existing hardware/binary contracts and original V1 golden ROMs remain unchanged; rendered-browser verification is still a separate release gate.
+
 ## Unreleased — integrated Workbench
 
 - Added a native versioned JSON-lines VM bridge and optional dependency-free local

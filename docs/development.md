@@ -69,3 +69,19 @@ visible reason. Current elevation preserved every original V1 ROM image/hash.
 
 See releasing.md for archive generation, checksums, native verification and
 publication gates. Repository rulesets/code signing are not silently configured.
+
+
+## Unified validation
+
+```sh
+python3 scripts/validate.py --portable --cross --package
+```
+
+This runs Debug/ReleaseSafe native and application gates, actual Wasm/offline-model
+checks, cross-target ROM identity and reproducible/extracted SDK verification.
+Use `--zig PATH`, `--node PATH` or `NOVA_ZIG`/`NOVA_NODE` when tools are not on PATH.
+The default report is `zig-out/validation.json`; each command, duration and output
+is retained. `--mode Debug` or `--mode ReleaseSafe` selects a smaller iteration.
+The independent compiler campaign and coverage-guided fuzzing remain explicit
+long-running jobs. Browser rendering and an actual audio device require their
+own environment and are not inferred from headless/Node results.
