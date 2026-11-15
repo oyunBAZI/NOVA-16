@@ -21,6 +21,10 @@ findings drive this milestone.
 |Offline replay accepts a different grammar and reports requested rather than executed frames|Use explicit matching bounded schedule validation and actual progress|Native/offline invalid schedule and halted replay parity|
 |Worker startup, transport and page lifecycle leave unbounded or unresolved requests|Bound outstanding work, settle timeouts/clone failures/message errors/disposal|Exact exported Worker transport tests|
 |Unsubmitted source is lost on refresh; browser storage denial can prevent boot|Bounded best-effort draft persistence with clear status and explicit import/export|Storage-denial, draft reload, file validation tests|
+|Only bundled/compiled cartridges are loadable through the UI|Bounded V1/V2 cartridge import with candidate-before-replace validation|Native/offline/frontend/browser import and corrupt-file retention checks|
+|Resume clears guest BRK before history captures the prior state|Group resume and its first transition in the shared debugger|Both profiles and history modes, zero-step/continue/next, embedded groups and 2,000 seeded sequences|
+|Native stdin is read with one OS call for every byte|Streaming 8 KiB input buffers without changing framing budgets|Buffer boundaries, EOF/oversize recovery, native/Wasm session soak and alternating restore round-trip samples|
+|Validation timeouts/launch errors and concurrent edits can leave ambiguous evidence|Atomic report checkpoints, explicit failures and final source digests|Five simulated failure/success paths plus the actual source-change rejection|
 |Browser execution has no continuous gate|Optional Playwright suite for native and offline Workbench, separate CI job|Actual Chromium execution in CI; local restrictions recorded honestly|
 |README/manual contradict implemented V2/history/app behavior|Reconcile current usage and limits|Documentation review against source|
 

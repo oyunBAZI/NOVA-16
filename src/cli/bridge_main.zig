@@ -37,21 +37,21 @@ fn run(init: std.process.Init) !void {
     const allocator = std.heap.page_allocator;
     var line: std.ArrayList(u8) = .empty;
     defer line.deinit(allocator);
+    var input_buffer: [8192]u8 = undefined;
+    var input = std.Io.File.stdin().readerStreaming(init.io, &input_buffer);
     while (true) {
         line.clearRetainingCapacity();
         var overflow = false;
         while (true) {
-            var byte: [1]u8 = undefined;
-            const got = std.Io.File.stdin().readStreaming(init.io, &.{&byte}) catch |err| switch (err) {
-                error.EndOfStream => 0,
+            const byte = input.interface.takeByte() catch |err| switch (err) {
+                error.EndOfStream => {
+                    if (line.items.len == 0 and !overflow) return;
+                    break;
+                },
                 else => return err,
             };
-            if (got == 0) {
-                if (line.items.len == 0 and !overflow) return;
-                break;
-            }
-            if (byte[0] == '\n') break;
-            if (line.items.len < max_line) try line.append(allocator, byte[0]) else overflow = true;
+            if (byte == '\n') break;
+            if (line.items.len < max_line) try line.append(allocator, byte) else overflow = true;
         }
         var arena: std.heap.ArenaAllocator = .init(allocator);
         defer arena.deinit();

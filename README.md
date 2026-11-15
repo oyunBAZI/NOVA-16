@@ -7,6 +7,10 @@ Generate the self-contained offline Workbench with `python3 scripts/package_web.
 after `zig build -Doptimize=ReleaseSafe`. See [portable runtime](docs/wasm.md),
 [applications](docs/evolution/applications.md) and [engineering plan](docs/evolution/plan.md).
 
+The [quality milestone](docs/quality/plan.md) adds cartridge/source import,
+recoverable editor drafts, exact BRK resume undo, controller ownership fixes,
+deduplicated PCM playback and continuous native/offline browser acceptance.
+
 [![NOVA-16 CI](https://github.com/oyunBAZI/NOVA-16/actions/workflows/ci.yml/badge.svg)](https://github.com/oyunBAZI/NOVA-16/actions/workflows/ci.yml)
 
 A deterministic fictional 16-bit computer and development toolchain, primarily
@@ -19,7 +23,7 @@ and responds to input. No external emulator core or host-rendered demo shortcuts
 
 Get a native headless package from [Releases](https://github.com/oyunBAZI/NOVA-16/releases)
 and follow [INSTALL.md](INSTALL.md). Packages include emulator, assembler,
-debugger and typed compiler, seven V1 ROMs, guest libraries, complete project
+debugger and typed compiler, seven V1 and four V2 ROMs, guest libraries, complete project
 sources/tests, manuals and integrity manifests. See Releases for verified versions;
 v0.4 acceptance and publication status is tracked in [the ledger](docs/v0.4-ledger.md).
 
@@ -91,7 +95,7 @@ available. See [Workbench manual](docs/workbench.md) and
   non-destructive device inspection, 128-entry trace, optional reverse history,
   validated portable N16S snapshots, source breakpoints/statement stepping,
   symbolic inspection and deterministic restoration.
-- Five guest ROMs: splash, bouncing ball, paint, diagnostics and complete
+- Five original guest ROMs: splash, bouncing ball, paint, diagnostics and complete
   [Breakout](docs/breakout.md) with title, score/lives, collisions and win/loss/restart.
 - Exhaustive encodings/round trips, independent stateful differential tests,
   golden frames, malformed-input tests, guided fuzzing and published source coverage.
@@ -144,8 +148,9 @@ python3 scripts/game_acceptance.py
 ```
 
 Previous [v0.3 milestone evidence](docs/v0.3-ledger.md) distinguishes local and
-native CI gates. The [V2 architecture proposal](docs/v2-architecture.md) and isolated arithmetic
-experiment are future design work; the V1 computer remains unchanged.
+native CI gates. The [V2 architecture](docs/v2-architecture.md) and
+[implemented profile](docs/v2-implementation.md) describe optional sound and
+interrupt hardware; the original V1 computer remains unchanged.
 
 ## Typed applications and reproducible projects
 
@@ -178,7 +183,8 @@ or replace crates with pixel_studio. SDL2 builds can run their installed ROMs wi
 |E000–FFFF|8 KiB ROM|RX|
 
 This is an original virtual machine, not a PC-compatible OS or cycle-accurate
-hardware emulator. Audio, interrupts, filesystems and networking are future work.
+hardware emulator. Explicit V2 programs have sound and timer/frame interrupts.
+Filesystems and networking remain future peripheral work.
 
 [Architecture/state model](docs/architecture.md) · [ISA](docs/isa.md) ·
 [Memory/devices](docs/memory-map.md) · [ROM](docs/rom-format.md) ·

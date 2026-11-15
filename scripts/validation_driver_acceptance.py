@@ -34,6 +34,8 @@ class DriverAcceptance(unittest.TestCase):
                         raise subprocess.TimeoutExpired(args, 600, output=b'partial stdout', stderr=b'partial stderr')
                     if failure == 'exit':
                         return subprocess.CompletedProcess(args, 7, stdout='failed gate', stderr='test error')
+                    if failure == 'launch':
+                        raise PermissionError('simulated executable launch denial')
                     if failure == 'changed':
                         probe.write_text('# concurrent source change\n', encoding='utf-8')
                 return subprocess.CompletedProcess(args, 0, stdout='simulated command success', stderr='')
@@ -84,6 +86,13 @@ class DriverAcceptance(unittest.TestCase):
         self.assertFalse(report['passed'])
         self.assertTrue(report['source_changed_during_validation'])
         self.assertTrue(all(check['exit_code'] == 0 for check in report['checks']))
+
+    def test_launch_denial_is_a_recorded_failure(self):
+        status, report = self.simulate('launch')
+        self.assertEqual(status, 127)
+        self.assertFalse(report['passed'])
+        self.assertEqual(report['checks'][-1]['status'], 'failed')
+        self.assertIn('launch denial', report['checks'][-1]['output'])
 
 
 if __name__ == '__main__':

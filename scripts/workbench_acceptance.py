@@ -15,6 +15,29 @@ import workbench as w
 
 
 class WorkbenchAcceptance(unittest.TestCase):
+    def test_buffered_framing_boundaries_and_eof(self):
+        rom = w.DEMOS / 'boot_splash.n16'
+        # JSON whitespace creates valid messages spanning exact input-buffer
+        # boundaries; multiple messages in one write must remain distinct.
+        lines = [b' ' * count + b'{}' for count in (8189, 8190, 8191, 8192, 16381, 16382, 16383)]
+        process = subprocess.run([w.executable('n16bridge'), str(rom)],
+            input=b'\n'.join(lines) + b'\n' + b'X' * 150000 + b'\n{}\r\n{}', capture_output=True, timeout=15)
+        responses = [json.loads(line) for line in process.stdout.splitlines()]
+        self.assertEqual(process.returncode, 0)
+        self.assertEqual(len(responses), len(lines) + 3)
+        self.assertTrue(all(item['ok'] for item in responses[:len(lines)]))
+        self.assertEqual(responses[-3]['error'], 'RequestTooLarge')
+        self.assertTrue(responses[-2]['ok'])
+        self.assertTrue(responses[-1]['ok'], 'A final unterminated request executes once at EOF')
+        self.assertTrue(all(item['state']['executed_instructions'] == 0 for item in responses if item['ok']))
+        # Interactive debugger buffering shares the EOF/oversize recovery rules.
+        process = subprocess.run([w.executable('n16dbg'), str(rom)],
+            input=b'X' * 8193 + b'\nregs\nstep\nregs', capture_output=True, timeout=15)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.count(b'error: command too long'), 1)
+        self.assertIn(b'retired=0', process.stdout)
+        self.assertIn(b'retired=1', process.stdout)
+
     def test_frontend_structure(self):
         class Structure(HTMLParser):
             def __init__(self):

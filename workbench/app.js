@@ -167,7 +167,8 @@ function render(result) {
   $('memory').textContent = memory;
   renderAudio(result.audio,s);
   $('trap-detail').hidden=!s.trapped;
-  $('trap-detail').textContent=s.trapped?`Trap: ${s.trap.kind} at 0x${hex(s.trap.pc)} · ${s.trap.access} 0x${hex(s.trap.address)}`:'';
+  const trapAddress=s.trapped?(s.trap.address<0?'-0x'+hex(-s.trap.address):'0x'+hex(s.trap.address)):'';
+  $('trap-detail').textContent=s.trapped?`Trap: ${s.trap.kind} at 0x${hex(s.trap.pc)} · ${s.trap.access} ${trapAddress}`:'';
   updateEditor();
 }
 function renderAudio(audio, state) {

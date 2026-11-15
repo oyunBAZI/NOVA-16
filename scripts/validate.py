@@ -51,10 +51,12 @@ def check(*command,timeout=600):
     except subprocess.TimeoutExpired as error:
         def decode(value):return value.decode('utf-8',errors='replace') if isinstance(value,bytes) else value or ''
         entry.update(exit_code=124,timed_out=True,output=(decode(error.stdout)+decode(error.stderr))[-16000:])
+    except OSError as error:
+        entry.update(exit_code=127,output=str(error))
     entry.update(status='passed' if entry['exit_code']==0 else 'failed',seconds=round(time.monotonic()-start,3));save()
     if entry['exit_code']:print(entry['output']);raise SystemExit(entry['exit_code'])
 check(zig,'build','fmt')
-scripts=('acceptance','compatibility_acceptance','developer_acceptance','compiler_acceptance','project_acceptance','application_acceptance','v2_contract_vectors','v2_acceptance','game_acceptance','workbench_acceptance','evolution_acceptance','security_check','project_stress')
+scripts=('acceptance','compatibility_acceptance','developer_acceptance','compiler_acceptance','project_acceptance','application_acceptance','v2_contract_vectors','v2_acceptance','game_acceptance','workbench_acceptance','evolution_acceptance','security_check','project_stress','validation_driver_acceptance')
 for mode in ('Debug','ReleaseSafe') if a.mode=='both' else (a.mode,):
     check(zig,'build','-Doptimize='+mode)
     check(zig,'build','test','-Doptimize='+mode,'--summary','all','--test-timeout','2m')

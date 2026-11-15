@@ -399,6 +399,87 @@ test "resume honors an existing embedding action group" {
     try std.testing.expect(m.cpu.paused);
     try std.testing.expectEqual(0, m.cpu.r[0]);
 }
+
+test "seeded resumed command sequences rewind and replay identically in full and delta modes" {
+    const a = std.testing.allocator;
+    const snapshot = @import("../core/snapshot.zig");
+    var random = std.Random.DefaultPrng.init(0x42524b524553554d);
+    for ([_]@import("../arch/isa.zig").Profile{ .v1, .v2 }) |profile| {
+        var diag: asm16.Diagnostic = .{};
+        const rom = try asm16.assembleProfile(a, "LDI R2, 0x100\nloop: INC R0\nSTW R0, [R2]\nBRK\nINC R1\nJMP loop", &diag, profile);
+        defer rom.deinit();
+        var complete: Machine = .{};
+        try complete.load(rom.image);
+        if (profile == .v2) {
+            complete.bus.audio.enabled = true;
+            complete.bus.audio.voices[0].enabled = true;
+            complete.bus.audio.voices[0].step = 0x12345678;
+            complete.bus.audio.voices[0].volume = 255;
+            complete.bus.irq.period = 11;
+            complete.bus.irq.remaining = 11;
+            complete.bus.irq.reload = true;
+        }
+        var delta = complete;
+        var left: Debugger = .{ .machine = &complete, .recorder = .{ .allocator = a } };
+        defer left.deinit();
+        var right: Debugger = .{ .machine = &delta, .recorder = .{ .allocator = a } };
+        defer right.deinit();
+        const sources: []const @import("symbols.zig").Source = &.{
+            .{ .address = 0xe000, .length = 4, .file = "main.n16c", .line = 1, .column = 1 },
+            .{ .address = 0xe004, .length = 2, .file = "main.n16c", .line = 2, .column = 1 },
+            .{ .address = 0xe006, .length = 2, .file = "main.n16c", .line = 3, .column = 1 },
+            .{ .address = 0xe008, .length = 2, .file = "main.n16c", .line = 4, .column = 1 },
+            .{ .address = 0xe00a, .length = 2, .file = "main.n16c", .line = 5, .column = 1 },
+            .{ .address = 0xe00c, .length = 4, .file = "main.n16c", .line = 6, .column = 1 },
+        };
+        left.sources = sources;
+        right.sources = sources;
+        try left.recorder.configure(16);
+        try right.recorder.configureDelta(16);
+        for (0..1000) |_| {
+            left.clearHistory();
+            right.clearHistory();
+            const breakpoint = random.random().uintLessThan(u8, 5) == 0;
+            left.breaks[0xe004 / 2] = breakpoint;
+            right.breaks[0xe004 / 2] = breakpoint;
+            const before = try snapshot.encodeChecked(a, &complete);
+            defer a.free(before);
+            var buffer: [32]u8 = undefined;
+            const kind = random.random().uintLessThan(u8, 4);
+            const name = ([_][]const u8{ "step", "continue", "next", "input" })[kind];
+            const value = if (kind == 3) @as(u16, random.random().int(u8)) else random.random().uintLessThan(u16, 9);
+            const command = try std.fmt.bufPrint(&buffer, "{s} {d}", .{ name, value });
+            var out: std.Io.Writer.Allocating = .init(a);
+            defer out.deinit();
+            _ = try left.command(command, &out.writer);
+            _ = try right.command(command, &out.writer);
+            const after = try snapshot.encodeChecked(a, &complete);
+            defer a.free(after);
+            const portable = try snapshot.encodeChecked(a, &delta);
+            defer a.free(portable);
+            try std.testing.expectEqualSlices(u8, after, portable);
+            try std.testing.expectEqual(left.recorder.undo_count, right.recorder.undo_count);
+            while (left.recorder.undo_count > 0) {
+                try left.recorder.reverse(&complete);
+                try right.recorder.reverse(&delta);
+            }
+            const rewound = try snapshot.encodeChecked(a, &complete);
+            defer a.free(rewound);
+            const delta_rewound = try snapshot.encodeChecked(a, &delta);
+            defer a.free(delta_rewound);
+            try std.testing.expectEqualSlices(u8, before, rewound);
+            try std.testing.expectEqualSlices(u8, before, delta_rewound);
+            _ = try left.command(command, &out.writer);
+            _ = try right.command(command, &out.writer);
+            const replayed = try snapshot.encodeChecked(a, &complete);
+            defer a.free(replayed);
+            const delta_replayed = try snapshot.encodeChecked(a, &delta);
+            defer a.free(delta_replayed);
+            try std.testing.expectEqualSlices(u8, after, replayed);
+            try std.testing.expectEqualSlices(u8, after, delta_replayed);
+        }
+    }
+}
 test "scripted break-before-execute watch BRK resume and reset" {
     const a = std.testing.allocator;
     var diag: asm16.Diagnostic = .{};
