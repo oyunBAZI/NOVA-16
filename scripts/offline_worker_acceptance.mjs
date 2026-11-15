@@ -63,3 +63,16 @@ assert.throws(()=>new vm.Script(scripts[0]).runInContext(denied),/simulated Work
 await assert.rejects(deniedWindow.NovaOfflineRequest({op:'bootstrap'}),/initialization failed/);
 assert.equal(urls.size,0,'Failed startup revokes the Blob URL');
 console.log('Worker-denial fallback preserves offline mode and reports the failure without a server request');
+
+let failedWorker;
+const failedWindow={addEventListener(){}};
+const failedContext=vm.createContext({window:failedWindow,document:{getElementById(){return {textContent:assets};}},Blob:TestBlob,
+  Worker:class{constructor(){failedWorker=this;}postMessage(){}terminate(){}},
+  URL:{createObjectURL(blob){urls.set('blob:failed',blob.code);return 'blob:failed';},revokeObjectURL(url){urls.delete(url);}}});
+new vm.Script(scripts[0]).runInContext(failedContext);
+const pending=failedWindow.NovaOfflineRequest({op:'bootstrap'});
+failedWorker.onerror();
+await assert.rejects(pending,/Worker failed/);
+await assert.rejects(failedWindow.NovaOfflineRequest({op:'load',demo:'boot_splash'}),/Worker failed/);
+assert.equal(urls.size,0);
+console.log('Fatal Worker errors reject pending and future requests instead of leaving UI actions waiting');

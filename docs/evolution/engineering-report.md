@@ -114,3 +114,12 @@ family and predates the final serialization-budget patch; that patch has its own
 native/Wasm overflow recovery regressions and follow-up checks. These percentages
 are not whole-project code coverage. Raw results and command/seed/duration are
 recorded in `protocol-expanded-fuzz-*` alongside the earlier campaign.
+
+
+After the serialization-budget fix, an additional seeded 10K guided fuzz run
+passed. Debug/ReleaseSafe 130-test suites, the six-case Workbench suite, native/
+Wasm parity including output-limit recovery, original ROM identities, application
+scenes and the exported Worker checks passed again. Extracted SDK verification
+and exact-byte reproducibility also passed. The offline launcher additionally
+rejects both pending and future requests after a fatal Worker error, and its
+constructor-denial/fatal-error paths have deterministic transport regressions.

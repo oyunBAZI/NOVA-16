@@ -36,10 +36,10 @@ self.onmessage=event=>{const {id,payload}=event.data;serial=serial.then(()=>host
   const data=JSON.parse(document.getElementById('nova-assets').textContent);
   const code='const DATA='+JSON.stringify(data)+';\\n'+WORKER;
   const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
-  let worker;try{worker=new Worker(url);}catch(error){URL.revokeObjectURL(url);throw error;}let next=0;const pending=new Map();
+  let worker;try{worker=new Worker(url);}catch(error){URL.revokeObjectURL(url);throw error;}let next=0;let fatal=null;const pending=new Map();
   worker.onmessage=event=>{URL.revokeObjectURL(url);const job=pending.get(event.data.id);if(job){pending.delete(event.data.id);const response=event.data.response;job.resolve({ok:response.status>=200&&response.status<300,json:async()=>response.result});}};
-  worker.onerror=()=>{URL.revokeObjectURL(url);for(const job of pending.values())job.reject(Error('Offline VM Worker failed'));pending.clear();};
-  window.NovaOfflineRequest=payload=>new Promise((resolve,reject)=>{const id=++next;pending.set(id,{resolve,reject});worker.postMessage({id,payload});});
+  worker.onerror=()=>{fatal=Error('Offline VM Worker failed');URL.revokeObjectURL(url);for(const job of pending.values())job.reject(fatal);pending.clear();};
+  window.NovaOfflineRequest=payload=>fatal?Promise.reject(fatal):new Promise((resolve,reject)=>{const id=++next;pending.set(id,{resolve,reject});worker.postMessage({id,payload});});
   window.addEventListener('pagehide',()=>worker.terminate(),{once:true});
 })();
 </script>'''.replace('WORKER',json.dumps(worker).replace('<','\\u003c'))
