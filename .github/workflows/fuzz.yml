@@ -19,7 +19,7 @@ jobs:
       - run: python3 scripts/project_stress.py
       - name: Coverage-guided fuzzing
         run: zig build test -Doptimize=ReleaseSafe --fuzz=${{ github.event_name == 'schedule' && '100K' || '10K' }} --test-timeout 10m --seed=0x4e313603
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: fuzz-corpus
@@ -51,7 +51,7 @@ jobs:
         run: zig test -fllvm --test-no-exec --dep examples --dep guest -Mroot=src/root.zig -Mexamples=examples/sources.zig -Mguest=guest/sources.zig -femit-bin=nova16-tests
       - name: Measure source coverage
         run: kcov --include-path=${{ github.workspace }}/src coverage ./nova16-tests
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: source-coverage
           path: coverage/
