@@ -196,7 +196,7 @@ select {
   background:#171c20;
   position:relative
 }
-.editor pre {
+.editor pre#line-numbers {
   margin:0;
   width:45px;
   flex-shrink:0;
@@ -234,6 +234,14 @@ textarea#source {
 }
 .editor-foot>span {
   flex:1
+}
+.editor-foot { flex-wrap:wrap }
+.editor-foot>span { min-width:0; overflow-wrap:anywhere }
+.draft-status {
+  padding:7px 12px;
+  color:var(--muted);
+  font:10px/1.5 var(--mono);
+  border-top:1px solid var(--edge)
 }
 .text-button {
   padding:0;

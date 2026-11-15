@@ -29,20 +29,9 @@ def package(destination):
 self.onmessage=event=>{const {id,payload}=event.data;serial=serial.then(()=>host(payload)).then(response=>self.postMessage({id,response})).catch(error=>self.postMessage({id,response:{status:503,result:{error:error.message}}}));};
 '''
     assets=json.dumps(data,separators=(',',':')).replace('<','\\u003c').replace('\u2028','\\u2028').replace('\u2029','\\u2029')
-    initializer='''<script id="nova-assets" type="application/json">'''+assets+'''</script>
-<script>
-(() => {
-  window.NovaOfflineRequest=()=>Promise.reject(Error('Offline VM initialization failed; this browser must support WebAssembly and Workers.'));
-  const data=JSON.parse(document.getElementById('nova-assets').textContent);
-  const code='const DATA='+JSON.stringify(data)+';\\n'+WORKER;
-  const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
-  let worker;try{worker=new Worker(url);}catch(error){URL.revokeObjectURL(url);throw error;}let next=0;let fatal=null;const pending=new Map();
-  worker.onmessage=event=>{URL.revokeObjectURL(url);const job=pending.get(event.data.id);if(job){pending.delete(event.data.id);const response=event.data.response;job.resolve({ok:response.status>=200&&response.status<300,json:async()=>response.result});}};
-  worker.onerror=()=>{fatal=Error('Offline VM Worker failed');URL.revokeObjectURL(url);for(const job of pending.values())job.reject(fatal);pending.clear();};
-  window.NovaOfflineRequest=payload=>fatal?Promise.reject(fatal):new Promise((resolve,reject)=>{const id=++next;pending.set(id,{resolve,reject});worker.postMessage({id,payload});});
-  window.addEventListener('pagehide',()=>worker.terminate(),{once:true});
-})();
-</script>'''.replace('WORKER',json.dumps(worker).replace('<','\\u003c'))
+    launcher=(ROOT/'workbench/offline-launcher.js').read_text(encoding='utf-8')
+    launcher=launcher.replace('__NOVA_WORKER_SOURCE__',json.dumps(worker).replace('<','\\u003c'))
+    initializer='<script id="nova-assets" type="application/json">'+assets+'</script>\n<script>'+launcher+'</script>'
     html=(ROOT/'workbench/index.html').read_text(encoding='utf-8')
     html=html.replace('<link rel="stylesheet" href="/style.css">','<style>'+(ROOT/'workbench/style.css').read_text(encoding='utf-8')+'</style>')
     html=html.replace('<script src="/app.js" defer></script>','')

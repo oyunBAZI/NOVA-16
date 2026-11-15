@@ -26,6 +26,7 @@ class TestWorker {
 }
 const window={addEventListener(){}};
 const context=vm.createContext({window,document:{getElementById(id){assert.equal(id,'nova-assets');return {textContent:assets};}},
+  setTimeout,clearTimeout,
   Blob:TestBlob,Worker:TestWorker,URL:{createObjectURL(blob){const url='blob:test/'+urls.size;urls.set(url,blob.code);return url;},revokeObjectURL(url){urls.delete(url);}}});
 new vm.Script(scripts[0]).runInContext(context);
 let revision=0;
@@ -57,6 +58,7 @@ try {
 
 const deniedWindow={addEventListener(){}};
 const denied=vm.createContext({window:deniedWindow,document:{getElementById(){return {textContent:assets};}},Blob:TestBlob,
+  setTimeout,clearTimeout,
   Worker:class{constructor(){throw Error('simulated Worker denial');}},
   URL:{createObjectURL(blob){urls.set('blob:denied',blob.code);return 'blob:denied';},revokeObjectURL(url){urls.delete(url);}}});
 assert.throws(()=>new vm.Script(scripts[0]).runInContext(denied),/simulated Worker denial/);
@@ -67,6 +69,7 @@ console.log('Worker-denial fallback preserves offline mode and reports the failu
 let failedWorker;
 const failedWindow={addEventListener(){}};
 const failedContext=vm.createContext({window:failedWindow,document:{getElementById(){return {textContent:assets};}},Blob:TestBlob,
+  setTimeout,clearTimeout,
   Worker:class{constructor(){failedWorker=this;}postMessage(){}terminate(){}},
   URL:{createObjectURL(blob){urls.set('blob:failed',blob.code);return 'blob:failed';},revokeObjectURL(url){urls.delete(url);}}});
 new vm.Script(scripts[0]).runInContext(failedContext);

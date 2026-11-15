@@ -35,8 +35,9 @@
 <pre id="line-numbers" aria-hidden="true">1</pre><textarea id="source" maxlength="65536" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="N16C source code" wrap="off"></textarea>
 </div>
 <div class="editor-foot">
-<span id="source-location">Source map not loaded</span><button id="download-source" class="text-button">Save source ↓</button><button id="download-rom" class="text-button" disabled>ROM ↓</button>
+<span id="source-location">Source map not loaded</span><button id="open-source" class="text-button">Open source ↑</button><button id="download-source" class="text-button">Save source ↓</button><button id="download-rom" class="text-button" disabled>ROM ↓</button>
 </div>
+<div id="draft-status" class="draft-status" role="status">Draft recovery is local to this browser. Save source for a portable copy.</div>
 <div id="diagnostics" class="diagnostics" role="status">
 Build your own program, or explore a verified ROM from the library.
 </div>
@@ -124,6 +125,7 @@ Type help to list debugger commands.</pre>
 
 </main>
 <input id="snapshot-file" type="file" accept=".n16s" hidden>
+<input id="source-file" type="file" accept=".n16c,.txt,text/plain" hidden>
 <dialog id="replay-dialog">
 <h2>Deterministic input replay</h2><p>Replay starts from reset and uses the native frame scheduler.</p><label>Frames (1–120) <input id="replay-frames" type="number" min="1" max="120" value="60"></label><label>Schedule · frame and input mask<textarea id="schedule" rows="7" spellcheck="false"># frame input-mask
 0 0x00

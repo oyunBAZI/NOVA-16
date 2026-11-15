@@ -9,6 +9,7 @@ import argparse
 import json
 import pathlib
 import queue
+import re
 import secrets
 import shutil
 import subprocess
@@ -206,30 +207,35 @@ class Workbench:
             self.revision += 1
         elif op == 'replay':
             text, frames = request.get('schedule'), request.get('frames')
-            if not isinstance(text, str) or len(text) > 8192 or type(frames) is not int or not 1 <= frames <= 120:
+            if not isinstance(text, str) or len(text.encode('utf-8')) > 8192 or type(frames) is not int or not 1 <= frames <= 120:
                 raise ValueError('Replay needs 1–120 frames and a schedule of at most 8 KiB')
             events = {}
             previous = -1
-            for line in text.splitlines():
-                line = line.strip()
+            for line in text.split('\n'):
+                line = line.strip(' \t\r')
                 if not line or line.startswith('#'):
                     continue
-                words = line.split()
-                if len(words) != 2:
+                words = re.split(r'[ \t]+', line)
+                if len(words) != 2 or any(not re.fullmatch(r'(?:0[xX][0-9a-fA-F]+|[0-9]+)', word) for word in words):
                     raise ValueError('Schedule lines are: frame mask')
                 # Decimal and 0x hexadecimal, matching the native schedule format.
                 frame, bits = (int(word, 16 if word.lower().startswith('0x') else 10) for word in words)
                 if not previous < frame < frames or not 0 <= bits <= 255:
                     raise ValueError('Schedule must be increasing with frames in range and masks 0–255')
                 events[frame], previous = bits, frame
-            self.bridge.request({'op': 'command', 'command': 'reset'})
+            result = self.bridge.request({'op': 'command', 'command': 'reset'})
+            completed = 0
             for frame in range(frames):
                 if frame in events:
                     self.bridge.request({'op': 'command', 'command': f'input {events[frame]}'})
                 result = self.bridge.request({'op': 'replay_frame'})
                 if not result.get('ok'):
                     break
-            result['output'] = f'Replayed {frame + 1} frames from reset.\n' + result.get('output', '')
+                completed += 1
+                if result['profile'] == 1 and any(result['state'][key] for key in ('halted', 'paused', 'trapped')):
+                    break
+            result['replay_frames'] = completed
+            result['output'] = f'Replayed {completed} of {frames} frames from reset.\n' + result.get('output', '')
             self.revision += 1
         else:
             raise ValueError('Unknown operation')

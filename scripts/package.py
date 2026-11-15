@@ -23,7 +23,7 @@ for path in sorted((root / 'zig-out/demos').glob('*')):
 for pattern in ('docs/**/*.md', 'docs/**/*.png', 'docs/**/*.json', 'docs/**/*.txt', 'docs/**/*.zig',
                 'examples/**/*.asm', 'examples/**/*.n16c', 'examples/**/*.json', 'examples/**/*.input', 'examples/sources.zig',
                 'guest/**/*.asm', 'guest/**/*.md', 'guest/**/*.zig', 'src/**/*.zig', 'src/**/*.c', 'src/**/*.h',
-                'scripts/*.py', 'scripts/*.json', 'scripts/*.mjs', 'wasm/*.mjs', 'workbench/*.html', 'workbench/*.css', 'workbench/*.js'):
+                'scripts/*.py', 'scripts/*.json', 'scripts/*.mjs', 'scripts/browser-requirements.txt', 'wasm/*.mjs', 'workbench/*.html', 'workbench/*.css', 'workbench/*.js'):
     for path in sorted(root.glob(pattern)):
         if '.n16' in path.relative_to(root).parts:
             continue

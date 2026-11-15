@@ -50,6 +50,7 @@ if a.portable:
     check(sys.executable,'scripts/package_web.py')
     check(node,'scripts/offline_acceptance.mjs')
     check(node,'scripts/offline_worker_acceptance.mjs')
+    check(node,'scripts/frontend_acceptance.mjs')
 if a.cross:check(sys.executable,'scripts/cross_acceptance.py',timeout=1200)
 if a.package:
     check(sys.executable,'scripts/package.py')

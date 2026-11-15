@@ -135,6 +135,7 @@ jobs:
       - run: python3 scripts/package_web.py
       - run: node scripts/offline_acceptance.mjs
       - run: node scripts/offline_worker_acceptance.mjs
+      - run: node scripts/frontend_acceptance.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wasm-runtime
@@ -143,9 +144,31 @@ jobs:
             wasm/nova16.mjs
             wasm/offline-host.mjs
             zig-out/web/NOVA16-Offline-Workbench.html
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: python3 scripts/setup_zig.py
+      - run: zig build -Doptimize=ReleaseSafe
+      - run: python3 scripts/package_web.py
+      - run: python3 -m pip install -r scripts/browser-requirements.txt
+      - run: python3 -m playwright install --with-deps chromium
+      - run: python3 scripts/browser_acceptance.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: browser-acceptance
+          path: zig-out/browser/
+          if-no-files-found: error
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'Release:')
-    needs: [native, cross, sdl2, benchmark, reliability, security, wasm]
+    needs: [native, cross, sdl2, benchmark, reliability, security, wasm, browser]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
