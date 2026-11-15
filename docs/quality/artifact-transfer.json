@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "packages": [
+    {
+      "archive": "nova16-0.5.0-dev-linux-x86_64.zip",
+      "sha256": "b385529eedde944bfd664b95e01def8eb032707550430e9882b4bceb81ff97cd",
+      "os": "linux",
+      "arch": "x86_64",
+      "version": "0.5.0-dev",
+      "commit": "c94879486ebb56c913d4d525b0fa638470b9cb5e",
+      "verified_files": 311
+    },
+    {
+      "archive": "nova16-0.5.0-dev-macos-aarch64.zip",
+      "sha256": "563aeddc6315bd39f1e18c4e2380f5665718e995047a03154414bb92126356e9",
+      "os": "macos",
+      "arch": "aarch64",
+      "version": "0.5.0-dev",
+      "commit": "c94879486ebb56c913d4d525b0fa638470b9cb5e",
+      "verified_files": 311
+    },
+    {
+      "archive": "nova16-0.5.0-dev-windows-x86_64.zip",
+      "sha256": "872097960c790a0496c3684f482c8703de377cea0075e1cb58ee12213f069ee0",
+      "os": "windows",
+      "arch": "x86_64",
+      "version": "0.5.0-dev",
+      "commit": "c94879486ebb56c913d4d525b0fa638470b9cb5e",
+      "verified_files": 311
+    }
+  ]
+}

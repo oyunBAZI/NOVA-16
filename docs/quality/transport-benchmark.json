@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "samples": 9,
+  "workload": "V2 snapshot restore, pre-encoded request, full native JSON round trip",
+  "limits": "Same-host wall-clock samples under concurrent load; not guest CPU performance or an OS-wide guarantee",
+  "rom_sha256": "90e46eb4c546befdbbeabfb0a226b7e5f4ea8a0bd1e09c85766f137e42d8709f",
+  "binaries": {
+    "before": {
+      "sha256": "e98c88fdbfe8598fcd8f959ad2712afc0790cd17b50cf5f642e0290d3e8acc8b",
+      "bytes": 5149056
+    },
+    "after": {
+      "sha256": "a61e0981fa3e77bea907a40cde9f575c6f7e9c4f656db2201086bd1f8c883339",
+      "bytes": 5147872
+    }
+  },
+  "restore_ns": {
+    "before": [
+      38503490,
+      38432819,
+      35185534,
+      37218153,
+      36153549,
+      40460566,
+      55918640,
+      39091931,
+      36569437
+    ],
+    "after": [
+      2129193,
+      2686743,
+      2197541,
+      2639933,
+      2408945,
+      2046613,
+      2561937,
+      1851955,
+      2044025
+    ]
+  },
+  "observe_ns": {
+    "before": [
+      461808,
+      510739,
+      415773,
+      597313,
+      389392,
+      544872,
+      409393,
+      405646,
+      456583
+    ],
+    "after": [
+      547232,
+      443007,
+      360993,
+      449968,
+      602042,
+      596620,
+      421462,
+      392917,
+      365690
+    ]
+  },
+  "restore_request_bytes": 135387,
+  "median_restore_ns": {
+    "before": 38432819,
+    "after": 2197541
+  },
+  "median_observe_ns": {
+    "before": 456583,
+    "after": 443007
+  }
+}

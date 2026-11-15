@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "seed": 1311848017,
+  "started_utc": "2026-11-15T09:38:24.208Z",
+  "seconds_budget": 4500,
+  "cycle_budget": 1000000000,
+  "host_parity": true,
+  "independent_isa_oracle": false,
+  "cycles": 9010,
+  "requests": 441490,
+  "compiled": 1287,
+  "roms": {
+    "starfall.n16": 702,
+    "pixel_studio.n16": 687,
+    "bouncing_pixel.n16": 706,
+    "interrupt_canvas.n16": 698,
+    "nova_tracker.n16": 675,
+    "program.n16": 1287,
+    "crates.n16": 743,
+    "paint.n16": 671,
+    "diagnostics.n16": 698,
+    "boot_splash.n16": 725,
+    "nova_sound.n16": 732,
+    "breakout.n16": 686
+  },
+  "operations": {
+    "command": 212416,
+    "frame": 51046,
+    "observe": 59527,
+    "raw": 25627,
+    "snapshot": 25326,
+    "restore": 42034,
+    "replay_frame": 25514
+  },
+  "wasm_sha256": "539ca3fffbf3dfefdfc60c95a50d401a62b952713cbe1d1e0d9abd92cf0d68f5",
+  "passed": true,
+  "last_requests": [
+    {
+      "op": "frame"
+    },
+    {
+      "raw_bytes": 8
+    },
+    {
+      "op": "command",
+      "command": "input 68"
+    },
+    {
+      "op": "command",
+      "command": "reverse"
+    },
+    {
+      "op": "command",
+      "command": "continue 162"
+    },
+    {
+      "op": "command",
+      "command": "reverse"
+    },
+    {
+      "op": "observe",
+      "address": 55296,
+      "length": 256
+    },
+    {
+      "op": "command",
+      "command": "input 220"
+    },
+    {
+      "op": "observe",
+      "address": 55296,
+      "length": 256
+    },
+    {
+      "op": "observe",
+      "address": 55296,
+      "length": 256
+    },
+    {
+      "op": "command",
+      "command": "input 195"
+    },
+    {
+      "raw_bytes": 150000
+    },
+    {
+      "op": "command",
+      "command": "step 1"
+    },
+    {
+      "raw_bytes": 8
+    },
+    {
+      "op": "command",
+      "command": "step 36"
+    },
+    {
+      "op": "snapshot"
+    }
+  ],
+  "native_sha256": {
+    "n16bridge": "4759672f7a50a8450bc69ac1ffdda889a543dc656b5065d99685be65ccc644d7",
+    "n16c": "c0d0e7e3e2c44cf6cf878f2bc1a2b32528c281e7a2f730e8c11a79055f450d36"
+  },
+  "current_rom": "pixel_studio.n16",
+  "wasm_memory_bytes": 44302336,
+  "maximum_wasm_memory_bytes": 44302336,
+  "seconds": 4500.23,
+  "completed_utc": "2026-11-15T10:53:24.639Z"
+}

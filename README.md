@@ -10,6 +10,8 @@ after `zig build -Doptimize=ReleaseSafe`. See [portable runtime](docs/wasm.md),
 The [quality milestone](docs/quality/plan.md) adds cartridge/source import,
 recoverable editor drafts, exact BRK resume undo, controller ownership fixes,
 deduplicated PCM playback and continuous native/offline browser acceptance.
+See the [engineering report](docs/quality/engineering-report.md) for measured
+results, executed checks and limits.
 
 [![NOVA-16 CI](https://github.com/oyunBAZI/NOVA-16/actions/workflows/ci.yml/badge.svg)](https://github.com/oyunBAZI/NOVA-16/actions/workflows/ci.yml)
 

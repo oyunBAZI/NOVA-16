@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "started_utc": "2026-11-15T10:39:15.248Z",
+  "frames_per_profile": 65552,
+  "native_sha256": "a61e0981fa3e77bea907a40cde9f575c6f7e9c4f656db2201086bd1f8c883339",
+  "wasm_sha256": "539ca3fffbf3dfefdfc60c95a50d401a62b952713cbe1d1e0d9abd92cf0d68f5",
+  "profiles": [
+    {
+      "profile": 1,
+      "rom": "bouncing_pixel",
+      "rom_sha256": "ac09305670f90b382be0e8aade0f20caa78a1601d73d59abeb8ebd4d82e04f91",
+      "frames_completed": 65552,
+      "counter_wraps": 1,
+      "final_frame_counter": 16,
+      "final_instructions": 1311040000,
+      "final_slots": null,
+      "rewind_frames": 32,
+      "rewind_reexecution": "exact canonical snapshots",
+      "snapshot_sha256": "400a81d9b2220263bd331341d8d612142539faa4f72a5263dac6d159277b08f1",
+      "wasm_warm_pages": 151,
+      "wasm_final_pages": 151,
+      "native_warm_peak_rss": 8192000,
+      "native_final_peak_rss": 8192000
+    },
+    {
+      "profile": 2,
+      "rom": "nova_sound",
+      "rom_sha256": "90e46eb4c546befdbbeabfb0a226b7e5f4ea8a0bd1e09c85766f137e42d8709f",
+      "frames_completed": 65552,
+      "counter_wraps": 1,
+      "final_frame_counter": 16,
+      "final_instructions": 1311031260,
+      "final_slots": 1311040000,
+      "rewind_frames": 32,
+      "rewind_reexecution": "exact canonical snapshots",
+      "snapshot_sha256": "3003cb0de0e142e5f2c9c0f6b90c2e243bff6b02b4536e3cb7e5daf5d3e44f69",
+      "wasm_warm_pages": 153,
+      "wasm_final_pages": 153,
+      "native_warm_peak_rss": 8192000,
+      "native_final_peak_rss": 8192000
+    }
+  ],
+  "host_parity": true,
+  "independent_isa_oracle": false,
+  "current_profile": 2,
+  "seconds": 408.253,
+  "completed_utc": "2026-11-15T10:46:03.528Z"
+}

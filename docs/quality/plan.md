@@ -46,7 +46,9 @@ findings drive this milestone.
 
 Local Chromium startup is currently denied by the execution environment's Unix
 socket policy. No flags or alternate executable will be used to circumvent it.
-The repository browser suite must run in its supported CI environment. Browser
+The repository browser suite runs in its supported CI environment; both native
+and offline Chromium checks have subsequently passed there. Per-head evidence
+and remaining integration gates belong in the final report. Browser
 audio checks establish Web Audio delivery/PCM, not a human listening test or
 universal device/OS latency guarantee. This is a development-quality milestone,
 not a signed stable release or a change to fictional hardware capabilities.
