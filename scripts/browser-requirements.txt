@@ -1,0 +1,2 @@
+# Development-only browser acceptance. Native/offline runtime has no dependency.
+playwright==1.62.0

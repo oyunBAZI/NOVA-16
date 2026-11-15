@@ -15,6 +15,29 @@ import workbench as w
 
 
 class WorkbenchAcceptance(unittest.TestCase):
+    def test_buffered_framing_boundaries_and_eof(self):
+        rom = w.DEMOS / 'boot_splash.n16'
+        # JSON whitespace creates valid messages spanning exact input-buffer
+        # boundaries; multiple messages in one write must remain distinct.
+        lines = [b' ' * count + b'{}' for count in (8189, 8190, 8191, 8192, 16381, 16382, 16383)]
+        process = subprocess.run([w.executable('n16bridge'), str(rom)],
+            input=b'\n'.join(lines) + b'\n' + b'X' * 150000 + b'\n{}\r\n{}', capture_output=True, timeout=15)
+        responses = [json.loads(line) for line in process.stdout.splitlines()]
+        self.assertEqual(process.returncode, 0)
+        self.assertEqual(len(responses), len(lines) + 3)
+        self.assertTrue(all(item['ok'] for item in responses[:len(lines)]))
+        self.assertEqual(responses[-3]['error'], 'RequestTooLarge')
+        self.assertTrue(responses[-2]['ok'])
+        self.assertTrue(responses[-1]['ok'], 'A final unterminated request executes once at EOF')
+        self.assertTrue(all(item['state']['executed_instructions'] == 0 for item in responses if item['ok']))
+        # Interactive debugger buffering shares the EOF/oversize recovery rules.
+        process = subprocess.run([w.executable('n16dbg'), str(rom)],
+            input=b'X' * 8193 + b'\nregs\nstep\nregs', capture_output=True, timeout=15)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.count(b'error: command too long'), 1)
+        self.assertIn(b'retired=0', process.stdout)
+        self.assertIn(b'retired=1', process.stdout)
+
     def test_frontend_structure(self):
         class Structure(HTMLParser):
             def __init__(self):
@@ -198,6 +221,63 @@ class WorkbenchAcceptance(unittest.TestCase):
                 self.assertTrue(bridge.request({'op': 'snapshot'})['ok'])
             finally:
                 bridge.close()
+
+    def test_imported_rom_validation_commit_and_retention(self):
+        model = w.Workbench()
+        try:
+            def dispatch(**request):
+                status, result = model.dispatch(dict(request, revision=model.revision))
+                self.assertEqual(status, 200)
+                return result
+            for name in ('paint', 'nova_sound'):
+                rom = (w.DEMOS / (name + '.n16')).read_bytes()
+                result = dispatch(op='load_rom', data=rom.hex())
+                self.assertTrue(result['ok'])
+                self.assertEqual(result['title'], 'Imported ROM')
+                self.assertEqual(result['profile'], 2 if name == 'nova_sound' else 1)
+                dispatch(op='vm', request={'op': 'frame'})
+                before = dispatch(op='vm', request={'op': 'snapshot'})['snapshot']
+                bad_crc = bytearray(rom)
+                bad_crc[-1] ^= 1
+                for bad in ('', '00', rom[:-1].hex(), bytes(bad_crc).hex()):
+                    rejected = dispatch(op='load_rom', data=bad)
+                    self.assertFalse(rejected['ok'])
+                    self.assertEqual(before, dispatch(op='vm', request={'op': 'snapshot'})['snapshot'])
+                for bad in (None, [], 'x', '00 00', '00' * 8225):
+                    with self.assertRaises(ValueError):
+                        dispatch(op='load_rom', data=bad)
+                self.assertEqual(len(list(model.directory.iterdir())), 1, 'Only current imported assets are retained')
+        finally:
+            model.close()
+
+    def test_native_replay_grammar_and_actual_completed_count(self):
+        cases = json.loads((w.ROOT / 'docs/quality/replay-cases.json').read_text(encoding='utf-8'))
+        model = w.Workbench()
+        try:
+            def dispatch(**request):
+                status, result = model.dispatch(dict(request, revision=model.revision))
+                self.assertEqual(status, 200)
+                return result
+            dispatch(op='load', demo='paint')
+            for text in cases['valid']:
+                result = dispatch(op='replay', frames=4, schedule=text)
+                self.assertEqual(result['replay_frames'], 4)
+            before = dispatch(op='vm', request={'op': 'snapshot'})['snapshot']
+            for text in cases['invalid'] + ['#' + 'é' * 4096]:
+                with self.subTest(schedule=text[:40]), self.assertRaises(ValueError):
+                    dispatch(op='replay', frames=4, schedule=text)
+                self.assertEqual(before, dispatch(op='vm', request={'op': 'snapshot'})['snapshot'])
+            dispatch(op='build', source='fn main()->u16{return 42;}')
+            result = dispatch(op='replay', frames=120, schedule='')
+            self.assertEqual(result['replay_frames'], 1)
+            self.assertIn('1 of 120', result['output'])
+            self.assertEqual(result['state']['frame_count'], 1)
+            dispatch(op='build', source='fn main()->u16{return 42;}', architecture='nova16-v2')
+            result = dispatch(op='replay', frames=120, schedule='')
+            self.assertEqual(result['replay_frames'], 120, 'V2 devices continue while CPU is halted')
+            self.assertEqual(result['state']['transition_slots'], 2_400_000)
+        finally:
+            model.close()
 
     def test_http_boundaries_and_assets(self):
         model = w.Workbench()

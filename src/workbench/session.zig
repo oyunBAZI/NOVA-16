@@ -157,13 +157,18 @@ pub const Session = struct {
         defer text.deinit();
         var addr: u32 = m.cpu.pc;
         for (0..10) |_| {
-            if (addr > 65532) break;
+            if (addr > 65534) break;
             const low = m.inspect(@intCast(addr)) catch break;
             const high = m.inspect(@intCast(addr + 1)) catch break;
-            const lo = m.inspect(@intCast(addr + 2)) catch break;
-            const hi = m.inspect(@intCast(addr + 3)) catch break;
+            // A two-byte instruction at FFFE, or immediately before a denied
+            // MMIO address, is still inspectable without a lookahead operand.
+            const immediate: ?u16 = if (addr <= 65532) blk: {
+                const lo = m.inspect(@intCast(addr + 2)) catch break :blk null;
+                const hi = m.inspect(@intCast(addr + 3)) catch break :blk null;
+                break :blk @as(u16, lo) | (@as(u16, hi) << 8);
+            } else null;
             try text.writer.print("{x:0>4}  ", .{addr});
-            addr += try @import("../debug/disasm.zig").instructionProfile(&text.writer, @as(u16, low) | (@as(u16, high) << 8), @as(u16, lo) | (@as(u16, hi) << 8), @intCast(addr), m.bus.profile);
+            addr += try @import("../debug/disasm.zig").instructionProfile(&text.writer, @as(u16, low) | (@as(u16, high) << 8), immediate, @intCast(addr), m.bus.profile);
             try text.writer.writeByte('\n');
         }
         try w.writeAll(",\"disassembly\":");
@@ -222,4 +227,26 @@ test "Workbench observations and rejected requests are nonacknowledging and boun
     try t.expectError(error.MemoryRange, session.apply(t.allocator, .{ .address = 65535, .length = 2 }, &out.writer));
     try t.expectError(error.ProtocolVersion, session.apply(t.allocator, .{ .version = 2 }, &out.writer));
     try t.expectEqual(0, m.cpu.retired);
+}
+
+test "Workbench disassembly includes the final two-byte ROM instruction" {
+    const t = std.testing;
+    var m: Machine = .{};
+    m.cpu.pc = 0xfffe;
+    m.bus.bytes[0xfffe] = 1; // HALT
+    // HALT has a two-byte encoding in both profiles. Observation
+    // must not fetch a nonexistent word beyond the end of the address space.
+    var d: Debugger = .{ .machine = &m };
+    defer d.deinit();
+    var session: Session = .{ .debugger = &d };
+    var out: std.Io.Writer.Allocating = .init(t.allocator);
+    defer out.deinit();
+    try session.writeObservation(t.allocator, &out.writer, .{});
+    const json = try std.mem.concat(t.allocator, u8, &.{ "{\"ok\":true", out.written(), "}" });
+    defer t.allocator.free(json);
+    const parsed = try std.json.parseFromSlice(std.json.Value, t.allocator, json, .{});
+    defer parsed.deinit();
+    try t.expectEqualStrings("fffe  HALT\n", parsed.value.object.get("disassembly").?.string);
+    try t.expectEqual(0, m.cpu.retired);
+    try t.expectEqual(0xfffe, m.cpu.pc);
 }

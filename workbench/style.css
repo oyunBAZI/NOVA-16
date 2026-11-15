@@ -127,7 +127,8 @@ main {
 }
 .toolbar>div {
   display:flex;
-  gap:6px
+  gap:6px;
+  flex-wrap:wrap
 }
 select {
   min-width:175px
@@ -196,7 +197,7 @@ select {
   background:#171c20;
   position:relative
 }
-.editor pre {
+.editor pre#line-numbers {
   margin:0;
   width:45px;
   flex-shrink:0;
@@ -234,6 +235,14 @@ textarea#source {
 }
 .editor-foot>span {
   flex:1
+}
+.editor-foot { flex-wrap:wrap }
+.editor-foot>span { min-width:0; overflow-wrap:anywhere }
+.draft-status {
+  padding:7px 12px;
+  color:var(--muted);
+  font:10px/1.5 var(--mono);
+  border-top:1px solid var(--edge)
 }
 .text-button {
   padding:0;
@@ -344,6 +353,15 @@ textarea#source {
 }
 .register.changed b {
   color:var(--signal)
+}
+.trap-detail {
+  margin:0 14px 10px;
+  padding:8px;
+  color:#f2ad98;
+  border:1px solid #f2ad9855;
+  font:11px/1.6 var(--mono);
+  white-space:pre-wrap;
+  overflow-wrap:anywhere
 }
 .cpu-detail {
   display:grid;

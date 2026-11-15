@@ -19,11 +19,11 @@ export function createOfflineHost(data) {
   const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
   const bytes=text=>new TextEncoder().encode(text).length;
   function schedule(text,frames) {
-    if(typeof text!=='string'||text.length>8192||!Number.isInteger(frames)||frames<1||frames>120) throw Error('Replay needs 1–120 frames and a bounded schedule');
+    if(typeof text!=='string'||bytes(text)>8192||!Number.isInteger(frames)||frames<1||frames>120) throw Error('Replay needs 1–120 frames and a schedule of at most 8 KiB');
     const events=new Map();let previous=-1;
     for(const raw of text.split('\n')) {
-      const line=raw.trim();if(!line||line.startsWith('#')) continue;
-      const words=line.split(/\s+/);
+      const line=raw.replace(/^[ \t\r]+|[ \t\r]+$/g,'');if(!line||line.startsWith('#')) continue;
+      const words=line.split(/[ \t]+/);
       if(words.length!==2||words.some(word=>! /^(?:0x[0-9a-f]+|[0-9]+)$/i.test(word))) throw Error('Schedule lines are: frame mask');
       const [frame,bits]=words.map(Number);
       if(!(previous<frame&&frame<frames&&bits>=0&&bits<=255)) throw Error('Schedule must increase with frames in range and masks 0–255');
@@ -60,6 +60,14 @@ export function createOfflineHost(data) {
           result={...machine.request({}),editor_source:source,editor_architecture:architecture,editor_optimization:optimization};
           revision++;break;
         }
+        case 'load_rom': {
+          const text=request.data;
+          if(typeof text!=='string'||text.length>16448||text.length%2||!/^[0-9a-f]*$/i.test(text))throw Error('ROM must be hex, at most 8,224 decoded bytes');
+          result=machine.load(Uint8Array.from(text.match(/../g)??[],byte=>parseInt(byte,16)));
+          if(result.ok) title='Imported ROM';
+          else result={...machine.request({}),ok:false,error:'ROM rejected; previous machine retained'};
+          revision++;break;
+        }
         case 'build': {
           const arch=request.architecture??'nova16-v1',opt=request.optimization??'size';
           if(!['nova16-v1','nova16-v2'].includes(arch)||!['size','none'].includes(opt)) throw Error('Invalid architecture or optimization');
@@ -76,12 +84,16 @@ export function createOfflineHost(data) {
         case 'replay': {
           const events=schedule(request.schedule,request.frames);
           result=machine.request({op:'command',command:'reset'});
+          let completed=0;
           for(let frame=0;frame<request.frames;frame++) {
             if(events.has(frame)) machine.request({op:'command',command:`input ${events.get(frame)}`});
             result=machine.request({op:'replay_frame'});
             if(!result.ok) break;
+            completed++;
+            if(result.profile===1 && (result.state.halted||result.state.paused||result.state.trapped))break;
           }
-          result.output=`Replayed ${request.frames} frames from reset.\n`+(result.output??'');
+          result.replay_frames=completed;
+          result.output=`Replayed ${completed} of ${request.frames} frames from reset.\n`+(result.output??'');
           revision++;break;
         }
         default:throw Error('Unknown operation');

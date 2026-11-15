@@ -1,5 +1,9 @@
 # Platform evolution engineering report
 
+Later verification: the [quality milestone](../quality/engineering-report.md)
+adds actual native/offline Chromium evidence and the subsequent reliability
+fixes. The limits below describe this earlier checkpoint and are preserved.
+
 This milestone addresses generated-code cost, guest rendering cost, useful
 reverse depth and portable access to the complete VM/compiler workflow. It
 adds two real V2 application workloads while retaining the original hardware

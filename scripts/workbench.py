@@ -9,6 +9,7 @@ import argparse
 import json
 import pathlib
 import queue
+import re
 import secrets
 import shutil
 import subprocess
@@ -95,7 +96,10 @@ class Bridge:
                 self.process.wait(timeout=2)
         for stream in (self.process.stdin, self.process.stdout):
             if stream:
-                stream.close()
+                try:
+                    stream.close()
+                except OSError:
+                    pass  # A dead child may reject buffered stdin during cleanup.
         if threading.current_thread() is not self.reader:
             self.reader.join(timeout=2)
 
@@ -160,6 +164,31 @@ class Workbench:
             result.update(editor_source=self.source, editor_architecture=self.editor_architecture,
                           editor_optimization=self.editor_optimization)
             self.revision += 1
+        elif op == 'load_rom':
+            data = request.get('data')
+            if (not isinstance(data, str) or len(data) > 16448 or len(data) % 2 or
+                    not re.fullmatch(r'[0-9a-fA-F]*', data)):
+                raise ValueError('ROM must be hex, at most 8,224 decoded bytes')
+            self.generation += 1
+            directory = self.directory / str(self.generation)
+            directory.mkdir()
+            rom = directory / 'imported.n16'
+            rom.write_bytes(bytes.fromhex(data))
+            try:
+                try:
+                    result = self.replace(rom, None, 'Imported ROM')
+                except RuntimeError:
+                    result = self.bridge.request({'op': 'observe'})
+                    result.update(ok=False, error='ROM rejected; previous machine retained')
+                else:
+                    old = self.build_directory
+                    self.build_directory = directory
+                    if old:
+                        shutil.rmtree(old)
+            finally:
+                if directory != self.build_directory:
+                    shutil.rmtree(directory)
+            self.revision += 1
         elif op == 'build':
             source = request.get('source')
             architecture = request.get('architecture', 'nova16-v1')
@@ -206,30 +235,35 @@ class Workbench:
             self.revision += 1
         elif op == 'replay':
             text, frames = request.get('schedule'), request.get('frames')
-            if not isinstance(text, str) or len(text) > 8192 or type(frames) is not int or not 1 <= frames <= 120:
+            if not isinstance(text, str) or len(text.encode('utf-8')) > 8192 or type(frames) is not int or not 1 <= frames <= 120:
                 raise ValueError('Replay needs 1–120 frames and a schedule of at most 8 KiB')
             events = {}
             previous = -1
-            for line in text.splitlines():
-                line = line.strip()
+            for line in text.split('\n'):
+                line = line.strip(' \t\r')
                 if not line or line.startswith('#'):
                     continue
-                words = line.split()
-                if len(words) != 2:
+                words = re.split(r'[ \t]+', line)
+                if len(words) != 2 or any(not re.fullmatch(r'(?:0[xX][0-9a-fA-F]+|[0-9]+)', word) for word in words):
                     raise ValueError('Schedule lines are: frame mask')
                 # Decimal and 0x hexadecimal, matching the native schedule format.
                 frame, bits = (int(word, 16 if word.lower().startswith('0x') else 10) for word in words)
                 if not previous < frame < frames or not 0 <= bits <= 255:
                     raise ValueError('Schedule must be increasing with frames in range and masks 0–255')
                 events[frame], previous = bits, frame
-            self.bridge.request({'op': 'command', 'command': 'reset'})
+            result = self.bridge.request({'op': 'command', 'command': 'reset'})
+            completed = 0
             for frame in range(frames):
                 if frame in events:
                     self.bridge.request({'op': 'command', 'command': f'input {events[frame]}'})
                 result = self.bridge.request({'op': 'replay_frame'})
                 if not result.get('ok'):
                     break
-            result['output'] = f'Replayed {frame + 1} frames from reset.\n' + result.get('output', '')
+                completed += 1
+                if result['profile'] == 1 and any(result['state'][key] for key in ('halted', 'paused', 'trapped')):
+                    break
+            result['replay_frames'] = completed
+            result['output'] = f'Replayed {completed} of {frames} frames from reset.\n' + result.get('output', '')
             self.revision += 1
         else:
             raise ValueError('Unknown operation')

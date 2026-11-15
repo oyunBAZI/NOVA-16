@@ -1,0 +1,17 @@
+{
+  "command": [
+    "/workspace/scratch/08176eda05f9/NOVA-16/.zig-toolchain/zig-x86_64-linux-0.17.1/zig",
+    "build",
+    "test",
+    "-Doptimize=ReleaseSafe",
+    "--fuzz=250K",
+    "--test-timeout",
+    "10m",
+    "--seed=0x4e313654"
+  ],
+  "exit_code": 0,
+  "seconds": 364.854,
+  "source_commit": "0c061c227bd598eb48eaf7755e89d86fbeb04776",
+  "core_source_tree_sha": "b07ec1edb329394438079000b541f5570c9a4608",
+  "core_source_unchanged_during_campaign": true
+}

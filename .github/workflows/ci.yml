@@ -1,6 +1,7 @@
 name: NOVA-16 CI
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -122,11 +123,12 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 scripts/security_check.py
+      - run: python3 scripts/validation_driver_acceptance.py
   wasm:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - run: python3 scripts/setup_zig.py
@@ -135,7 +137,10 @@ jobs:
       - run: python3 scripts/package_web.py
       - run: node scripts/offline_acceptance.mjs
       - run: node scripts/offline_worker_acceptance.mjs
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - run: node scripts/frontend_acceptance.mjs
+      - run: node scripts/session_soak.mjs --cycles 20 --seconds 0 --out zig-out/session-soak.json
+      - run: node scripts/frame_wrap_acceptance.mjs --frames 128 --out zig-out/frame-wrap.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wasm-runtime
           path: |
@@ -143,9 +148,51 @@ jobs:
             wasm/nova16.mjs
             wasm/offline-host.mjs
             zig-out/web/NOVA16-Offline-Workbench.html
+            zig-out/session-soak.json
+            zig-out/frame-wrap.json
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - run: python3 scripts/setup_zig.py
+      - run: zig build -Doptimize=ReleaseSafe
+      - run: python3 scripts/package_web.py
+      - run: python3 -m pip install -r scripts/browser-requirements.txt
+      - run: python3 -m playwright install --with-deps chromium
+      - run: python3 scripts/browser_acceptance.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: browser-acceptance
+          path: zig-out/browser/
+          if-no-files-found: error
+  artifact-download:
+    needs: [native]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: packages-*
+          merge-multiple: true
+          path: verified-artifacts
+      - run: python3 scripts/artifact_acceptance.py verified-artifacts
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: artifact-transfer-verification
+          path: zig-out/artifact-acceptance.json
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'Release:')
-    needs: [native, cross, sdl2, benchmark, reliability, security, wasm]
+    needs: [native, cross, sdl2, benchmark, reliability, security, wasm, browser, artifact-download]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

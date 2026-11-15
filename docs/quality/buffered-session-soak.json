@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "seed": 1311848018,
+  "started_utc": "2026-11-15T09:55:07.557Z",
+  "seconds_budget": 3600,
+  "cycle_budget": 1000000000,
+  "host_parity": true,
+  "independent_isa_oracle": false,
+  "cycles": 40921,
+  "requests": 2005129,
+  "compiled": 5845,
+  "roms": {
+    "bouncing_pixel.n16": 3218,
+    "nova_tracker.n16": 3232,
+    "starfall.n16": 3150,
+    "nova_sound.n16": 3184,
+    "program.n16": 5845,
+    "paint.n16": 3248,
+    "crates.n16": 3158,
+    "diagnostics.n16": 3226,
+    "boot_splash.n16": 3143,
+    "interrupt_canvas.n16": 3184,
+    "breakout.n16": 3142,
+    "pixel_studio.n16": 3191
+  },
+  "operations": {
+    "command": 965710,
+    "snapshot": 115278,
+    "frame": 230572,
+    "observe": 270387,
+    "restore": 191892,
+    "replay_frame": 115590,
+    "raw": 115700
+  },
+  "wasm_sha256": "539ca3fffbf3dfefdfc60c95a50d401a62b952713cbe1d1e0d9abd92cf0d68f5",
+  "passed": true,
+  "last_requests": [
+    {
+      "op": "frame"
+    },
+    {
+      "op": "command",
+      "command": "input 141"
+    },
+    {
+      "op": "command",
+      "command": "input 133"
+    },
+    {
+      "op": "command",
+      "command": "reverse"
+    },
+    {
+      "op": "restore",
+      "data": {
+        "bytes": 67680,
+        "sha256": "3c0de3dafc0d6ccf15dceb54df1a170e74c5c44276dfff77492fd3e74f28adae"
+      }
+    },
+    {
+      "op": "snapshot"
+    },
+    {
+      "op": "command",
+      "command": "input 1"
+    },
+    {
+      "op": "command",
+      "command": "watch 0xc000"
+    },
+    {
+      "op": "command",
+      "command": "delete 0xe000"
+    },
+    {
+      "op": "snapshot"
+    },
+    {
+      "op": "command",
+      "command": "input 118"
+    },
+    {
+      "op": "frame"
+    },
+    {
+      "op": "command",
+      "command": "input 44"
+    },
+    {
+      "op": "command",
+      "command": "reset"
+    },
+    {
+      "op": "frame"
+    },
+    {
+      "op": "frame"
+    }
+  ],
+  "native_sha256": {
+    "n16bridge": "a61e0981fa3e77bea907a40cde9f575c6f7e9c4f656db2201086bd1f8c883339",
+    "n16c": "bfbaa7976047de9c98a3ba2f075db8790279890764e552c180e51b90c06f1db4"
+  },
+  "current_rom": "starfall.n16",
+  "wasm_memory_bytes": 44302336,
+  "maximum_wasm_memory_bytes": 44302336,
+  "seconds": 3600.088,
+  "completed_utc": "2026-11-15T10:55:07.778Z"
+}

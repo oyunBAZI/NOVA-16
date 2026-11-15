@@ -32,19 +32,22 @@ fn run(init: std.process.Init) !void {
     defer d.deinit();
     try std.Io.File.stdout().writeStreamingAll(init.io, "NOVA-16 debugger; help lists commands. Addresses use 0x hexadecimal.\n");
     var line: std.ArrayList(u8) = .empty;
+    var input_buffer: [8192]u8 = undefined;
+    var input = std.Io.File.stdin().readerStreaming(init.io, &input_buffer);
     while (true) {
         try std.Io.File.stdout().writeStreamingAll(init.io, "n16> ");
         line.clearRetainingCapacity();
         var too_long = false;
         while (true) {
-            var byte: [1]u8 = undefined;
-            const got = try std.Io.File.stdin().readStreaming(init.io, &.{&byte});
-            if (got == 0) {
-                if (line.items.len == 0) return;
-                break;
-            }
-            if (byte[0] == '\n') break;
-            if (line.items.len < 4096) try line.append(a, byte[0]) else too_long = true;
+            const byte = input.interface.takeByte() catch |err| switch (err) {
+                error.EndOfStream => {
+                    if (line.items.len == 0) return;
+                    break;
+                },
+                else => return err,
+            };
+            if (byte == '\n') break;
+            if (line.items.len < 4096) try line.append(a, byte) else too_long = true;
         }
         if (too_long) {
             try std.Io.File.stdout().writeStreamingAll(init.io, "error: command too long\n");

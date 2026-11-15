@@ -22,15 +22,25 @@ Keep the process running; Ctrl+C closes it and its VM child.
 
 ## Workflow
 
-- Choose a verified guest ROM and **Load ROM**, then **Run** or **Frame**. Run is
+- Choose a verified guest ROM and **Load ROM**, or **Open ROM** to import your
+  own `.n16` cartridge (at most 8,224 bytes), then **Run** or **Frame**. The core
+  validates the complete V1/V2 header, payload and checksum before replacing the
+  current machine. Rejected files retain its exact state and the editor text.
+  Imported cartridges can be exported again with **ROM**. Run is
   host-paced, with a target of 60 guest frames/sec subject to machine/transport
   overhead. The core uses deterministic instruction/slot timing, never wall time.
 - The editor is a separate single-file N16C scratch program. **Build & load**
   invokes the real compiler with source maps and size accounting. Only a valid
   build and candidate VM replace the running machine. A diagnostic leaves the
   previous ROM and machine intact. **Save source** and **ROM** export your work.
-  Last submitted source stays in the launcher session; unsubmitted edits stay in
-  the tab. Export source to keep it after closing.
+  **Open source** imports a bounded UTF-8 `.n16c` text file into the editor after
+  confirming replacement; it does not replace the running ROM. Text, target and
+  optimization have best-effort local draft recovery. The status below the
+  editor says whether recovery is available. Export source for a portable copy.
+  Recovery is scoped to the browser profile and origin; a native launcher with
+  a new random port has a different origin. Use a fixed `--port` to retain that
+  scope between launches. A storage failure does not prevent boot; the tab asks
+  before closing when it cannot retain the current editor draft.
 - **Step** executes one instruction, **Next line** uses real source mappings,
   **Frame** completes a logical frame unless a debugger breakpoint/watchpoint
   intervenes. Use Step to move beyond a current breakpoint or BRK. Run stops on
@@ -41,13 +51,20 @@ Keep the process running; Ctrl+C closes it and its VM child.
   `trace 16`, `input 16`, `regs`, and other read/step commands. Commands are
   bounded to 20,000 transitions; file commands are deliberately unavailable.
 - **Reverse** undoes one recorded instruction/input action or one whole Frame
-  action. Capacity defaults to 32 entries (at most 32 full machine copies).
-  Instruction trace retains 128 transitions. Frame grouping avoids a whole-machine
-  copy at every instruction, while retaining per-instruction breakpoint/watch
-  checks. This is bounded exact history, not a delta-history implementation.
+  action. Native capacity defaults to 2,048 delta entries; the offline Wasm
+  embedding defaults to 256. `history delta 4096` selects the maximum depth;
+  `history 32` selects the original full-state mode and `history 0` disables it.
+  Journal pressure can evict older complete actions before the entry limit.
+  Instruction trace retains 128 transitions. Resuming a guest BRK and its first
+  instruction share an undo boundary, so Reverse restores the original paused
+  state as well as registers, memory and devices.
 - Focus/click the framebuffer for arrows, Z/A, X/B, Enter/Start and Shift/Select.
   Onscreen controls also work. Releasing focus releases keyboard input; backgrounding
-  pauses host execution. Controller bits/pressed-edge state come from the VM.
+  pauses host execution. Overlapping keyboard/pointer controls and either Shift
+  key retain independent ownership. Controller indicators show actual VM state,
+  including historical input restored by Reverse or snapshots. Those operations
+  do not invent physical key presses; focus and release the display or send
+  `input 0` to release restored held bits explicitly.
 - Inspect a 256-byte memory window from `0x0000` through `0xff00`. `??` means
   denied, not zero. Reads never acknowledge input/vblank latches. The ROM and
   MMIO cannot be edited through this view. Hover pixels for VRAM address/nibble.
@@ -58,9 +75,17 @@ Keep the process running; Ctrl+C closes it and its VM child.
   `frame mask` lines. Blank/comment lines are allowed; masks may be decimal or
   hexadecimal and persist until the next event. Replay intentionally ignores
   debugger break/watch stops, retaining those settings for later debugging.
+  Frames/masks use unsigned ASCII decimal or `0x` hexadecimal, with spaces/tabs
+  between fields and full-line `#` comments. The entire schedule fits 8 KiB of
+  UTF-8. Native and offline hosts use the same acceptance corpus. The result
+  reports actual completed frames: V1 stops after HALT/BRK/trap; V2 continues
+  device time for the requested frames even when its CPU has stopped.
 - Profile 2 exposes actual voices, clocks, timer/IRQ state and PCM. **Enable sound**
   queues that integer PCM in the browser after your click; it synthesizes no notes.
   Host buffering is capped to 150 ms, and Pause/rewind/reload clears queued sound.
+  Inspector, snapshot and input responses cannot enqueue the same completed PCM
+  frame twice. Audio activation failures close the candidate context and leave
+  the button usable; an open audio context can also be muted after loading V1.
   **Export last frame WAV** downloads the currently displayed complete or partial
   PCM frame as 48 kHz mono PCM16. Profile 1 shows no imaginary audio hardware.
 
@@ -129,7 +154,7 @@ zig build test -Doptimize=ReleaseSafe --summary all --test-timeout 2m
 python3 scripts/workbench_acceptance.py
 ```
 
-Workbench acceptance compares all nine demos' CPU state and framebuffer bytes
+Workbench acceptance compares all eleven demos' CPU state and framebuffer bytes
 against the native runner; V2's last 800 PCM samples must also match its WAV.
 It tests rewind/re-execution, corrupt-state atomicity, real compiler output,
 failed-build retention, candidate-before-replace, deterministic scheduled replay,
@@ -137,6 +162,15 @@ nonacknowledging MMIO reads, limits, line resynchronization and HTTP boundaries.
 CI runs this suite on Linux, Windows and macOS in Debug and ReleaseSafe, and
 again from extracted native SDK packages. These are execution/HTTP tests;
 browser layout, accessibility and actual sound-device testing remain separate.
+
+`node scripts/frontend_acceptance.mjs` executes the shipped UI handlers against
+the real Wasm machine with a DOM double, including overlapping controls, build
+races, draft recovery, imports and PCM delivery. It does not establish layout.
+The independent browser CI job runs `scripts/browser_acceptance.py` with pinned
+Playwright and real Chromium for both native HTTP and the exported local file,
+records desktop/mobile screenshots, verifies canvas pixels and CSP, and checks
+an activated AudioContext and guest WAV bytes. No human listening pass is implied.
+Optional browser checks can also be required by `scripts/validate.py --browser`.
 
 
 ## Platform evolution additions
@@ -163,3 +197,9 @@ Protocol inspection output has a 500,000-byte framing budget and a 65,536-byte
 command-text budget. `OutputLimit` is recoverable; the bridge does not disconnect
 or publish malformed partial JSON. Large symbol/map inspections have explicit
 native/Wasm recovery tests.
+
+The offline request transport caps outstanding requests at 16 and has a finite
+20-second response budget. Fatal Worker, decode, timeout and page-close events
+settle every pending request and stop the Worker; clone failures settle the
+unsent request without replacing the VM. A back/forward-cache return reloads a
+fresh Worker. These are host lifecycle rules, not changes to the guest clock.

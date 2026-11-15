@@ -2,14 +2,22 @@
 const $ = id => document.getElementById(id);
 const hex = (n, width = 4) => Number(n).toString(16).padStart(width, '0').toUpperCase();
 const offline=Boolean(window.NovaOfflineRequest);
-const token=offline?'':location.hash.slice(1)||sessionStorage.getItem('nova-token')||'';
+// Storage is optional: file URLs, privacy settings and quota limits can deny it.
+function readStorage(storage, key) {
+  try { return window[storage].getItem(key); } catch (_) { return null; }
+}
+function writeStorage(storage, key, value) {
+  try { window[storage].setItem(key, value); return true; } catch (_) { return false; }
+}
+const token=offline?'':location.hash.slice(1)||readStorage('sessionStorage','nova-token')||'';
 if(!offline) {
-  if(token) sessionStorage.setItem('nova-token',token);
+  if(token) writeStorage('sessionStorage','nova-token',token);
   history.replaceState(null,'','/');
 }
 let revision = 0, current, previous, address = 0, running = false, serial = Promise.resolve();
-let sourceMatches = false, romBytes = null, held = 0, sound = null, audioTime = 0;
+let sourceMatches = false, builtEditor = null, romBytes = null, sound = null, audioTime = 0;
 let runGeneration = 0;
+let lastAudioFrame = null;
 let highlightedSource = null, highlightedLine = -1;
 let typedDemos = {};
 const audioNodes = new Set();
@@ -26,12 +34,21 @@ function stopSound() {
   }
   audioNodes.clear();
   audioTime = 0;
+  lastAudioFrame = null;
 }
 function pause() {
   running = false;
   runGeneration++;
   $('run').textContent = '▶ Run';
   stopSound();
+  renderTransport();
+}
+function renderTransport() {
+  const s=current?.state;
+  const status = s?.trapped ? 'TRAP' : s?.halted ? 'HALT' : s?.paused ? 'BRK' : running ? 'RUNNING' : 'READY';
+  $('machine-status').textContent = status;
+  $('status-dot').style.background = s?.trapped ? '#f2ad98' : running ? '#a1edbc' : '#edc887';
+  $('run').setAttribute('aria-pressed',String(running));
 }
 function api(payload) {
   const operation = async () => {
@@ -91,9 +108,7 @@ function render(result) {
   current = result;
   const s = result.state;
   $('connection').textContent = offline?'CONNECTED / WASM':'CONNECTED / NATIVE';
-  const status = s.trapped ? 'TRAP' : s.halted ? 'HALT' : s.paused ? 'BRK' : running ? 'RUNNING' : 'READY';
-  $('machine-status').textContent = status;
-  $('status-dot').style.background = s.trapped ? '#f2ad98' : running ? '#a1edbc' : '#edc887';
+  renderTransport();
   $('machine-title').textContent = result.title;
   $('profile').textContent = `PROFILE ${result.profile} · ROM CRC ${hex(s.rom_checksum, 8)}`;
   $('timing').textContent = `FRAME ${hex(s.frame_count)} · ${s.executed_instructions.toLocaleString()} INSTRUCTIONS`;
@@ -115,7 +130,6 @@ function render(result) {
   $('disassembly').textContent = result.disassembly;
   $('history-count').textContent = `${result.history_count} / ${result.history_capacity} rewind entries`;
   $('reverse').disabled = result.history_count === 0;
-  $('source-location').textContent = result.source ? `${result.source.file}:${result.source.line}:${result.source.column}${sourceMatches ? '' : ' · compiled ROM'}` : 'Source map not loaded';
   $('breakpoints').replaceChildren();
   for (const point of result.breakpoints) {
     const button = document.createElement('button');
@@ -126,6 +140,7 @@ function render(result) {
     $('breakpoints').append(button);
   }
   $('input-state').textContent = `INPUT ${hex(result.input_held,2)} · EDGE ${hex(result.input_pressed,2)}`;
+  renderInput(result.input_held);
   const vram = unhex(result.vram), palette = result.palette;
   const image = $('screen').getContext('2d').createImageData(128,96);
   for (let i=0;i<128*96;i++) {
@@ -151,11 +166,13 @@ function render(result) {
   }
   $('memory').textContent = memory;
   renderAudio(result.audio,s);
-  if (s.trapped) $('diagnostics').textContent = `Trap: ${s.trap.kind} at 0x${hex(s.trap.pc)} · ${s.trap.access} 0x${hex(s.trap.address)}`;
+  $('trap-detail').hidden=!s.trapped;
+  const trapAddress=s.trapped?(s.trap.address<0?'-0x'+hex(-s.trap.address):'0x'+hex(s.trap.address)):'';
+  $('trap-detail').textContent=s.trapped?`Trap: ${s.trap.kind} at 0x${hex(s.trap.pc)} · ${s.trap.access} ${trapAddress}`:'';
   updateEditor();
 }
 function renderAudio(audio, state) {
-  $('listen').disabled = !audio;
+  $('listen').disabled = !audio && !sound;
   $('wav').disabled = !audio || !audio.pcm.length;
   const canvas = $('scope'), ctx = canvas.getContext('2d');
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -193,6 +210,11 @@ function renderAudio(audio, state) {
     ctx.stroke();
   }
   if(sound && running && audio.completed_frame && sound.state==='running') {
+    // Observations, controller changes and snapshots may repeat the completed
+    // PCM frame. A device frame is delivered to the sound device only once.
+    const frame=`${state.rom_checksum}:${state.transition_slots}:${state.audio_samples}`;
+    if(frame===lastAudioFrame)return;
+    lastAudioFrame=frame;
     // Host playback only queues the native integer PCM; it never synthesizes notes
     // or advances the machine clock. Drop lag instead of building an audio backlog.
     if (audioTime > sound.currentTime+0.15) return;
@@ -212,9 +234,27 @@ const highlight = document.createElement('pre');
 highlight.id='syntax';
 highlight.setAttribute('aria-hidden','true');
 $('source').before(highlight);
+function editorState() {
+  return {source:$('source').value,architecture:$('build-architecture').value,optimization:$('build-optimization').value};
+}
+function enableEditor() {
+  for(const id of ['source','build','open-source','download-source','build-architecture','build-optimization'])$(id).disabled=false;
+}
+function matchesEditor(value) {
+  const live=editorState();
+  return value!==null && Object.keys(live).every(key=>live[key]===value[key]);
+}
+function editorChanged(status) {
+  sourceMatches=matchesEditor(builtEditor);
+  $('source-status').textContent=sourceMatches?'BUILD SUCCEEDED':status||'UNBUILT CHANGES';
+  updateEditor();
+  saveDraft();
+}
 function updateEditor() {
   const source=$('source').value;
   const line=sourceMatches&&current?.source?.file==='main.n16c'?current.source.line:0;
+  const loc=current?.source;
+  $('source-location').textContent=loc?`${loc.file}:${loc.line}:${loc.column}${sourceMatches?'':' · compiled ROM'}`:'Source map not loaded';
   if (source === highlightedSource && line === highlightedLine) {
     syncScroll();
     return;
@@ -231,7 +271,13 @@ function updateEditor() {
     last=match.index+word.length;
   }
   highlight.innerHTML=output+escape(source.slice(last))+'\n';
-  $('line-numbers').innerHTML=source.split('\n').map((_,i)=>`<span class="${i+1===line?'current-line':''}">${i+1}</span>`).join('\n');
+  const count=source.split('\n').length;
+  const gutter=Math.max(45,String(count).length*8+16);
+  $('line-numbers').style.width=`${gutter}px`;
+  highlight.style.left=`${gutter}px`;
+  // Large valid source can contain 65,537 lines. Keep one text run and at most
+  // one highlighted span instead of allocating a DOM element for every line.
+  $('line-numbers').innerHTML=Array.from({length:count},(_,i)=>i+1===line?`<span class="current-line">${i+1}</span>`:String(i+1)).join('\n');
   syncScroll();
 }
 function syncScroll() {
@@ -240,11 +286,49 @@ function syncScroll() {
   $('line-numbers').scrollTop=$('source').scrollTop;
 }
 $('source').oninput=()=> {
-  sourceMatches=false;
-  $('source-status').textContent='UNBUILT CHANGES';
-  updateEditor();
+  editorChanged();
 };
 $('source').onscroll=syncScroll;
+const draftKey='nova16-workbench-draft-v1';
+let draftTimer=null, editorReady=false;
+function validDraft(value) {
+  return value?.version===1 && typeof value.source==='string' && new TextEncoder().encode(value.source).length<=65536 &&
+    ['nova16-v1','nova16-v2'].includes(value.architecture) && ['size','none'].includes(value.optimization);
+}
+function saveDraftNow() {
+  if(!editorReady)return true;
+  clearTimeout(draftTimer);
+  const value={version:1,...editorState()};
+  const saved=validDraft(value)&&writeStorage('localStorage',draftKey,JSON.stringify(value));
+  $('draft-status').textContent=saved?'Draft saved in this browser · Save source for a portable copy.':'Draft recovery unavailable · Save source before closing this tab.';
+  return saved;
+}
+function saveDraft() {
+  if(!editorReady)return;
+  clearTimeout(draftTimer);
+  $('draft-status').textContent='Saving draft…';
+  draftTimer=setTimeout(saveDraftNow,250);
+}
+function restoreDraft() {
+  const text=readStorage('localStorage',draftKey);
+  if(!text || text.length>400000)return false;
+  try {
+    const value=JSON.parse(text);
+    if(!validDraft(value))return false;
+    $('source').value=value.source;
+    $('build-architecture').value=value.architecture;
+    $('build-optimization').value=value.optimization;
+    $('source-status').textContent='DRAFT RECOVERED · BUILD TO RUN';
+    $('draft-status').textContent='Recovered local draft · The running ROM is unchanged.';
+    return true;
+  } catch (_) {return false;}
+}
+window.addEventListener('beforeunload',event=> {
+  if(!saveDraftNow()) {
+    event.preventDefault();
+    event.returnValue='';
+  }
+});
 $('source').onkeydown=event=> {
   if(event.key==='Tab') {
     event.preventDefault();
@@ -275,6 +359,7 @@ $('run').onclick = async () => {
   running = true;
   const generation = ++runGeneration;
   $('run').textContent = 'Ⅱ Pause';
+  renderTransport();
   try {
     while (running && generation === runGeneration) {
       const time = performance.now();
@@ -309,17 +394,37 @@ $('frame').onclick=()=> {
 };
 $('load').onclick=async()=> {
   pause();
-  sourceMatches=false;
   const r=await api({
     op:'load',demo:$('demos').value
   }).catch(()=>null);
-  if(r) {
+  if(r?.ok) {
+    builtEditor=null;
+    editorChanged('EDITOR NOT LOADED');
     romBytes=null;
     $('download-rom').disabled=true;
+    $('diagnostics').classList.remove('error');
     $('diagnostics').textContent='ROM loaded. Focus the display to use controller keys.';
   }
 };
 $('demos').onchange=()=> { $('edit-demo').disabled=!typedDemos[$('demos').value]; };
+$('open-rom').onclick=()=> {pause();$('rom-file').click();};
+$('rom-file').onchange=async()=> {
+  const file=$('rom-file').files[0];
+  $('rom-file').value='';
+  if(!file)return;
+  if(file.size>8224)throw Error('ROM exceeds 8,224 bytes');
+  pause();
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  const result=await api({op:'load_rom',data:[...bytes].map(byte=>hex(byte,2)).join('')});
+  if(result.ok) {
+    builtEditor=null;
+    romBytes=bytes;
+    $('download-rom').disabled=false;
+    editorChanged('EDITOR NOT LOADED');
+    $('diagnostics').classList.remove('error');
+    $('diagnostics').textContent=`Imported ${file.name} · Profile ${result.profile} · Focus the display to play.`;
+  }
+};
 $('edit-demo').onclick=async()=> {
   if (!confirm('Replace the editor with this demo source? Save any edits first.')) return;
   pause();
@@ -327,14 +432,10 @@ $('edit-demo').onclick=async()=> {
   $('source').value=result.editor_source;
   $('build-architecture').value=result.editor_architecture;
   $('build-optimization').value=result.editor_optimization;
-  sourceMatches=false;
-  $('source-status').textContent='SOURCE OPENED · BUILD TO RUN';
-  updateEditor();
+  editorChanged('SOURCE OPENED · BUILD TO RUN');
 };
 for (const id of ['build-architecture','build-optimization']) $(id).onchange=()=> {
-  sourceMatches=false;
-  $('source-status').textContent='UNBUILT CHANGES';
-  updateEditor();
+  editorChanged();
 };
 $('build').onclick = async () => {
   pause();
@@ -349,7 +450,8 @@ $('build').onclick = async () => {
     });
     $('diagnostics').classList.toggle('error', !result.ok);
     if (result.ok) {
-      sourceMatches = $('source').value === builtSource && $('build-architecture').value === builtArchitecture && $('build-optimization').value === builtOptimization;
+      builtEditor={source:builtSource,architecture:builtArchitecture,optimization:builtOptimization};
+      sourceMatches=matchesEditor(builtEditor);
       romBytes = unhex(result.rom);
       $('download-rom').disabled = false;
       $('source-status').textContent = sourceMatches ? 'BUILD SUCCEEDED' : 'UNBUILT CHANGES';
@@ -358,13 +460,27 @@ $('build').onclick = async () => {
       $('diagnostics').textContent = result.diagnostics || result.error;
       $('source-status').textContent = 'BUILD FAILED';
     }
+    sourceMatches=matchesEditor(builtEditor);
     updateEditor();
+    saveDraft();
   }
   finally {
     $('build').disabled = false;
   }
 };
 $('download-source').onclick=()=>download('main.n16c',$('source').value,'text/plain');
+$('open-source').onclick=()=>$('source-file').click();
+$('source-file').onchange=async()=> {
+  const file=$('source-file').files[0];
+  $('source-file').value='';
+  if(!file)return;
+  if(file.size>65536)throw Error('Source exceeds 64 KiB');
+  const source=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());
+  if(source.includes('\0'))throw Error('Source must be UTF-8 text without NUL bytes');
+  if(!confirm('Replace the editor with this source file? The running ROM stays loaded.'))return;
+  $('source').value=source;
+  editorChanged('SOURCE OPENED · BUILD TO RUN');
+};
 $('download-rom').onclick=()=>romBytes&&download('program.n16',romBytes,'application/octet-stream');
 $('command-form').onsubmit=event=> {
   event.preventDefault();
@@ -399,26 +515,51 @@ $('memory-form').onsubmit=event=> {
   inspect($('memory-address').value);
 };
 document.querySelectorAll('[data-address]').forEach(button=>button.onclick=()=>inspect(button.dataset.address));
-for(const name of ['memory','audio'])$(name+'-tab').onclick=()=> {
+function selectInspector(name) {
   for(const tab of ['memory','audio']) {
     $(tab+'-tab').setAttribute('aria-selected',String(tab===name));
+    $(tab+'-tab').tabIndex=tab===name?0:-1;
     $(tab+'-panel').hidden=tab!==name;
   }
-};
-function input(bit,down) {
-  const next=down?held|bit:held&~bit;
-  if(next===held)return;
-  held=next;
-  document.querySelectorAll('[data-bit]').forEach(button=>button.classList.toggle('active',Boolean(held&Number(button.dataset.bit))));
-  vm({
-    op:'command',command:`input ${held}`
-  }).catch(()=> {
+}
+for(const name of ['memory','audio']) {
+  $(name+'-tab').onclick=()=>selectInspector(name);
+  $(name+'-tab').onkeydown=event=> {
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    event.preventDefault();
+    const next=event.key==='Home'?'memory':event.key==='End'?'audio':name==='memory'?'audio':'memory';
+    selectInspector(next);
+    $(next+'-tab').focus();
+  };
+}
+// Multiple keys/pointers may own the same guest bit. Releasing one owner must
+// not release another. Never use a historic VM mask as physical keyboard state.
+const inputOwners=new Map();
+function physicalMask() {
+  let mask=0;
+  for(const bit of inputOwners.values())mask|=bit;
+  return mask;
+}
+function renderInput(mask) {
+  document.querySelectorAll('[data-bit]').forEach(button=> {
+    const active=Boolean(mask&Number(button.dataset.bit));
+    button.classList.toggle('active',active);
+    button.setAttribute('aria-pressed',String(active));
   });
+}
+function input(owner,bit,down) {
+  const before=physicalMask();
+  if(down) {
+    if(inputOwners.has(owner))return;
+    inputOwners.set(owner,bit);
+  } else if(!inputOwners.delete(owner))return;
+  const next=physicalMask();
+  if(before===next && next===current?.input_held)return;
+  vm({op:'command',command:`input ${next}`}).catch(()=> {});
 }
 const keyBits= {
   ArrowUp:1,ArrowDown:2,ArrowLeft:4,ArrowRight:8,KeyZ:16,KeyX:32,Enter:64,ShiftLeft:128,ShiftRight:128
 };
-const pressedKeys=new Set();
 window.addEventListener('keydown',event=> {
   if(event.key==='F5') {
     event.preventDefault();
@@ -431,20 +572,16 @@ window.addEventListener('keydown',event=> {
   const bit=keyBits[event.code];
   if(bit) {
     event.preventDefault();
-    pressedKeys.add(event.code);
-    input(bit,true);
+    input('key:'+event.code,bit,true);
   }
 });
 window.addEventListener('keyup',event=> {
-  if(!pressedKeys.has(event.code))return;
-  pressedKeys.delete(event.code);
-  if(![...pressedKeys].some(code=>keyBits[code]===keyBits[event.code]))input(keyBits[event.code],false);
+  input('key:'+event.code,keyBits[event.code],false);
 });
 function releaseInput() {
-  pressedKeys.clear();
-  if(held) {
-    held=0;
-    document.querySelectorAll('[data-bit]').forEach(button=>button.classList.remove('active'));
+  const mask=physicalMask();
+  inputOwners.clear();
+  if(mask || current?.input_held) {
     vm({
       op:'command',command:'input 0'
     }).catch(()=> {
@@ -466,10 +603,12 @@ document.querySelectorAll('[data-bit]').forEach(button=> {
   button.onpointerdown=event=> {
     event.preventDefault();
     button.setPointerCapture(event.pointerId);
-    input(Number(button.dataset.bit),true);
+    input('pointer:'+event.pointerId,Number(button.dataset.bit),true);
   };
-  button.onpointerup=()=>input(Number(button.dataset.bit),false);
-  button.onpointercancel=()=>input(Number(button.dataset.bit),false);
+  const release=event=>input('pointer:'+event.pointerId,Number(button.dataset.bit),false);
+  button.onpointerup=release;
+  button.onpointercancel=release;
+  button.onlostpointercapture=release;
 });
 $('save-snapshot').onclick=async()=> {
   pause();
@@ -484,6 +623,7 @@ $('restore-snapshot').onclick=()=> {
 };
 $('snapshot-file').onchange=async()=> {
   const file=$('snapshot-file').files[0];
+  $('snapshot-file').value='';
   if(!file)return;
   if(file.size>67680) {
     log('Snapshot exceeds 67,680 bytes');
@@ -493,7 +633,6 @@ $('snapshot-file').onchange=async()=> {
   await vm({
     op:'restore',data
   });
-  $('snapshot-file').value='';
 };
 $('replay').onclick=()=> {
   pause();
@@ -502,7 +641,7 @@ $('replay').onclick=()=> {
 $('replay-cancel').onclick=()=>$('replay-dialog').close();
 $('replay-start').onclick=async()=> {
   $('replay-dialog').close();
-  held=0;
+  inputOwners.clear();
   await api({
     op:'replay',frames:Number($('replay-frames').value),schedule:$('schedule').value
   }).catch(()=> {
@@ -511,16 +650,22 @@ $('replay-start').onclick=async()=> {
 $('listen').onclick=async()=> {
   if(sound) {
     stopSound();
-    await sound.close();
+    const closing=sound;
     sound=null;
     $('listen').textContent='Enable sound';
+    await closing.close();
   } else {
-    sound=new AudioContext({
+    const candidate=new AudioContext({
       sampleRate:48000
     });
-    await sound.resume();
+    try {await candidate.resume();} catch(error) {
+      await candidate.close().catch(()=>{});
+      throw error;
+    }
+    sound=candidate;
     $('listen').textContent='Mute sound';
   }
+  $('listen').disabled=!current?.audio&&!sound;
 };
 $('wav').onclick=()=> {
   const pcm=current?.audio?.pcm;
@@ -555,13 +700,24 @@ api({
     $('demos').append(option);
   }
   $('edit-demo').disabled=!typedDemos[$('demos').value];
+  editorReady=true;
+  if(!restoreDraft())saveDraftNow();
+  enableEditor();
   updateEditor();
 }).catch(()=> {
+  // Failed VM startup must still expose an existing local draft for export.
+  // Before bootstrap finishes, disabled editing prevents late source/draft
+  // initialization from overwriting newly typed text on a slow device.
+  editorReady=true;
+  restoreDraft();
+  enableEditor();
+  $('source-status').textContent='EDITOR ONLY · VM UNAVAILABLE';
+  updateEditor();
   $('connection').textContent='SESSION UNAVAILABLE';
   log(offline?'The offline VM could not start. Use the native Workbench if this browser blocks local Worker execution.':'Open the full local URL printed by scripts/workbench.py to connect.');
 });
 // Event promises terminate here, including browser audio/file API failures.
-for (const [id, event] of [['load','onclick'], ['build','onclick'], ['edit-demo','onclick'],
+for (const [id, event] of [['load','onclick'], ['build','onclick'], ['edit-demo','onclick'], ['source-file','onchange'], ['rom-file','onchange'],
 ['save-snapshot','onclick'], ['snapshot-file','onchange'],
 ['listen','onclick'], ['replay-start','onclick']]) {
   const handler = $(id)[event];

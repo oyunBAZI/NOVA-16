@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "seed": 85973271663938,
+  "cases": 50000,
+  "rom_executions": 100000,
+  "retired": 335097868,
+  "optimized_bytes": 39216720,
+  "baseline_bytes": 54032100,
+  "optimized_instructions": 151326830,
+  "baseline_instructions": 183771038,
+  "maximum_source_bytes": 603,
+  "expression_depth": 4,
+  "architecture": "nova16-v2"
+}
