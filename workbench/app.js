@@ -237,6 +237,9 @@ $('source').before(highlight);
 function editorState() {
   return {source:$('source').value,architecture:$('build-architecture').value,optimization:$('build-optimization').value};
 }
+function enableEditor() {
+  for(const id of ['source','build','open-source','download-source','build-architecture','build-optimization'])$(id).disabled=false;
+}
 function matchesEditor(value) {
   const live=editorState();
   return value!==null && Object.keys(live).every(key=>live[key]===value[key]);
@@ -699,8 +702,17 @@ api({
   $('edit-demo').disabled=!typedDemos[$('demos').value];
   editorReady=true;
   if(!restoreDraft())saveDraftNow();
+  enableEditor();
   updateEditor();
 }).catch(()=> {
+  // Failed VM startup must still expose an existing local draft for export.
+  // Before bootstrap finishes, disabled editing prevents late source/draft
+  // initialization from overwriting newly typed text on a slow device.
+  editorReady=true;
+  restoreDraft();
+  enableEditor();
+  $('source-status').textContent='EDITOR ONLY · VM UNAVAILABLE';
+  updateEditor();
   $('connection').textContent='SESSION UNAVAILABLE';
   log(offline?'The offline VM could not start. Use the native Workbench if this browser blocks local Worker execution.':'Open the full local URL printed by scripts/workbench.py to connect.');
 });

@@ -45,7 +45,7 @@ function parseAttributes(text) {
   return Object.fromEntries([...text.matchAll(/([\w-]+)(?:="([^"]*)")?/g)].map(match=>[match[1],match[2]??'']));
 }
 function storage(values=new Map()) {return {getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};}
-async function frontend({drafts=new Map(),denyStorage=false,native=false,delay,denyAudio=false}={}) {
+async function frontend({drafts=new Map(),denyStorage=false,native=false,delay,denyAudio=false,failBootstrap=false}={}) {
   const elements=new Map(),buttons=[],requests=[],downloads=[],errors=[],events=new Map();
   for(const match of html.matchAll(/<([a-z]+)\b([^>]*)>/g)) {
     const attributes=parseAttributes(match[2]);const element=new Element(match[1],attributes);
@@ -65,6 +65,7 @@ async function frontend({drafts=new Map(),denyStorage=false,native=false,delay,d
   const host=createOfflineHost(data);
   const request=async payload=> {
     requests.push(JSON.parse(JSON.stringify(payload)));
+    if(failBootstrap&&payload.op==='bootstrap')throw Error('simulated VM startup failure');
     if(delay)await delay(payload);
     const response=await host(payload);
     return {ok:response.status>=200&&response.status<300,json:async()=>response.result};
@@ -90,6 +91,8 @@ async function frontend({drafts=new Map(),denyStorage=false,native=false,delay,d
     fetch:async(url,options)=>{assert.equal(url,'/api');return request(JSON.parse(options.body));},
     ResizeObserver:class{observe(){}},Event:class{constructor(type){this.type=type;}}});
   new vm.Script(source,{filename:'workbench/app.js'}).runInContext(context);
+  assert.equal($('source').disabled,true,'Initialization must not overwrite an editable buffer');
+  assert.equal($('open-source').disabled,true,'File import waits for initial source/draft recovery');
   const evaluate=code=>vm.runInContext(code,context);
   const flush=async()=>{await Promise.resolve();await evaluate('serial');await Promise.resolve();};
   await flush();
@@ -308,6 +311,20 @@ await check('custom cartridge file imports commit only valid ROMs and preserve e
         assert.equal(f.$('rom-file').value,'');
       }
     }
+  }finally{f.close();}
+});
+
+await check('VM startup failure retains access to an existing editor draft',async()=> {
+  const source='fn main()->u16{return 123;}';
+  const drafts=new Map([['nova16-workbench-draft-v1',JSON.stringify({version:1,source,architecture:'nova16-v2',optimization:'size'})]]);
+  const f=await frontend({drafts,failBootstrap:true});
+  try {
+    assert.equal(f.$('source').disabled,false);
+    assert.equal(f.$('source').value,source);
+    assert.equal(f.$('source-status').textContent,'EDITOR ONLY · VM UNAVAILABLE');
+    assert.equal(f.$('connection').textContent,'SESSION UNAVAILABLE');
+    f.$('download-source').click();assert.equal(f.downloads[0].name,'main.n16c');
+    assert.equal(JSON.parse(drafts.get('nova16-workbench-draft-v1')).source,source);
   }finally{f.close();}
 });
 
