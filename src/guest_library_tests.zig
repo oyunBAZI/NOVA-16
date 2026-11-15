@@ -26,6 +26,34 @@ fn callWithSetup(name: []const u8, args: [4]u16, input: u8, setup: []const u8) !
     try std.testing.expectEqualSlices(u16, &.{ 0x4444, 0x5555, 0x6666, 0x8000 }, m.cpu.r[4..]);
     try std.testing.expectEqual(0xbffe, m.cpu.sp);
     try std.testing.expectEqual(0, m.cpu.depth);
+    // Execute the same ABI fixture with demand-linked library blocks. Compare
+    // observable state, excluding ROM layout and stale return-address stack bytes.
+    const start = std.mem.indexOf(u8, program, lib.all).?;
+    const linker = @import("compiler/guest_linker.zig");
+    const linked = try linker.plan(a, program[0..start], lib.all);
+    defer linked.deinit();
+    var text: std.Io.Writer.Allocating = .init(a);
+    defer text.deinit();
+    try text.writer.writeAll(program[0..start]);
+    for (linked.blocks) |block| if (block.retained) try text.writer.writeAll(lib.all[block.start..block.end]);
+    const compact = try assembler.assemble(a, text.written(), &diagnostic);
+    defer compact.deinit();
+    var other: Machine = .{};
+    try other.load(compact.image);
+    other.injectInput(input);
+    for (0..200000) |_| {
+        other.step();
+        if (other.cpu.halted or other.cpu.trap != null) break;
+    }
+    try std.testing.expect(other.cpu.halted and other.cpu.trap == null);
+    try std.testing.expectEqualDeep(m.cpu.r, other.cpu.r);
+    try std.testing.expectEqual(m.cpu.retired, other.cpu.retired);
+    try std.testing.expectEqual(m.cpu.flags, other.cpu.flags);
+    try std.testing.expectEqual(m.cpu.sp, other.cpu.sp);
+    try std.testing.expectEqualSlices(u8, m.bus.bytes[0..0x8000], other.bus.bytes[0..0x8000]);
+    try std.testing.expectEqualSlices(u8, m.bus.bytes[0xc000..0xd800], other.bus.bytes[0xc000..0xd800]);
+    try std.testing.expectEqualDeep(m.bus.palette, other.bus.palette);
+    try std.testing.expectEqualDeep(m.bus.input, other.bus.input);
     return m;
 }
 test "guest arithmetic division sign edges checked operations and ABI preservation" {

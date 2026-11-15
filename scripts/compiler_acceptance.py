@@ -7,9 +7,23 @@ def run(exe,*args,ok=True,stdin=None):
  assert (p.returncode==0)==ok,(p.args,p.stdout,p.stderr)
  return p
 with tempfile.TemporaryDirectory() as directory:
- p=pathlib.Path(directory);rom=p/'program.n16';source=p/'main.n16c';asm=p/'program.asm';symbols=p/'program.sym2';layout=p/'layout.json'
+ p=pathlib.Path(directory);rom=p/'program.n16';source=p/'main.n16c';asm=p/'program.asm';symbols=p/'program.sym2';layout=p/'layout.json';size=p/'size.json'
  source.write_text((ROOT/'examples/typed/demo.n16c').read_text())
- run('n16c',source,'--out',rom,'--assembly',asm,'--debug-symbols',symbols,'--layout',layout)
+ run('n16c',source,'--out',rom,'--assembly',asm,'--debug-symbols',symbols,'--layout',layout,'--size-report',size)
+ report=json.loads(size.read_text())
+ assert report['schema_version']==1 and report['rom_capacity_bytes']==8192
+ assert report['rom_payload_bytes']==len(rom.read_bytes())-32
+ assert report['rom_payload_bytes']==report['compiler_bytes']+sum(x['bytes'] for x in report['functions'])+sum(x['bytes'] for x in report['library_blocks'])
+ assert report['removed_library_blocks']>0
+ original_report=size.read_bytes()
+ run('n16c',source,'--out',rom,'--size-report',size)
+ assert size.read_bytes()==original_report
+ # The new report participates in source/duplicate-path preflight, before writes.
+ original_source=source.read_bytes();original_rom=rom.read_bytes()
+ run('n16c',source,'--out',rom,'--size-report',source,ok=False)
+ assert source.read_bytes()==original_source and rom.read_bytes()==original_rom
+ run('n16c',source,'--out',rom,'--size-report',rom,ok=False)
+ assert rom.read_bytes()==original_rom
  first=rom.read_bytes()
  assert len(first)<=8224 and json.loads(layout.read_text())['abi_version']==1
  rebuilt=p/'rebuilt.n16'

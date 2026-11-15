@@ -15,13 +15,14 @@ fn run(init: std.process.Init) !void {
     }
     if (args.len < 2) return error.Usage_n16c_SOURCE_out_ROM;
     if (std.mem.eql(u8, args[1], "--help")) {
-        try std.Io.File.stdout().writeStreamingAll(init.io, "n16c SOURCE --out ROM [--assembly PATH] [--debug-symbols PATH] [--layout PATH] [--diagnostics text|json]\n");
+        try std.Io.File.stdout().writeStreamingAll(init.io, "n16c SOURCE --out ROM [--assembly PATH] [--debug-symbols PATH] [--layout PATH] [--size-report PATH] [--diagnostics text|json]\n");
         return;
     }
     var out: ?[]const u8 = null;
     var assembly: ?[]const u8 = null;
     var map: ?[]const u8 = null;
     var layout: ?[]const u8 = null;
+    var size_report: ?[]const u8 = null;
     var json = false;
     var seen = std.StringHashMap(void).init(a);
     var i: usize = 2;
@@ -31,7 +32,7 @@ fn run(init: std.process.Init) !void {
         if (seen.contains(key)) return error.DuplicateOption;
         try seen.put(key, {});
         const value = args[i + 1];
-        if (std.mem.eql(u8, key, "--out")) out = value else if (std.mem.eql(u8, key, "--assembly")) assembly = value else if (std.mem.eql(u8, key, "--debug-symbols")) map = value else if (std.mem.eql(u8, key, "--layout")) layout = value else if (std.mem.eql(u8, key, "--diagnostics")) {
+        if (std.mem.eql(u8, key, "--size-report")) size_report = value else if (std.mem.eql(u8, key, "--out")) out = value else if (std.mem.eql(u8, key, "--assembly")) assembly = value else if (std.mem.eql(u8, key, "--debug-symbols")) map = value else if (std.mem.eql(u8, key, "--layout")) layout = value else if (std.mem.eql(u8, key, "--diagnostics")) {
             if (std.mem.eql(u8, value, "json")) json = true else if (!std.mem.eql(u8, value, "text")) return error.InvalidDiagnosticFormat;
         } else return error.UnknownOption;
     }
@@ -58,6 +59,11 @@ fn run(init: std.process.Init) !void {
     if (layout) |path| {
         var text: std.Io.Writer.Allocating = .init(a);
         try std.json.Stringify.value(.{ .schema_version = @as(u16, 1), .abi_version = @as(u16, 1), .static_base = @as(u16, 0x100), .static_end = result.context.static_end, .frame_bytes = @as(u16, 256), .maximum_frames = @as(u16, 64), .rom_payload_bytes = result.program.image.len - 32 }, .{}, &text.writer);
+        try files.append(a, .{ .path = path, .bytes = try text.toOwnedSlice() });
+    }
+    if (size_report) |path| {
+        var text: std.Io.Writer.Allocating = .init(a);
+        try n.compiler.writeSizeReport(&text.writer, a, result);
         try files.append(a, .{ .path = path, .bytes = try text.toOwnedSlice() });
     }
     try outputs.publish(a, init.io, &.{args[1]}, files.items);
