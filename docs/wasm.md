@@ -102,3 +102,10 @@ Worker source in a real Node thread. It verifies startup, concurrent-message
 revision rejection, typed V2 compilation, execution and failed-build retention.
 It supplies Node equivalents for Blob/Worker messaging and does not test a
 browser's URL/CSP policy, DOM layout or audio device.
+
+
+Shared protocol responses are serialized within 500,000 bytes; command text is
+bounded to 65,536 bytes. Oversized valid inspections return `OutputLimit` without
+publishing a partial JSON line or terminating the VM. Both native and Wasm tests
+exercise a 3,000-symbol listing and a 600,000-byte source-location field, then
+verify state retention and successful subsequent commands.

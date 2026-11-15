@@ -1,0 +1,9 @@
+======= FUZZING REPORT =======
+Step: run test
+Fuzz test: "fuzz_tests.test.coverage guided bounded machine toolchain and snapshot inputs" (591fe35343855f27)
+Runs: 0 -> 1003883
+Unique runs: 0 -> 3528
+Coverage: 0/24660 -> 2310/24660 (9.37%)
+------------------------------
+Values are accumulated across multiple runs when preserving the cache.
+==============================

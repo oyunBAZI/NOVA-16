@@ -157,3 +157,9 @@ Wasm Worker. It embeds all assets/cartridges and denies network connections.
 Source/ROM/snapshot downloads and guest PCM remain generated from the real core.
 The native HTTP token/origin policy applies to the Python service; it is not an
 authentication layer for an independent offline tab.
+
+
+Protocol inspection output has a 500,000-byte framing budget and a 65,536-byte
+command-text budget. `OutputLimit` is recoverable; the bridge does not disconnect
+or publish malformed partial JSON. Large symbol/map inspections have explicit
+native/Wasm recovery tests.

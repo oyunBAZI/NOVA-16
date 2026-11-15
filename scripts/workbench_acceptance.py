@@ -169,6 +169,36 @@ class WorkbenchAcceptance(unittest.TestCase):
         finally:
             model.close()
 
+    def test_large_valid_inspections_are_bounded_and_recover(self):
+        rom = w.DEMOS / 'boot_splash.n16'
+        checksum = int.from_bytes(rom.read_bytes()[12:16], 'little')
+        with tempfile.TemporaryDirectory() as directory:
+            symbols = pathlib.Path(directory) / 'large.map.json'
+            symbols.write_text(json.dumps({'schema_version': 2, 'rom_checksum': checksum,
+                'symbols': [{'name': 'symbol_' + str(i).zfill(5) + '_' + 'x' * 48,
+                             'value': 0xe000} for i in range(3000)], 'locations': []}))
+            bridge = w.Bridge(rom, symbols)
+            try:
+                before = bridge.request({'op': 'snapshot'})['snapshot']
+                response = bridge.request({'op': 'command', 'command': 'symbols'})
+                self.assertFalse(response['ok'])
+                self.assertEqual(response['error'], 'OutputLimit')
+                self.assertEqual(before, bridge.request({'op': 'snapshot'})['snapshot'])
+                self.assertTrue(bridge.request({'op': 'command', 'command': 'step'})['ok'])
+            finally:
+                bridge.close()
+            entry = 0xe000 + int.from_bytes(rom.read_bytes()[6:8], 'little')
+            symbols.write_text(json.dumps({'schema_version': 2, 'rom_checksum': checksum,
+                'symbols': [], 'locations': [{'address': entry, 'length': 2,
+                'file': 'x' * 600000, 'line': 1, 'column': 1}]}))
+            bridge = w.Bridge(rom, symbols)
+            try:
+                self.assertEqual(bridge.initial['error'], 'OutputLimit')
+                self.assertEqual(bridge.request({'op': 'command', 'command': 'step'})['state']['executed_instructions'], 1)
+                self.assertTrue(bridge.request({'op': 'snapshot'})['ok'])
+            finally:
+                bridge.close()
+
     def test_http_boundaries_and_assets(self):
         model = w.Workbench()
         server = w.Server(('127.0.0.1', 0), model)

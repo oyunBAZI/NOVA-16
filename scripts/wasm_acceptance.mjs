@@ -60,6 +60,19 @@ for (const file of names) {
   assert.equal(machine.rawRequest('not json').error,'BadRequest');
   console.log(`${file}: native/Wasm state, pixels, PCM, snapshots, rewind and rejection parity passed`);
 }
+machine.load(fs.readFileSync(path.join(root,demos,'boot_splash.n16')));
+const checksum=machine.request({}).state.rom_checksum;
+const largeMap={schema_version:2,rom_checksum:checksum,symbols:Array.from({length:3000},(_,i)=>({name:'symbol_'+String(i).padStart(5,'0')+'_'+'x'.repeat(48),value:0xe000})),locations:[]};
+assert.equal(machine.setSymbols(JSON.stringify(largeMap)).ok,true);
+const unchanged=machine.request({op:'snapshot'}).snapshot;
+assert.equal(machine.request({op:'command',command:'symbols'}).error,'OutputLimit');
+assert.equal(machine.request({op:'snapshot'}).snapshot,unchanged);
+const entry=machine.request({}).state.pc;
+const giantLocation={schema_version:2,rom_checksum:checksum,symbols:[],locations:[{address:entry,length:2,file:'x'.repeat(600000),line:1,column:1}]};
+assert.equal(machine.setSymbols(JSON.stringify(giantLocation)).error,'OutputLimit');
+assert.equal(machine.request({op:'command',command:'step'}).state.executed_instructions,1);
+assert.equal(machine.request({op:'snapshot'}).ok,true);
+console.log('Oversized valid inspections return bounded errors and retain the live machine');
 const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'nova16-wasm-'));
 try {
   const main=path.join(temporary,'main.n16c'), rom=path.join(temporary,'program.n16');

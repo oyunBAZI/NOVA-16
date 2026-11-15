@@ -96,3 +96,21 @@ local-file navigation; no attempt bypassed that policy. Native framebuffer
 previews and Node tests do not establish DOM layout, Blob Worker/CSP behavior
 or sound-device playback in a browser. This is a reviewable development milestone,
 not a stable GUI or signed/notarized OS release.
+
+
+## Final boundary review
+
+A final review found that a large valid symbol listing could exceed the Python
+bridge reader's framing limit. Shared serialization now bounds the complete
+response before publication and separately bounds command text. Overflow returns
+`OutputLimit` while preserving the live machine. Regressions cover 3,000 long
+symbols and a 600,000-byte source path in both native and Wasm, including exact
+snapshot retention and a subsequent successful step. This is a protocol/host fix;
+no CPU, device or snapshot format changed.
+
+The expanded composite fuzz campaign completed 1,003,883 runs with 3,528 unique
+feedback runs and 9.37% fuzzer-target coverage. It includes the new shared-protocol
+family and predates the final serialization-budget patch; that patch has its own
+native/Wasm overflow recovery regressions and follow-up checks. These percentages
+are not whole-project code coverage. Raw results and command/seed/duration are
+recorded in `protocol-expanded-fuzz-*` alongside the earlier campaign.
