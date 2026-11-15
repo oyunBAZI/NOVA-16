@@ -558,7 +558,7 @@ api({
   updateEditor();
 }).catch(()=> {
   $('connection').textContent='SESSION UNAVAILABLE';
-  log('Open the full local URL printed by scripts/workbench.py to connect.');
+  log(offline?'The offline VM could not start. Use the native Workbench if this browser blocks local Worker execution.':'Open the full local URL printed by scripts/workbench.py to connect.');
 });
 // Event promises terminate here, including browser audio/file API failures.
 for (const [id, event] of [['load','onclick'], ['build','onclick'], ['edit-demo','onclick'],

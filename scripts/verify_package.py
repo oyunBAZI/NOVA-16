@@ -85,4 +85,5 @@ with tempfile.TemporaryDirectory(prefix='nova16-package-') as temp:
     if node:
         subprocess.run([node, str(root/'scripts/wasm_acceptance.mjs')], cwd=root, check=True, timeout=180)
         subprocess.run([node, str(root/'scripts/offline_acceptance.mjs')], cwd=root, check=True, timeout=180)
+        subprocess.run([node, str(root/'scripts/offline_worker_acceptance.mjs')], cwd=root, check=True, timeout=180)
     print(f"Package {manifest['version']} {manifest['os']}/{manifest['arch']}: checksums, assembly, boot and debugger passed")

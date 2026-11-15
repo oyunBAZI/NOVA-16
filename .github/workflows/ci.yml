@@ -134,6 +134,7 @@ jobs:
       - run: node scripts/wasm_acceptance.mjs
       - run: python3 scripts/package_web.py
       - run: node scripts/offline_acceptance.mjs
+      - run: node scripts/offline_worker_acceptance.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wasm-runtime

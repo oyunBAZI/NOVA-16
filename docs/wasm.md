@@ -87,6 +87,7 @@ supports maps, not larger JSON VM requests. Portable snapshots remain byte-ident
 node scripts/wasm_acceptance.mjs
 python3 scripts/package_web.py
 node scripts/offline_acceptance.mjs
+node scripts/offline_worker_acceptance.mjs
 ```
 
 The first check executes the actual Wasm module and compares native state,
@@ -95,3 +96,9 @@ lifetimes across all demos. It also exercises 100 compile/restore replacements,
 independent instances and memory-growth limits. The second checks the complete
 export's scripts/assets and runs its Worker model through builds, replay, stale
 revisions and rejected operations. It does not substitute for browser rendering.
+
+The Worker acceptance test executes the export's exact launcher and generated
+Worker source in a real Node thread. It verifies startup, concurrent-message
+revision rejection, typed V2 compilation, execution and failed-build retention.
+It supplies Node equivalents for Blob/Worker messaging and does not test a
+browser's URL/CSP policy, DOM layout or audio device.

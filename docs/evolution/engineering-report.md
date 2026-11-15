@@ -68,7 +68,10 @@ independent instances and repeated replacement/memory bounds. Review caught a
 legacy-symbol lifetime bug; the map now owns its text and tests reuse the shared
 input buffer before querying symbols again. A separate offline-export check
 validates embedded scripts/assets and executes build/replay/revision/failure
-handling through the same model used by its Worker.
+handling through the same model used by its Worker. An additional test executes
+the export's exact launcher and generated Worker source in a real Node thread,
+including concurrent-message revision rejection and typed V2 execution. It does
+not pretend that Node's Worker plumbing implements browser URL/CSP policy.
 
 ## Verification and release limits
 

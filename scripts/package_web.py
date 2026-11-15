@@ -32,10 +32,11 @@ self.onmessage=event=>{const {id,payload}=event.data;serial=serial.then(()=>host
     initializer='''<script id="nova-assets" type="application/json">'''+assets+'''</script>
 <script>
 (() => {
+  window.NovaOfflineRequest=()=>Promise.reject(Error('Offline VM initialization failed; this browser must support WebAssembly and Workers.'));
   const data=JSON.parse(document.getElementById('nova-assets').textContent);
   const code='const DATA='+JSON.stringify(data)+';\\n'+WORKER;
   const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
-  const worker=new Worker(url);let next=0;const pending=new Map();
+  let worker;try{worker=new Worker(url);}catch(error){URL.revokeObjectURL(url);throw error;}let next=0;const pending=new Map();
   worker.onmessage=event=>{URL.revokeObjectURL(url);const job=pending.get(event.data.id);if(job){pending.delete(event.data.id);const response=event.data.response;job.resolve({ok:response.status>=200&&response.status<300,json:async()=>response.result});}};
   worker.onerror=()=>{URL.revokeObjectURL(url);for(const job of pending.values())job.reject(Error('Offline VM Worker failed'));pending.clear();};
   window.NovaOfflineRequest=payload=>new Promise((resolve,reject)=>{const id=++next;pending.set(id,{resolve,reject});worker.postMessage({id,payload});});
