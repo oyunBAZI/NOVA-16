@@ -240,7 +240,7 @@ pub const Debugger = struct {
         };
         return @intCast(try number(text, 65535));
     }
-    fn sourceAt(self: *const Debugger, pc: u16) ?@import("symbols.zig").Source {
+    pub fn sourceAt(self: *const Debugger, pc: u16) ?@import("symbols.zig").Source {
         for (self.sources) |loc| if (pc >= loc.address and pc - loc.address < loc.length) return loc;
         return null;
     }
@@ -256,13 +256,16 @@ pub const Debugger = struct {
         return error.SourceLocationNotFound;
     }
     fn runOne(self: *Debugger, out: *std.Io.Writer, respect_break: bool) !bool {
+        return self.runOneAudio(out, respect_break, null);
+    }
+    pub fn runOneAudio(self: *Debugger, out: *std.Io.Writer, respect_break: bool, output: ?*[800]i16) !bool {
         const c = &self.machine.cpu;
         if (c.halted or c.paused or c.trap != null) return false;
         if (respect_break and c.pc & 1 == 0 and self.breaks[c.pc / 2]) {
             try out.print("breakpoint before {x:0>4}\n", .{c.pc});
             return false;
         }
-        self.recorder.step(self.machine);
+        self.recorder.stepAudio(self.machine, output);
         var hit = false;
         for (self.machine.bus.writes[0..self.machine.bus.write_count]) |event| if (self.watches[event.address]) {
             try out.print("watch {x:0>4}: {x:0>2} -> {x:0>2}\n", .{ event.address, event.old, event.new });

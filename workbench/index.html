@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>NOVA / 16 — Workbench</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body>
+<header class="masthead">
+<a class="brand" href="/" aria-label="NOVA Workbench"><b>NOVA<span>/16</span></b><small>WORKBENCH</small></a><span class="local"><i></i> LOCAL MACHINE</span><span id="connection" role="status">Connecting…</span>
+</header>
+
+<main>
+
+<div class="toolbar">
+<div>
+<select id="demos" aria-label="Guest program"></select><button id="load">Load ROM</button>
+</div>
+<div class="transport">
+<button id="reset" title="Reset machine">Reset</button><button id="reverse" title="Undo last instruction or frame action">← Reverse</button><button id="step" title="One instruction, F10">Step</button><button id="next" title="Next source line">Next line</button><button id="frame" title="Complete one logical frame">Frame</button><button id="run" class="primary" title="Run / pause, F5">▶ Run</button>
+</div>
+</div>
+
+<div class="session-strip">
+<span><i id="status-dot"></i><b id="machine-status">READY</b> <span id="machine-title">—</span></span><span id="profile">PROFILE —</span><span id="timing">FRAME 0000 · 0 INSTRUCTIONS</span>
+</div>
+
+<div class="workspace">
+
+<section class="panel editor-panel">
+<div class="panel-heading">
+<h1><span class="file-dot"></span>main.n16c</h1><span id="source-status">N16C · ABI 1</span><button id="build" class="small primary">Build & load</button>
+</div>
+<div class="editor">
+<pre id="line-numbers" aria-hidden="true">1</pre><textarea id="source" maxlength="65536" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="N16C source code" wrap="off"></textarea>
+</div>
+<div class="editor-foot">
+<span id="source-location">Source map not loaded</span><button id="download-source" class="text-button">Save source ↓</button><button id="download-rom" class="text-button" disabled>ROM ↓</button>
+</div>
+<div id="diagnostics" class="diagnostics" role="status">
+Build your own program, or explore a verified ROM from the library.
+</div>
+</section>
+
+<section class="panel display-panel">
+<div class="panel-heading">
+<h2>Machine display</h2><span id="rom-id">128 × 96 · 4 BPP</span><label class="toggle"><input id="integer-scale" type="checkbox" checked> Integer scale</label>
+</div>
+<div class="screen-surround" id="screen-surround">
+<canvas id="screen" width="128" height="96" tabindex="0" aria-label="Live guest display. Arrow keys move, Z is A, X is B, Enter starts, Shift selects."></canvas>
+</div>
+<div class="display-foot">
+<span id="pixel-info">Guest pixels · no host rendering</span><span id="input-state">INPUT 00</span>
+</div>
+<div class="controller">
+<button data-bit="1" aria-label="Up">↑</button><button data-bit="4" aria-label="Left">←</button><button data-bit="2" aria-label="Down">↓</button><button data-bit="8" aria-label="Right">→</button><span></span><button data-bit="16">Z / A</button><button data-bit="32">X / B</button><button data-bit="64">Enter</button><button data-bit="128">Shift</button>
+</div>
+<div id="palette" class="palette" aria-label="Live guest palette">
+</div>
+</section>
+
+<section class="panel cpu-panel">
+<div class="panel-heading">
+<h2>Processor</h2><span id="flags">Z 0 · N 0 · C 0 · V 0</span><span class="quiet">16-BIT · R0–R7</span>
+</div>
+<div id="registers" class="registers">
+</div>
+<div class="cpu-detail">
+<div>
+<h3>Next instructions</h3><pre id="disassembly"></pre>
+</div>
+<div class="breakpoint-tools">
+<h3>Breakpoints</h3>
+<form id="break-form">
+<input id="break-address" aria-label="Breakpoint location" placeholder="0xe000 or main.n16c:8"><button>Add</button>
+</form>
+<div id="breakpoints">
+</div>
+<p id="history-count">0 / 32 rewind entries</p><p class="quiet">Step: one instruction<br>Frame: one frame action</p>
+</div>
+</div>
+</section>
+
+<section class="panel inspector-panel">
+<div class="panel-heading tabs" role="tablist">
+<button id="memory-tab" role="tab" aria-selected="true" aria-controls="memory-panel">Memory</button><button id="audio-tab" role="tab" aria-selected="false" aria-controls="audio-panel">Audio & IRQ</button><span class="quiet">LIVE OBSERVATION</span>
+</div>
+<div id="memory-panel" role="tabpanel" aria-labelledby="memory-tab">
+<form id="memory-form">
+<label for="memory-address">Address</label><input id="memory-address" value="0x0000" maxlength="6"><button>Inspect</button><span class="quiet">256 bytes · read only</span>
+</form>
+<div class="memory-map">
+<button data-address="0x0000">RAM</button><button data-address="0x8000">STACK</button><button data-address="0xc000">VRAM</button><button data-address="0xd800">MMIO</button><button data-address="0xe000">ROM</button>
+</div>
+<pre id="memory" aria-label="Memory bytes"></pre><p class="memory-note">?? = denied address · device inspection does not clear input latches</p>
+</div>
+<div id="audio-panel" role="tabpanel" aria-labelledby="audio-tab" hidden>
+<p id="audio-status">Profile 1 has no audio hardware.</p><canvas id="scope" width="600" height="100" aria-label="Oscilloscope of actual guest PCM"></canvas>
+<div id="voices">
+</div>
+<p id="irq"></p><button id="listen">Enable sound</button><button id="wav">Export last frame WAV ↓</button>
+</div>
+</section>
+
+</div>
+
+<section class="panel console-panel">
+<div class="panel-heading">
+<h2>Debug console</h2><span class="quiet">BOUNDED COMMANDS · EXACT STATE</span>
+<div class="session-actions">
+<button id="save-snapshot" class="small">Save snapshot ↓</button><button id="restore-snapshot" class="small">Restore snapshot ↑</button><button id="replay" class="small">Input replay</button>
+</div>
+</div>
+<pre id="console" role="log" aria-label="Debugger output">NOVA-16 · Native machine connected through protocol v1.
+Type help to list debugger commands.</pre>
+<form id="command-form">
+<span>n16&gt;</span><input id="command" aria-label="Debugger command" placeholder="regs · vars · source · watch 0xc000 · trace 16" maxlength="256" autocomplete="off"><button>Execute ↵</button>
+</form>
+</section>
+
+<footer>
+<span>NOVA / 16 <span class="quiet">DEVELOPMENT INSTRUMENTS</span></span><span>Deterministic guest execution. Real registers, pixels and PCM.</span>
+</footer>
+
+</main>
+<input id="snapshot-file" type="file" accept=".n16s" hidden>
+<dialog id="replay-dialog">
+<h2>Deterministic input replay</h2><p>Replay starts from reset and uses the native frame scheduler.</p><label>Frames (1–120) <input id="replay-frames" type="number" min="1" max="120" value="60"></label><label>Schedule · frame and input mask<textarea id="schedule" rows="7" spellcheck="false"># frame input-mask
+0 0x00
+10 0x10
+11 0x00</textarea></label><p class="quiet">Up 1 · Down 2 · Left 4 · Right 8 · A 16 · B 32 · Start 64 · Select 128</p><button id="replay-cancel">Cancel</button><button id="replay-start" class="primary">Reset & replay</button>
+</dialog>
+</body></html>

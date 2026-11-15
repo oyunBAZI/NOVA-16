@@ -1,0 +1,34 @@
+{
+  "os": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "arch": "x86_64",
+  "optimization": "ReleaseSafe",
+  "profile": 2,
+  "program": "nova_sound",
+  "measurement": "Seven fresh processes per frontend in separate groups: startup + one frame + stdout capture. CLI uses 32-entry instruction undo; bridge uses 32-entry frame-action undo plus JSON observation. Different intended undo granularities, not a controlled core-throughput comparison.",
+  "samples": {
+    "n16dbg": {
+      "milliseconds": [
+        66.8493190000845,
+        74.74109299982956,
+        82.41613400014103,
+        64.25781899997673,
+        62.25190399982239,
+        66.47853799995573,
+        75.14142299987725
+      ],
+      "median_ms": 66.8493190000845
+    },
+    "n16bridge": {
+      "milliseconds": [
+        3.315725999982533,
+        2.7291170003991283,
+        4.0232510000350885,
+        17.761052999958338,
+        3.344908999679319,
+        2.4189490000026126,
+        3.014508999967802
+      ],
+      "median_ms": 3.315725999982533
+    }
+  }
+}

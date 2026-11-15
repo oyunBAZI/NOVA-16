@@ -78,6 +78,8 @@ test {
 }
 
 pub const audio = @import("devices/audio.zig");
+pub const workbench = @import("workbench/session.zig");
 test {
+    _ = workbench;
     _ = @import("v2_tests.zig");
 }
