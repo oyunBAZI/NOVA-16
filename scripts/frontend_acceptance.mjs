@@ -45,7 +45,7 @@ function parseAttributes(text) {
   return Object.fromEntries([...text.matchAll(/([\w-]+)(?:="([^"]*)")?/g)].map(match=>[match[1],match[2]??'']));
 }
 function storage(values=new Map()) {return {getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};}
-async function frontend({drafts=new Map(),denyStorage=false,native=false,delay}={}) {
+async function frontend({drafts=new Map(),denyStorage=false,native=false,delay,denyAudio=false}={}) {
   const elements=new Map(),buttons=[],requests=[],downloads=[],errors=[],events=new Map();
   for(const match of html.matchAll(/<([a-z]+)\b([^>]*)>/g)) {
     const attributes=parseAttributes(match[2]);const element=new Element(match[1],attributes);
@@ -70,13 +70,14 @@ async function frontend({drafts=new Map(),denyStorage=false,native=false,delay}=
   for(const name of ['localStorage','sessionStorage']) {
     Object.defineProperty(window,name,{get(){if(denyStorage)throw Error('storage denied');return name==='localStorage'?storage(drafts):storage();}});
   }
-  let audioCount=0;
+  let audioCount=0, audioClosed=0;
+  const audioFrames=[];
   class AudioContext {
     constructor(){audioCount++;this.state='suspended';this.currentTime=0;}
-    async resume(){this.state='running';}
-    async close(){this.state='closed';}
-    createBuffer(_,length,rate){return {copyToChannel(){},duration:length/rate};}
-    createBufferSource(){return {connect(){},start(){},stop(){}};}
+    async resume(){if(denyAudio)throw Error('audio denied');this.state='running';}
+    async close(){audioClosed++;this.state='closed';}
+    createBuffer(_,length,rate){return {copyToChannel(value){this.samples=[...value];},duration:length/rate};}
+    createBufferSource(){return {connect(){},start(){audioFrames.push(this.buffer.samples);},stop(){}};}
   }
   const context=vm.createContext({window,document,console,TextEncoder,TextDecoder,Uint8Array,Uint8ClampedArray,Float32Array,ArrayBuffer,DataView,
     setTimeout,clearTimeout,performance,AudioContext,
@@ -95,7 +96,7 @@ async function frontend({drafts=new Map(),denyStorage=false,native=false,delay}=
     async emit(name,event={}) {for(const fn of events.get(name)??[])fn(event);await flush();},
     async edit(text) {$('source').value=text;$('source').oninput();await flush();},
     async command(text) {$('command').value=text;$('command-form').onsubmit({preventDefault(){}});await flush();},
-    close(){evaluate('pause();clearTimeout(draftTimer);');},audioCount:()=>audioCount};
+    close(){evaluate('pause();clearTimeout(draftTimer);');},audioCount:()=>audioCount,audioFrames,audioClosed:()=>audioClosed};
 }
 
 let checks=0;
@@ -226,6 +227,39 @@ await check('transport pause status updates during an outstanding frame',async()
     assert.equal(f.$('run').getAttribute('aria-pressed'),'false');
     assert.equal(f.requests.filter(r=>r.request?.op==='frame').length,1,'Pause schedules no additional frame');
   } finally {unblock();f.close();}
+});
+
+await check('actual guest PCM is queued once per frame despite observations/input',async()=> {
+  const f=await frontend();
+  try {
+    f.$('demos').value='nova_sound';await f.$('load').click();await f.flush();
+    await f.$('listen').click();assert.equal(f.audioCount(),1);
+    f.evaluate('running=true');
+    await f.evaluate("vm({op:'frame'})");
+    assert.equal(f.audioFrames.length,1);
+    const expected=f.state().audio.pcm.map(x=>Math.fround(x/32768));
+    assert.deepEqual(f.audioFrames[0],expected);
+    await f.evaluate("vm({op:'observe'})");await f.command('input 16');
+    // Console commands pause. Resume the same completed frame to model a
+    // controller/inspector response while Run is active, without a fake synth.
+    f.evaluate('running=true');await f.evaluate("vm({op:'frame'})");
+    const count=f.audioFrames.length;
+    await f.evaluate("vm({op:'command',command:'input 0'})");
+    await f.evaluate("vm({op:'observe'})");await f.evaluate("vm({op:'snapshot'})");
+    assert.equal(f.audioFrames.length,count,'Repeated completed PCM is not replayed');
+    f.evaluate('pause()');
+    assert.equal(f.evaluate('audioNodes.size'),0);
+    f.$('demos').value='paint';await f.$('load').click();await f.flush();
+    assert.equal(f.$('listen').disabled,false,'An open audio device can be muted on V1');
+    await f.$('listen').click();assert.equal(f.audioClosed(),1);assert.equal(f.$('listen').disabled,true);
+  } finally {f.close();}
+  const denied=await frontend({denyAudio:true});
+  try {
+    denied.$('demos').value='nova_sound';await denied.$('load').click();await denied.flush();
+    await denied.$('listen').click();assert.equal(denied.evaluate('sound'),null);
+    assert.equal(denied.audioClosed(),1,'Rejected activation closes the candidate audio device');
+    assert.equal(denied.$('listen').textContent,''); // DOM double does not parse static inner text.
+  } finally {denied.close();}
 });
 
 console.log(JSON.stringify({schema_version:1,checks,frontend:'shipped app.js with real Wasm/compiler host',browser_rendering:false}));

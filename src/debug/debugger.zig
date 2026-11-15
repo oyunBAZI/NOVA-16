@@ -41,11 +41,17 @@ pub const Debugger = struct {
         } else if (eq(cmd, "step") or eq(cmd, "continue")) {
             if (count > 1) return error.ArgumentCount;
             const budget = if (count == 1) try number(tokens[0], 1_000_000) else if (eq(cmd, "step")) @as(u64, 1) else 1_000_000;
-            self.machine.cpu.paused = false;
+            var resume_group = self.beginResume();
+            defer if (resume_group) self.recorder.endGroup();
             for (0..@as(usize, @intCast(budget))) |_| {
                 const c = &self.machine.cpu;
                 if (c.halted or c.paused or c.trap != null) break;
-                if (!try self.runOne(out, eq(cmd, "continue"))) break;
+                const keep_running = try self.runOne(out, eq(cmd, "continue"));
+                if (resume_group) {
+                    self.recorder.endGroup();
+                    resume_group = false;
+                }
+                if (!keep_running) break;
             }
             try self.status(out);
         } else if (eq(cmd, "vars") or eq(cmd, "var")) {
@@ -78,9 +84,15 @@ pub const Debugger = struct {
             if (count > 1) return error.ArgumentCount;
             const budget = if (count == 1) try number(tokens[0], 1_000_000) else 100_000;
             const origin = self.sourceAt(self.machine.cpu.pc) orelse return error.NoSourceLocation;
-            self.machine.cpu.paused = false;
+            var resume_group = self.beginResume();
+            defer if (resume_group) self.recorder.endGroup();
             for (0..@as(usize, @intCast(budget))) |_| {
-                if (!try self.runOne(out, false)) break;
+                const keep_running = try self.runOne(out, false);
+                if (resume_group) {
+                    self.recorder.endGroup();
+                    resume_group = false;
+                }
+                if (!keep_running) break;
                 if (self.breaks[self.machine.cpu.pc / 2]) break;
                 const current = self.sourceAt(self.machine.cpu.pc) orelse break;
                 if (std.mem.eql(u8, current.file, "<n16-runtime>")) continue;
@@ -120,15 +132,23 @@ pub const Debugger = struct {
                     }
                 }
             } else {
-                self.machine.cpu.paused = false;
+                var resume_group = self.beginResume();
+                defer if (resume_group) self.recorder.endGroup();
                 for (0..@as(usize, @intCast(frames))) |_| {
                     if (self.machine.cpu.halted or self.machine.cpu.paused or self.machine.cpu.trap != null) break;
                     self.machine.bus.input.inject(self.machine.bus.input.held);
                     var running = true;
-                    for (0..@import("../arch/isa.zig").frame_budget) |_| if (!try self.runOne(out, true)) {
-                        running = false;
-                        break;
-                    };
+                    for (0..@import("../arch/isa.zig").frame_budget) |_| {
+                        const keep_running = try self.runOne(out, true);
+                        if (resume_group) {
+                            self.recorder.endGroup();
+                            resume_group = false;
+                        }
+                        if (!keep_running) {
+                            running = false;
+                            break;
+                        }
+                    }
                     self.recorder.capture(self.machine);
                     self.machine.bus.frame +%= 1;
                     self.machine.bus.vblank = true;
@@ -261,6 +281,16 @@ pub const Debugger = struct {
     fn runOne(self: *Debugger, out: *std.Io.Writer, respect_break: bool) !bool {
         return self.runOneAudio(out, respect_break, null);
     }
+    /// Resume and the first transition form one undo action. Capturing only
+    /// after clearing paused loses the exact pre-command guest BRK state.
+    /// Respect an embedding host's existing frame/action group.
+    fn beginResume(self: *Debugger) bool {
+        if (!self.machine.cpu.paused) return false;
+        const own_group = !self.recorder.grouped;
+        if (own_group) self.recorder.beginGroup(self.machine);
+        self.machine.cpu.paused = false;
+        return own_group;
+    }
     pub fn runOneAudio(self: *Debugger, out: *std.Io.Writer, respect_break: bool, output: ?*[800]i16) !bool {
         const c = &self.machine.cpu;
         if (c.halted or c.paused or c.trap != null) return false;
@@ -311,6 +341,63 @@ fn number(s: []const u8, max: u64) !u64 {
     const v = std.fmt.parseInt(u64, s, 0) catch return error.InvalidNumber;
     if (v > max) return error.Limit;
     return v;
+}
+test "resuming guest BRK reverses to exact paused state in both profiles and histories" {
+    const a = std.testing.allocator;
+    const snapshot = @import("../core/snapshot.zig");
+    for ([_]@import("../arch/isa.zig").Profile{ .v1, .v2 }) |profile| {
+        for ([_]bool{ false, true }) |delta| {
+            for ([_][]const u8{ "step", "continue 2", "next 2", "step 0", "continue 0", "next 0" }) |command| {
+                var diag: asm16.Diagnostic = .{};
+                const rom = try asm16.assembleProfile(a, "LDI R0, 1\nBRK\nINC R0\nINC R0\nHALT", &diag, profile);
+                defer rom.deinit();
+                var m: Machine = .{};
+                try m.load(rom.image);
+                var d: Debugger = .{ .machine = &m, .recorder = .{ .allocator = a }, .sources = &.{
+                    .{ .address = 0xe006, .length = 4, .file = "main.n16c", .line = 2, .column = 1 },
+                    .{ .address = 0xe00a, .length = 2, .file = "main.n16c", .line = 3, .column = 1 },
+                } };
+                defer d.deinit();
+                if (delta) try d.recorder.configureDelta(16) else try d.recorder.configure(16);
+                var out: std.Io.Writer.Allocating = .init(a);
+                defer out.deinit();
+                _ = try d.command("step 2", &out.writer);
+                try std.testing.expect(m.cpu.paused);
+                const before = try snapshot.encodeChecked(a, &m);
+                defer a.free(before);
+                const history_before = d.recorder.undo_count;
+                _ = try d.command(command, &out.writer);
+                try std.testing.expect(!m.cpu.paused);
+                try std.testing.expect(!d.recorder.grouped);
+                while (d.recorder.undo_count > history_before) try d.recorder.reverse(&m);
+                const after = try snapshot.encodeChecked(a, &m);
+                defer a.free(after);
+                try std.testing.expectEqualSlices(u8, before, after);
+            }
+        }
+    }
+}
+
+test "resume honors an existing embedding action group" {
+    const a = std.testing.allocator;
+    var diag: asm16.Diagnostic = .{};
+    const rom = try asm16.assemble(a, "BRK\nINC R0\nHALT", &diag);
+    defer rom.deinit();
+    var m: Machine = .{};
+    try m.load(rom.image);
+    var d: Debugger = .{ .machine = &m, .recorder = .{ .allocator = a } };
+    defer d.deinit();
+    try d.recorder.configureDelta(16);
+    var out: std.Io.Writer.Allocating = .init(a);
+    defer out.deinit();
+    _ = try d.command("step", &out.writer);
+    d.recorder.beginGroup(&m);
+    _ = try d.command("step", &out.writer);
+    try std.testing.expect(d.recorder.grouped);
+    d.recorder.endGroup();
+    try d.recorder.reverse(&m);
+    try std.testing.expect(m.cpu.paused);
+    try std.testing.expectEqual(0, m.cpu.r[0]);
 }
 test "scripted break-before-execute watch BRK resume and reset" {
     const a = std.testing.allocator;

@@ -10,7 +10,7 @@
 
 <div class="toolbar">
 <div>
-<select id="demos" aria-label="Guest program"></select><button id="load">Load ROM</button><button id="edit-demo" disabled>Open source</button>
+<select id="demos" aria-label="Guest program"></select><button id="load">Load ROM</button><button id="open-rom">Open ROM ↑</button><button id="edit-demo" disabled>Open demo source</button>
 </div>
 <div class="transport">
 <button id="reset" title="Reset machine">Reset</button><button id="reverse" title="Undo last instruction or frame action">← Reverse</button><button id="step" title="One instruction, F10">Step</button><button id="next" title="Next source line">Next line</button><button id="frame" title="Complete one logical frame">Frame</button><button id="run" class="primary" title="Run / pause, F5">▶ Run</button>
@@ -126,6 +126,7 @@ Type help to list debugger commands.</pre>
 </main>
 <input id="snapshot-file" type="file" accept=".n16s" hidden>
 <input id="source-file" type="file" accept=".n16c,.txt,text/plain" hidden>
+<input id="rom-file" type="file" accept=".n16,application/octet-stream" hidden>
 <dialog id="replay-dialog">
 <h2>Deterministic input replay</h2><p>Replay starts from reset and uses the native frame scheduler.</p><label>Frames (1–120) <input id="replay-frames" type="number" min="1" max="120" value="60"></label><label>Schedule · frame and input mask<textarea id="schedule" rows="7" spellcheck="false"># frame input-mask
 0 0x00

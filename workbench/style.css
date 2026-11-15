@@ -127,7 +127,8 @@ main {
 }
 .toolbar>div {
   display:flex;
-  gap:6px
+  gap:6px;
+  flex-wrap:wrap
 }
 select {
   min-width:175px

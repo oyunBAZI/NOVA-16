@@ -28,9 +28,18 @@ def exercise(browser, url, mode, destination):
       window.novaTestViolation({directive:event.violatedDirective,blocked:event.blockedURI});
     });""")
     started = time.monotonic()
+    def wait(expression):
+        # wait_for_function evaluates its predicate inside the page and is
+        # rejected by the runtime CSP. Poll through the debugger protocol;
+        # never weaken CSP or use a bypass_csp browser context for acceptance.
+        deadline = time.monotonic() + 30
+        while not page.evaluate(expression):
+            if time.monotonic() >= deadline:
+                raise AssertionError('Browser state did not arrive: ' + expression)
+            page.wait_for_timeout(50)
     try:
         page.goto(url, wait_until='load')
-        page.wait_for_function("document.getElementById('connection').textContent.startsWith('CONNECTED')")
+        wait("document.getElementById('connection').textContent.startsWith('CONNECTED')")
         assert page.locator('#demos option').count() == 11
         assert page.evaluate('current.profile') == 1
         assert page.evaluate('sound===null'), 'Boot must not request audio automatically'
@@ -46,11 +55,11 @@ def exercise(browser, url, mode, destination):
         program = 'fn main()->u16 {\n var value:u16=41;\n return value+1;\n}'
         page.locator('#source').fill(program)
         page.locator('#build').click()
-        page.wait_for_function("document.getElementById('source-status').textContent==='BUILD SUCCEEDED'")
+        wait("document.getElementById('source-status').textContent==='BUILD SUCCEEDED'")
         checksum = page.evaluate('current.state.rom_checksum')
         page.locator('#command').fill('continue')
         page.locator('#command-form button').click()
-        page.wait_for_function('current.state.halted')
+        wait('current.state.halted')
         assert page.evaluate('current.state.registers[0]') == 42
         assert page.locator('#machine-status').inner_text() == 'HALT'
         page.locator('#source').fill(program + '\n')
@@ -65,13 +74,13 @@ def exercise(browser, url, mode, destination):
         download.value.save_as(snapshot)
         assert snapshot.read_bytes().startswith(b'N16S')
         page.locator('#snapshot-file').set_input_files({'name': 'corrupt.n16s', 'mimeType': 'application/octet-stream', 'buffer': b'broken'})
-        page.wait_for_function("document.getElementById('console').textContent.includes('Snapshot')")
+        wait("document.getElementById('console').textContent.includes('Snapshot')")
         assert page.evaluate('current.state.registers[0]') == 42
         assert page.evaluate('current.state.rom_checksum') == checksum
 
         page.locator('#source').fill('fn main()->u16{return missing;}')
         page.locator('#build').click()
-        page.wait_for_function("document.getElementById('source-status').textContent==='BUILD FAILED'")
+        wait("document.getElementById('source-status').textContent==='BUILD FAILED'")
         assert 'UndefinedVariable' in page.locator('#diagnostics').inner_text()
         assert page.evaluate('current.state.rom_checksum') == checksum
         assert page.evaluate('current.state.registers[0]') == 42
@@ -79,31 +88,31 @@ def exercise(browser, url, mode, destination):
 
         page.locator('#source').fill(program)
         page.locator('#build-architecture').select_option('nova16-v2')
-        page.wait_for_function("document.getElementById('draft-status').textContent.startsWith('Draft saved')")
+        wait("document.getElementById('draft-status').textContent.startsWith('Draft saved')")
         page.reload(wait_until='load')
-        page.wait_for_function('editorReady')
+        wait('editorReady')
         assert page.locator('#source').input_value() == program
         assert page.locator('#build-architecture').input_value() == 'nova16-v2'
         assert 'DRAFT RECOVERED' in page.locator('#source-status').inner_text()
 
         imported = b'fn main()->u16{return 99;}'
         page.locator('#source-file').set_input_files({'name': 'main.n16c', 'mimeType': 'text/plain', 'buffer': imported})
-        page.wait_for_function("document.getElementById('source').value.includes('99')")
+        wait("document.getElementById('source').value.includes('99')")
         page.locator('#demos').select_option('paint')
         page.locator('#load').click()
-        page.wait_for_function("current.title==='Paint'")
+        wait("current.title==='Paint'")
         page.locator('#screen').focus()
         page.keyboard.down('z')
-        page.wait_for_function('current.input_held===16')
+        wait('current.input_held===16')
         page.keyboard.up('z')
-        page.wait_for_function('current.input_held===0')
+        wait('current.input_held===0')
         page.locator('#reverse').click()
-        page.wait_for_function('current.input_held===16')
+        wait('current.input_held===16')
         assert page.locator('[data-bit="16"]').get_attribute('aria-pressed') == 'true'
         page.locator('#source').focus()
-        page.wait_for_function('current.input_held===0')
+        wait('current.input_held===0')
         page.locator('#frame').click()
-        page.wait_for_function('current.state.frame_count>0')
+        wait('current.state.frame_count>0')
         assert page.evaluate("""() => {
           const bytes=document.getElementById('screen').getContext('2d').getImageData(0,0,128,96).data;
           for(let i=0;i<128*96;i++) {
@@ -128,14 +137,14 @@ def exercise(browser, url, mode, destination):
 
         page.locator('#demos').select_option('nova_sound')
         page.locator('#load').click()
-        page.wait_for_function('current.profile===2')
+        wait('current.profile===2')
         page.locator('#audio-tab').click()
         page.locator('#listen').click()
-        page.wait_for_function("sound?.state==='running'")
+        wait("sound?.state==='running'")
         page.locator('#run').click()
-        page.wait_for_function('current.state.frame_count>=2')
+        wait('current.state.frame_count>=2')
         page.locator('#run').click()
-        page.wait_for_function('running===false')
+        wait('running===false')
         assert page.locator('#run').get_attribute('aria-pressed') == 'false'
         assert page.locator('#machine-status').inner_text() != 'RUNNING'
         assert page.evaluate('current.audio.pcm.length') == 800
@@ -145,7 +154,7 @@ def exercise(browser, url, mode, destination):
         download.value.save_as(wav)
         assert wav.read_bytes().startswith(b'RIFF') and wav.stat().st_size == 1644
         page.locator('#listen').click()
-        page.wait_for_function('sound===null')
+        wait('sound===null')
         assert not errors, errors
         assert not violations, violations
         if mode == 'offline':
@@ -153,6 +162,9 @@ def exercise(browser, url, mode, destination):
         return {'mode': mode, 'passed': True, 'seconds': round(time.monotonic() - started, 3),
                 'viewport_geometry': geometry, 'page_errors': errors, 'csp_violations': violations,
                 'audio': 'real AudioContext running and guest WAV bytes; no listening claim'}
+    except Exception:
+        page.screenshot(path=str(destination / f'{mode}-failure.png'), full_page=True)
+        raise
     finally:
         context.close()
 

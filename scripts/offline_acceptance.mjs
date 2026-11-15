@@ -56,4 +56,39 @@ result=await request({op:'build',source:'fn main()->u16{return 42;}',architectur
 assert.equal(result.ok,true);
 result=await request({op:'vm',request:{op:'command',command:'continue'}});
 assert.equal(result.state.registers[0],42);assert.equal(result.state.halted,true);
+
+// The same grammar corpus executes through both real hosts; all invalid
+// schedules are rejected before reset or any guest mutation.
+const schedules=JSON.parse(fs.readFileSync(path.join(root,'docs/quality/replay-cases.json'),'utf8'));
+await request({op:'load',demo:'paint'});
+for(const schedule of schedules.valid) {
+  result=await request({op:'replay',frames:4,schedule});
+  assert.equal(result.replay_frames,4);
+}
+const before=(await request({op:'vm',request:{op:'snapshot'}})).snapshot;
+for(const schedule of [...schedules.invalid,'#'+'é'.repeat(4096)]) {
+  await request({op:'replay',frames:4,schedule},400);
+  assert.equal((await request({op:'vm',request:{op:'snapshot'}})).snapshot,before);
+}
+await request({op:'build',source:'fn main()->u16{return 42;}'});
+result=await request({op:'replay',frames:120,schedule:''});
+assert.equal(result.replay_frames,1);assert.equal(result.state.frame_count,1);
+await request({op:'build',source:'fn main()->u16{return 42;}',architecture:'nova16-v2'});
+result=await request({op:'replay',frames:120,schedule:''});
+assert.equal(result.replay_frames,120);assert.equal(result.state.transition_slots,2400000);
+
+for(const name of ['paint','nova_sound']) {
+  const rom=Buffer.from(data.cartridges[name].rom,'base64');
+  result=await request({op:'load_rom',data:rom.toString('hex')});
+  assert.equal(result.ok,true);assert.equal(result.title,'Imported ROM');
+  await request({op:'vm',request:{op:'frame'}});
+  const saved=(await request({op:'vm',request:{op:'snapshot'}})).snapshot;
+  const corrupt=Buffer.from(rom);corrupt[corrupt.length-1]^=1;
+  for(const data of ['', '00',rom.subarray(0,-1).toString('hex'),corrupt.toString('hex')]) {
+    const failure=await request({op:'load_rom',data});
+    assert.equal(failure.ok,false);
+    assert.equal((await request({op:'vm',request:{op:'snapshot'}})).snapshot,saved);
+  }
+  for(const data of [null,[],'x','00 00','00'.repeat(8225)])await request({op:'load_rom',data},400);
+}
 console.log(JSON.stringify({schema_version:1,offline_bytes:Buffer.byteLength(html),cartridges:11,inline_scripts:scripts,worker_host:'build/replay/restore/rejection/isolation passed'}));

@@ -199,6 +199,63 @@ class WorkbenchAcceptance(unittest.TestCase):
             finally:
                 bridge.close()
 
+    def test_imported_rom_validation_commit_and_retention(self):
+        model = w.Workbench()
+        try:
+            def dispatch(**request):
+                status, result = model.dispatch(dict(request, revision=model.revision))
+                self.assertEqual(status, 200)
+                return result
+            for name in ('paint', 'nova_sound'):
+                rom = (w.DEMOS / (name + '.n16')).read_bytes()
+                result = dispatch(op='load_rom', data=rom.hex())
+                self.assertTrue(result['ok'])
+                self.assertEqual(result['title'], 'Imported ROM')
+                self.assertEqual(result['profile'], 2 if name == 'nova_sound' else 1)
+                dispatch(op='vm', request={'op': 'frame'})
+                before = dispatch(op='vm', request={'op': 'snapshot'})['snapshot']
+                bad_crc = bytearray(rom)
+                bad_crc[-1] ^= 1
+                for bad in ('', '00', rom[:-1].hex(), bytes(bad_crc).hex()):
+                    rejected = dispatch(op='load_rom', data=bad)
+                    self.assertFalse(rejected['ok'])
+                    self.assertEqual(before, dispatch(op='vm', request={'op': 'snapshot'})['snapshot'])
+                for bad in (None, [], 'x', '00 00', '00' * 8225):
+                    with self.assertRaises(ValueError):
+                        dispatch(op='load_rom', data=bad)
+                self.assertEqual(len(list(model.directory.iterdir())), 1, 'Only current imported assets are retained')
+        finally:
+            model.close()
+
+    def test_native_replay_grammar_and_actual_completed_count(self):
+        cases = json.loads((w.ROOT / 'docs/quality/replay-cases.json').read_text())
+        model = w.Workbench()
+        try:
+            def dispatch(**request):
+                status, result = model.dispatch(dict(request, revision=model.revision))
+                self.assertEqual(status, 200)
+                return result
+            dispatch(op='load', demo='paint')
+            for text in cases['valid']:
+                result = dispatch(op='replay', frames=4, schedule=text)
+                self.assertEqual(result['replay_frames'], 4)
+            before = dispatch(op='vm', request={'op': 'snapshot'})['snapshot']
+            for text in cases['invalid'] + ['#' + 'é' * 4096]:
+                with self.subTest(schedule=text[:40]), self.assertRaises(ValueError):
+                    dispatch(op='replay', frames=4, schedule=text)
+                self.assertEqual(before, dispatch(op='vm', request={'op': 'snapshot'})['snapshot'])
+            dispatch(op='build', source='fn main()->u16{return 42;}')
+            result = dispatch(op='replay', frames=120, schedule='')
+            self.assertEqual(result['replay_frames'], 1)
+            self.assertIn('1 of 120', result['output'])
+            self.assertEqual(result['state']['frame_count'], 1)
+            dispatch(op='build', source='fn main()->u16{return 42;}', architecture='nova16-v2')
+            result = dispatch(op='replay', frames=120, schedule='')
+            self.assertEqual(result['replay_frames'], 120, 'V2 devices continue while CPU is halted')
+            self.assertEqual(result['state']['transition_slots'], 2_400_000)
+        finally:
+            model.close()
+
     def test_http_boundaries_and_assets(self):
         model = w.Workbench()
         server = w.Server(('127.0.0.1', 0), model)

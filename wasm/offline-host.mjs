@@ -60,6 +60,14 @@ export function createOfflineHost(data) {
           result={...machine.request({}),editor_source:source,editor_architecture:architecture,editor_optimization:optimization};
           revision++;break;
         }
+        case 'load_rom': {
+          const text=request.data;
+          if(typeof text!=='string'||text.length>16448||text.length%2||!/^[0-9a-f]*$/i.test(text))throw Error('ROM must be hex, at most 8,224 decoded bytes');
+          result=machine.load(Uint8Array.from(text.match(/../g)??[],byte=>parseInt(byte,16)));
+          if(result.ok) title='Imported ROM';
+          else result={...machine.request({}),ok:false,error:'ROM rejected; previous machine retained'};
+          revision++;break;
+        }
         case 'build': {
           const arch=request.architecture??'nova16-v1',opt=request.optimization??'size';
           if(!['nova16-v1','nova16-v2'].includes(arch)||!['size','none'].includes(opt)) throw Error('Invalid architecture or optimization');

@@ -395,6 +395,24 @@ $('load').onclick=async()=> {
   }
 };
 $('demos').onchange=()=> { $('edit-demo').disabled=!typedDemos[$('demos').value]; };
+$('open-rom').onclick=()=> {pause();$('rom-file').click();};
+$('rom-file').onchange=async()=> {
+  const file=$('rom-file').files[0];
+  $('rom-file').value='';
+  if(!file)return;
+  if(file.size>8224)throw Error('ROM exceeds 8,224 bytes');
+  pause();
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  const result=await api({op:'load_rom',data:[...bytes].map(byte=>hex(byte,2)).join('')});
+  if(result.ok) {
+    builtEditor=null;
+    romBytes=bytes;
+    $('download-rom').disabled=false;
+    editorChanged('EDITOR NOT LOADED');
+    $('diagnostics').classList.remove('error');
+    $('diagnostics').textContent=`Imported ${file.name} · Profile ${result.profile} · Focus the display to play.`;
+  }
+};
 $('edit-demo').onclick=async()=> {
   if (!confirm('Replace the editor with this demo source? Save any edits first.')) return;
   pause();
@@ -667,7 +685,7 @@ api({
   log(offline?'The offline VM could not start. Use the native Workbench if this browser blocks local Worker execution.':'Open the full local URL printed by scripts/workbench.py to connect.');
 });
 // Event promises terminate here, including browser audio/file API failures.
-for (const [id, event] of [['load','onclick'], ['build','onclick'], ['edit-demo','onclick'], ['source-file','onchange'],
+for (const [id, event] of [['load','onclick'], ['build','onclick'], ['edit-demo','onclick'], ['source-file','onchange'], ['rom-file','onchange'],
 ['save-snapshot','onclick'], ['snapshot-file','onchange'],
 ['listen','onclick'], ['replay-start','onclick']]) {
   const handler = $(id)[event];

@@ -79,3 +79,56 @@ await assert.rejects(pending,/Worker failed/);
 await assert.rejects(failedWindow.NovaOfflineRequest({op:'load',demo:'boot_splash'}),/Worker failed/);
 assert.equal(urls.size,0);
 console.log('Fatal Worker errors reject pending and future requests instead of leaving UI actions waiting');
+
+function transport() {
+  let worker, nextTimer=0, terminated=0;
+  const timers=new Map(),events=new Map(),resources=new Set();
+  const window={addEventListener(name,fn){events.set(name,fn);}};
+  const context=vm.createContext({window,document:{getElementById(){return {textContent:assets};}},Blob:TestBlob,
+    Worker:class{constructor(){worker=this;this.messages=[];}postMessage(value){this.messages.push(value);}terminate(){terminated++;}},
+    setTimeout(fn,ms){assert.equal(ms,20000);timers.set(++nextTimer,fn);return nextTimer;},clearTimeout(id){timers.delete(id);},
+    URL:{createObjectURL(){resources.add('blob:transport');return 'blob:transport';},revokeObjectURL(value){resources.delete(value);}},
+    location:{reload(){events.set('reloaded',true);}}});
+  new vm.Script(scripts[0]).runInContext(context);
+  return {window,worker,timers,events,resources,terminated:()=>terminated};
+}
+{
+  const t=transport();
+  const pending=Array.from({length:16},()=>t.window.NovaOfflineRequest({op:'bootstrap'}));
+  await assert.rejects(t.window.NovaOfflineRequest({op:'bootstrap'}),/queue is full/);
+  assert.equal(t.timers.size,16);
+  t.worker.onmessage({data:{id:999,response:{}}});
+  assert.equal(t.timers.size,16,'Unknown/stale response IDs do not settle another request');
+  const first=t.worker.messages[0];
+  t.worker.onmessage({data:{id:first.id,response:{status:200,result:{ok:true}}}});
+  assert.equal((await pending[0]).ok,true);
+  assert.equal(t.timers.size,15);
+  const rejections=pending.slice(1).map(job=>assert.rejects(job,/response budget/));
+  [...t.timers.values()][0]();
+  await Promise.all(rejections);
+  assert.equal(t.timers.size,0);assert.equal(t.resources.size,0);assert.equal(t.terminated(),1);
+  await assert.rejects(t.window.NovaOfflineRequest({op:'bootstrap'}),/response budget/);
+  t.events.get('pagehide')();assert.equal(t.terminated(),1,'Disposal is idempotent');
+}
+for(const failure of ['messageerror','malformed','pagehide']) {
+  const t=transport(),pending=t.window.NovaOfflineRequest({op:'bootstrap'});
+  const rejected=assert.rejects(pending,/decoded|invalid response|page closed/);
+  if(failure==='messageerror')t.worker.onmessageerror();
+  if(failure==='malformed')t.worker.onmessage({data:{id:1,response:{status:200,result:null}}});
+  if(failure==='pagehide')t.events.get('pagehide')();
+  await rejected;
+  assert.equal(t.timers.size,0);assert.equal(t.terminated(),1);assert.equal(t.resources.size,0);
+  t.events.get('pageshow')({persisted:true});assert.equal(t.events.get('reloaded'),true);
+}
+{
+  const t=transport();
+  t.worker.postMessage=()=>{throw Error('simulated clone denial');};
+  await assert.rejects(t.window.NovaOfflineRequest({op:'bootstrap'}),/clone denial/);
+  assert.equal(t.timers.size,0);assert.equal(t.terminated(),0,'An unsent request does not kill the VM');
+  t.worker.postMessage=value=>t.worker.messages.push(value);
+  const pending=t.window.NovaOfflineRequest({op:'bootstrap'});
+  t.worker.onmessage({data:{id:2,response:{status:200,result:{ok:true}}}});
+  assert.equal((await pending).ok,true);assert.equal(t.timers.size,0);
+  t.events.get('pagehide')();
+}
+console.log('Exported transport queue/timeouts, clone rejection, malformed messages and page lifecycle passed');

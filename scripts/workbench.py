@@ -96,7 +96,10 @@ class Bridge:
                 self.process.wait(timeout=2)
         for stream in (self.process.stdin, self.process.stdout):
             if stream:
-                stream.close()
+                try:
+                    stream.close()
+                except OSError:
+                    pass  # A dead child may reject buffered stdin during cleanup.
         if threading.current_thread() is not self.reader:
             self.reader.join(timeout=2)
 
@@ -160,6 +163,31 @@ class Workbench:
             result = self.bridge.request({'op': 'observe'})
             result.update(editor_source=self.source, editor_architecture=self.editor_architecture,
                           editor_optimization=self.editor_optimization)
+            self.revision += 1
+        elif op == 'load_rom':
+            data = request.get('data')
+            if (not isinstance(data, str) or len(data) > 16448 or len(data) % 2 or
+                    not re.fullmatch(r'[0-9a-fA-F]*', data)):
+                raise ValueError('ROM must be hex, at most 8,224 decoded bytes')
+            self.generation += 1
+            directory = self.directory / str(self.generation)
+            directory.mkdir()
+            rom = directory / 'imported.n16'
+            rom.write_bytes(bytes.fromhex(data))
+            try:
+                try:
+                    result = self.replace(rom, None, 'Imported ROM')
+                except RuntimeError:
+                    result = self.bridge.request({'op': 'observe'})
+                    result.update(ok=False, error='ROM rejected; previous machine retained')
+                else:
+                    old = self.build_directory
+                    self.build_directory = directory
+                    if old:
+                        shutil.rmtree(old)
+            finally:
+                if directory != self.build_directory:
+                    shutil.rmtree(directory)
             self.revision += 1
         elif op == 'build':
             source = request.get('source')
