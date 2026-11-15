@@ -139,6 +139,7 @@ jobs:
       - run: node scripts/offline_worker_acceptance.mjs
       - run: node scripts/frontend_acceptance.mjs
       - run: node scripts/session_soak.mjs --cycles 20 --seconds 0 --out zig-out/session-soak.json
+      - run: node scripts/frame_wrap_acceptance.mjs --frames 128 --out zig-out/frame-wrap.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wasm-runtime
@@ -148,6 +149,7 @@ jobs:
             wasm/offline-host.mjs
             zig-out/web/NOVA16-Offline-Workbench.html
             zig-out/session-soak.json
+            zig-out/frame-wrap.json
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
