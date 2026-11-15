@@ -198,7 +198,20 @@ class WorkbenchAcceptance(unittest.TestCase):
             self.assertEqual(request('POST', '/api', {'op': 'bootstrap'}, Origin='https://evil.invalid')[0], 403)
             self.assertEqual(request('POST', '/api', {'op': 'bootstrap'}, **{'X-Nova-Token': 'bad'})[0], 403)
             self.assertEqual(request('POST', '/api', [])[0], 400)
-            self.assertEqual(request('POST', '/api', {'op': 'bootstrap', 'padding': 'x' * 200_000})[0], 400)
+            # Reject at headers, without racing a large body against an early close.
+            # macOS may reset a socket with unread inbound data; sending that body
+            # tests transport timing, not the server's advertised size boundary.
+            connection = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=10)
+            connection.putrequest('POST', '/api', skip_host=True)
+            for key, value in {'Host': server.authority, 'X-Nova-Token': server.token,
+                               'Content-Type': 'application/json',
+                               'Content-Length': str(w.MAX_BODY + 1)}.items():
+                connection.putheader(key, value)
+            connection.endheaders()
+            response = connection.getresponse()
+            self.assertEqual(response.status, 400)
+            response.read()
+            connection.close()
             self.assertEqual(request('POST', '/api', {'op': 'bootstrap'})[0], 200)
         finally:
             server.shutdown()
