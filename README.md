@@ -58,6 +58,20 @@ python3 scripts/v2_acceptance.py
 See [V2 usage](docs/v2-implementation.md) and the [verification ledger](docs/v2-implementation-ledger.md).
 This development version is separate from the historical v0.4 release.
 
+## Integrated Workbench
+
+```sh
+zig build -Doptimize=ReleaseSafe
+python3 scripts/workbench.py
+```
+
+Edit and compile a typed program, run the real VM, inspect its pixels/registers/
+memory/voices, debug source and instructions, rewind, save/restore snapshots and
+replay controller input in one local interface. Python 3.10+ and a browser are
+required; no additional packages. The existing CLI and SDL frontends remain
+available. See [Workbench manual](docs/workbench.md) and
+[quality milestone](docs/workbench-quality-plan.md) for limits and evidence.
+
 ## Machine and tools
 
 - Eight 16-bit registers, separate PC/SP, Z/N/C/V; strict 2/4-byte ISA and traps.

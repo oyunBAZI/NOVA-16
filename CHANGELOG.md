@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — integrated Workbench
+
+- Added a native versioned JSON-lines VM bridge and optional dependency-free local
+  Workbench: typed editor/build, registers, framebuffer, memory/palette, source
+  breakpoints, stepping, exact rewind, snapshots, replay and V2 PCM inspection.
+- Frame actions retain one exact undo snapshot while recording instruction traces.
+  Existing instruction history and all hardware/binary contracts remain unchanged.
+- Added native/HTTP acceptance, CI matrix coverage, complete SDK packaging and a
+  bounded local-service boundary. Failed builds retain the live machine.
+- This is a development milestone, not a stable GUI release.
+
 ## Unreleased — compact typed programs
 - Demand-linked ABI1 library blocks and reachable typed function emission.
 - Deterministic `n16c --size-report PATH` with function/library byte accounting.

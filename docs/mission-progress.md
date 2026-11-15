@@ -99,3 +99,23 @@ Next executable step: publish this branch for review atop PR #5 through the
 verified owner connection, then reconcile the required integration checks. Continue Phase
 1B with identifying fixtures and real-CPU oracle comparisons before changing
 instruction generation; then the Workbench vertical slice. Keep Profile 2 fixed.
+
+## Workbench quality milestone — 2026-11-15
+
+Continued from published compact-linking head `11b13ab` on the isolated
+`feat/workbench-quality` branch. PRs #5/#6 remain open; no main merge, branch
+deletion or stable release is part of this work.
+
+Implemented the optional host Workbench: a native versioned bounded JSON-lines
+bridge, shared real instruction debugging, exact frame-action undo, live source/
+CPU/memory/video/audio inspection, isolated typed builds, snapshots and native
+input replay. Browser assets, launcher and bridge ship in SDKs; native and
+extracted-SDK acceptance includes the workflow.
+
+The concrete audit/plan and boundary decisions are in
+`docs/workbench-quality-plan.md`; usage and protocol are in `docs/workbench.md`.
+`docs/reliability/workbench-local.json` records actual executed gates. The old
+Phase 6 checkbox above described the earlier checkpoint: this adds a usable
+local-browser vertical slice, not all native desktop/editor/project/graphics-lab
+requirements of the original larger Phase 6. Native GUI visual validation and
+the rest of that mission are not silently marked complete.

@@ -113,10 +113,14 @@ pub const Machine = struct {
         self.bus.vblank = true;
     }
     pub fn step(self: *Machine) void {
+        self.stepAudio(null);
+    }
+    /// Optional copy of a completed PCM frame; ownership stays with the caller.
+    pub fn stepAudio(self: *Machine, output: ?*[800]i16) void {
         self.bus.write_count = 0;
         if (self.bus.profile == .v2) {
             if (self.cpu.halted or self.cpu.paused or self.cpu.trap != null) return;
-            _ = self.transition(true, null);
+            _ = self.transition(true, output);
         } else self.cpu.step(&self.bus);
     }
     /// Completes the current logical frame, including idle/fault slots. `output`

@@ -11,6 +11,17 @@ pub const Recorder = struct {
     undo: ?[]Machine = null,
     undo_next: usize = 0,
     undo_count: usize = 0,
+    grouped: bool = false,
+    /// A bounded host action can share one exact undo boundary. Traces remain
+    /// per instruction; the existing debugger retains instruction undo by default.
+    pub fn beginGroup(self: *Recorder, m: *const Machine) void {
+        std.debug.assert(!self.grouped);
+        self.capture(m);
+        self.grouped = true;
+    }
+    pub fn endGroup(self: *Recorder) void {
+        self.grouped = false;
+    }
     pub fn deinit(self: *Recorder) void {
         if (self.undo) |u| self.allocator.free(u);
         self.undo = null;
@@ -30,6 +41,7 @@ pub const Recorder = struct {
     }
     /// Record an external device transition in the same exact-state undo ring.
     pub fn capture(self: *Recorder, m: *const Machine) void {
+        if (self.grouped) return;
         if (self.undo) |u| {
             u[self.undo_next] = m.*;
             self.undo_next = (self.undo_next + 1) % u.len;
@@ -37,6 +49,9 @@ pub const Recorder = struct {
         }
     }
     pub fn step(self: *Recorder, m: *Machine) void {
+        self.stepAudio(m, null);
+    }
+    pub fn stepAudio(self: *Recorder, m: *Machine, output: ?*[800]i16) void {
         if (m.cpu.halted or m.cpu.paused or m.cpu.trap != null) return;
         self.capture(m);
         const before = m.cpu;
@@ -44,7 +59,7 @@ pub const Recorder = struct {
         const word: u16 = if (pc <= 65534) @as(u16, m.bus.bytes[pc]) | (@as(u16, m.bus.bytes[pc + 1]) << 8) else 0;
         const immediate: u16 = if (pc <= 65532) @as(u16, m.bus.bytes[pc + 2]) | (@as(u16, m.bus.bytes[pc + 3]) << 8) else 0;
         const entries = m.irq_entries;
-        m.step();
+        m.stepAudio(output);
         self.trace[self.trace_next] = .{ .irq_entry = if (m.irq_entries != entries) m.bus.irq.active() else null, .profile = m.bus.profile, .slots = m.slots, .before = before, .after = m.cpu, .writes = m.bus.writes, .count = m.bus.write_count, .word = word, .immediate = immediate, .length = if (@import("../arch/isa.zig").decodeProfile(word, m.bus.profile)) |i| i.len else |_| 2 };
         self.trace_next = (self.trace_next + 1) % self.trace.len;
         self.trace_count = @min(self.trace_count + 1, self.trace.len);

@@ -23,3 +23,8 @@ changes improving invalid-input diagnostics may introduce more specific error
 codes. New formats reject unknown versions. Legacy symbol maps remain readable,
 with their lack of identity checking documented. Stable release promotion needs
 all native execution, graphical, reliability and distributable gates green.
+
+Workbench changes also require `python3 scripts/workbench_acceptance.py`. Keep
+the JSON-lines protocol versioned, observations nonacknowledging, requests bounded
+and candidate builds separate from the live machine. Browser layout checks are
+separate from native and HTTP acceptance. See `docs/workbench.md`.

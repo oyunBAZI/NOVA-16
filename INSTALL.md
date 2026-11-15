@@ -62,3 +62,10 @@ are also in applications/crates.zip and applications/pixel_studio.zip. Extract
 one and use the same test/debug workflow. Full source/test build inputs are
 included for rebuilding the SDK with Zig0.17.1; Zig is not needed to compile
 guest applications using the native n16c/n16asm binaries. See docs/apps/README.md.
+
+## Optional integrated Workbench
+
+From this checkout or an extracted development SDK, run
+`python3 scripts/workbench.py` (`python` on Windows). The launcher opens a local
+session in your browser. Python 3.10+ is required; no third-party packages.
+Source checkouts first need `zig build`. See [the manual](docs/workbench.md).
