@@ -19,6 +19,7 @@ pub const Result = struct {
     }
 };
 const Assembly = struct {
+    profile: isa.Profile = .v1,
     a: std.mem.Allocator,
     source: []const u8,
     diag: *Diagnostic,
@@ -205,7 +206,7 @@ const Assembly = struct {
         if (self.pc & 1 != 0) return error.UnalignedInstruction;
         if (self.first == null) self.first = self.pc;
         self.diag.focus(self.source, n);
-        const op = try enc.lookup(n);
+        const op = try enc.lookupProfile(n, self.profile);
         const inst_pc = self.pc;
         if (self.pass == 0) {
             for (0..op.len) |_| try self.emit(0);
@@ -278,7 +279,7 @@ const Assembly = struct {
                 w = (op.index << 12) | (try self.register(p.items[0]) << 9) | (base << 6) | @as(u6, @bitCast(disp));
             },
         }
-        _ = try isa.decode(w);
+        _ = try isa.decodeProfile(w, self.profile);
         try self.word(w);
         if (op.len == 4) try self.word(imm);
     }
@@ -287,12 +288,15 @@ fn number(s: []const u8) !i64 {
     return std.fmt.parseInt(i64, s, 0) catch return error.InvalidNumber;
 }
 pub fn assemble(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Result {
-    return assembleInner(a, source, diag) catch |err| {
+    return assembleProfile(a, source, diag, .v1);
+}
+pub fn assembleProfile(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic, profile: isa.Profile) !Result {
+    return assembleInner(a, source, diag, profile) catch |err| {
         diag.explain(err);
         return err;
     };
 }
-fn assembleInner(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !Result {
+fn assembleInner(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic, profile: isa.Profile) !Result {
     diag.* = .{};
     if (source.len > 1024 * 1024) return error.SourceTooLarge;
     if (!std.unicode.utf8ValidateSlice(source)) return error.InvalidUtf8;
@@ -305,7 +309,7 @@ fn assembleInner(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !R
     };
     diag.line_starts = starts.items;
     defer diag.line_starts = &.{};
-    var state: Assembly = .{ .a = a, .source = source, .diag = diag, .indices = .init(a), .pending_indices = .init(a) };
+    var state: Assembly = .{ .profile = profile, .a = a, .source = source, .diag = diag, .indices = .init(a), .pending_indices = .init(a) };
     defer state.indices.deinit();
     defer state.pending_indices.deinit();
     defer state.locations.deinit(a);
@@ -339,7 +343,7 @@ fn assembleInner(a: std.mem.Allocator, source: []const u8, diag: *Diagnostic) !R
     }
     const entry: i64 = if (state.entry) |e| try state.value(e) else @intCast(state.first orelse return error.NoEntry);
     if (entry < 0xe000 or entry >= 0xe000 + state.length or @mod(entry, 2) != 0) return error.BadEntry;
-    const image = try rom.pack(a, state.bytes[0..state.length], @intCast(entry - 0xe000));
+    const image = try rom.packProfile(a, state.bytes[0..state.length], @intCast(entry - 0xe000), profile);
     errdefer a.free(image);
     const symbols = try a.dupe(Symbol, state.symbols.items);
     errdefer a.free(symbols);
@@ -426,13 +430,16 @@ test "listing contains addresses bytes and original source" {
 /// Spans always refer to the original source. Existing assemble remains fail-fast.
 pub const Diagnostics = struct { items: [32]Diagnostic = undefined, len: usize = 0 };
 pub fn diagnose(a: std.mem.Allocator, source: []const u8) !Diagnostics {
+    return diagnoseProfile(a, source, .v1);
+}
+pub fn diagnoseProfile(a: std.mem.Allocator, source: []const u8, profile: isa.Profile) !Diagnostics {
     if (source.len > 1024 * 1024) return error.SourceTooLarge;
     const copy = try a.dupe(u8, source);
     defer a.free(copy);
     var result: Diagnostics = .{};
     while (result.len < result.items.len) {
         var d: Diagnostic = .{};
-        if (assemble(a, copy, &d)) |r| {
+        if (assembleProfile(a, copy, &d, profile)) |r| {
             r.deinit();
             break;
         } else |err| {

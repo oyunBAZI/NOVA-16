@@ -64,3 +64,9 @@ are explicit device access, distinct from checked library memory functions.
 Executable tests in src/guest_library_tests.zig assemble real ROMs, run CPU
 instructions and verify independent arithmetic oracles, status, memory/graphics,
 input, caller-owned randomness, stack and saved-register sentinels.
+
+Profile2 assembly helpers live in `v2.asm`: `n16v2_voice` programs one voice
+while disabled; `n16v2_timer` rearms the timer with explicit split writes. Register
+contracts are documented at each routine. The two V2 demonstration projects
+carry identical copies so projects/packages stay self-contained. These helpers
+require explicit V2 assembly; N16C remains a V1 compiler.

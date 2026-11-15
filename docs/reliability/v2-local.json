@@ -1,0 +1,195 @@
+{
+  "baseline": "a25afb5d72dbd0d0a2afd27409c84d112ccb35d0",
+  "source_dirty": true,
+  "results": [
+    {
+      "command": "zig build fmt",
+      "exit": 0,
+      "seconds": 0.033,
+      "output": ""
+    },
+    {
+      "command": "zig build",
+      "exit": 0,
+      "seconds": 0.021,
+      "output": ""
+    },
+    {
+      "command": "zig build test --summary all --test-timeout 2m",
+      "exit": 0,
+      "seconds": 21.973,
+      "output": "Build Summary: 3/3 steps succeeded; 116/116 tests passed\ntest success\n+- run test 116 pass (116 total) 21s MaxRSS:43M\n   +- compile test debug native success 920ms MaxRSS:175M\n\n"
+    },
+    {
+      "command": "zig build test -Doptimize=ReleaseSafe --summary all --test-timeout 2m",
+      "exit": 0,
+      "seconds": 37.988,
+      "output": "Build Summary: 3/3 steps succeeded; 116/116 tests passed\ntest success\n+- run test 116 pass (116 total) 6s MaxRSS:39M\n   +- compile test safe native success 31s MaxRSS:655M\n\n"
+    },
+    {
+      "command": "zig build v2-model-test --summary all",
+      "exit": 0,
+      "seconds": 0.017,
+      "output": "Build Summary: 3/3 steps succeeded\nv2-model-test success\n+- run test cached\n   +- compile test debug native cached 4ms MaxRSS:41M\n\n"
+    },
+    {
+      "command": "python3 scripts/acceptance.py",
+      "exit": 0,
+      "seconds": 2.473,
+      "output": "boot_splash: boot/debug/PPM OK, sha256=420c5fc58a7f204072d9dd257e24607f2d624f3b31a39c154cf5c8cb0152955c\nbouncing_pixel: boot/debug/PPM OK, sha256=39738b734e6d8c75277c462192e4ab0af156afe3cb28d8b1a65fba0e5c5d4ca5\npaint: boot/debug/PPM OK, sha256=cfadc70d6dba91154258e606e1313fec9a14f4583f954fc11525eb16cc49b2d6\ndiagnostics: boot/debug/PPM OK, sha256=b46b81b0ff39fe8e0e92b2ffd76c0107835e577e17d2f1e050adfea043ea3df6\nReplay, budgets, malformed CLI/source/ROM/debugger and snapshot checks OK\n"
+    },
+    {
+      "command": "python3 scripts/compatibility_acceptance.py",
+      "exit": 0,
+      "seconds": 0.029,
+      "output": "All five original V1 ROM byte identities match the v0.3 baseline\n"
+    },
+    {
+      "command": "python3 scripts/developer_acceptance.py",
+      "exit": 0,
+      "seconds": 0.686,
+      "output": "Developer diagnostics, bounded recovery, output preflight/staging OK\n"
+    },
+    {
+      "command": "python3 scripts/compiler_acceptance.py",
+      "exit": 0,
+      "seconds": 0.299,
+      "output": "Compiler CLI: real V1 ROM, ordinary assembly reassembly, source map/debugger, limits and artifact retention passed\n"
+    },
+    {
+      "command": "python3 scripts/project_acceptance.py",
+      "exit": 0,
+      "seconds": 1.731,
+      "output": "Projects: create/build/run/debug/test, isolated includes, deterministic packages/rebuild, failed-build retention passed\n"
+    },
+    {
+      "command": "python3 scripts/application_acceptance.py",
+      "exit": 0,
+      "seconds": 14.476,
+      "output": "crates/title: real ROM, framebuffer SHA and guest state passed\ncrates/win: real ROM, framebuffer SHA and guest state passed\ncrates/undo: real ROM, framebuffer SHA and guest state passed\ncrates/collision: real ROM, framebuffer SHA and guest state passed\ncrates/restart: real ROM, framebuffer SHA and guest state passed\ncrates/blocked: real ROM, framebuffer SHA and guest state passed\npixel_studio/blank: real ROM, framebuffer SHA and guest state passed\npixel_studio/drawing: real ROM, framebuffer SHA and guest state passed\npixel_studio/undo: real ROM, framebuffer SHA and guest state passed\npixel_studio/clear: real ROM, framebuffer SHA and guest state passed\nAll application replays passed\n"
+    },
+    {
+      "command": "python3 scripts/v2_contract_vectors.py",
+      "exit": 0,
+      "seconds": 0.065,
+      "output": "V2 specification vectors, independent audio math, and V2 ROM activation and V1 snapshot profile isolation passed\n"
+    },
+    {
+      "command": "python3 scripts/v2_acceptance.py",
+      "exit": 0,
+      "seconds": 4.108,
+      "output": "nova_sound: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\ninterrupt_canvas: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\nV2 black-box acceptance passed; complete original V1 gates remain separate\n"
+    },
+    {
+      "command": "python3 scripts/game_acceptance.py",
+      "exit": 0,
+      "seconds": 8.029,
+      "output": "title: real guest replay/framebuffer SHA256 OK\nplay: real guest replay/framebuffer SHA256 OK\nwin: real guest replay/framebuffer SHA256 OK\nloss: real guest replay/framebuffer SHA256 OK\n"
+    },
+    {
+      "command": "python3 scripts/security_check.py",
+      "exit": 0,
+      "seconds": 0.045,
+      "output": "Workflow pin/trigger/permissions, toolchain SHA256, version and source checkout policy passed\nRelease-only OIDC/attestation permissions and pinned genuine SDL2 source passed\n"
+    },
+    {
+      "command": "zig build test -Doptimize=ReleaseSafe --fuzz=1K --test-timeout 5m --seed=0x4e313602",
+      "exit": 0,
+      "seconds": 52.057,
+      "output": "======= FUZZING REPORT =======\nStep: run test\nFuzz test: \"fuzz_tests.test.coverage guided bounded machine toolchain and snapshot inputs\" (945b5b54410a0f25)\nRuns: 0 -> 1206\nUnique runs: 0 -> 198\nCoverage: 0/22050 -> 1220/22050 (5.53%)\n------------------------------\nValues are accumulated across multiple runs when preserving the cache.\n==============================\n"
+    },
+    {
+      "command": "zig build gui-test -Dgui=true --search-prefix /workspace/scratch/3a93092b993c/sdl-sdk/prefix",
+      "exit": 0,
+      "seconds": 0.9,
+      "output": "SDL2 ABI/events/controls/scaling/readback passed\n"
+    },
+    {
+      "command": "zig build -Doptimize=ReleaseSafe -Dstrip=true -Dcpu=baseline",
+      "exit": 0,
+      "seconds": 12.522,
+      "output": ""
+    },
+    {
+      "command": "python3 scripts/acceptance.py",
+      "exit": 0,
+      "seconds": 0.617,
+      "output": "boot_splash: boot/debug/PPM OK, sha256=420c5fc58a7f204072d9dd257e24607f2d624f3b31a39c154cf5c8cb0152955c\nbouncing_pixel: boot/debug/PPM OK, sha256=39738b734e6d8c75277c462192e4ab0af156afe3cb28d8b1a65fba0e5c5d4ca5\npaint: boot/debug/PPM OK, sha256=cfadc70d6dba91154258e606e1313fec9a14f4583f954fc11525eb16cc49b2d6\ndiagnostics: boot/debug/PPM OK, sha256=b46b81b0ff39fe8e0e92b2ffd76c0107835e577e17d2f1e050adfea043ea3df6\nReplay, budgets, malformed CLI/source/ROM/debugger and snapshot checks OK\n"
+    },
+    {
+      "command": "python3 scripts/compatibility_acceptance.py",
+      "exit": 0,
+      "seconds": 0.025,
+      "output": "All five original V1 ROM byte identities match the v0.3 baseline\n"
+    },
+    {
+      "command": "python3 scripts/developer_acceptance.py",
+      "exit": 0,
+      "seconds": 0.828,
+      "output": "Developer diagnostics, bounded recovery, output preflight/staging OK\n"
+    },
+    {
+      "command": "python3 scripts/compiler_acceptance.py",
+      "exit": 0,
+      "seconds": 0.104,
+      "output": "Compiler CLI: real V1 ROM, ordinary assembly reassembly, source map/debugger, limits and artifact retention passed\n"
+    },
+    {
+      "command": "python3 scripts/project_acceptance.py",
+      "exit": 0,
+      "seconds": 1.349,
+      "output": "Projects: create/build/run/debug/test, isolated includes, deterministic packages/rebuild, failed-build retention passed\n"
+    },
+    {
+      "command": "python3 scripts/application_acceptance.py",
+      "exit": 0,
+      "seconds": 4.132,
+      "output": "crates/title: real ROM, framebuffer SHA and guest state passed\ncrates/win: real ROM, framebuffer SHA and guest state passed\ncrates/undo: real ROM, framebuffer SHA and guest state passed\ncrates/collision: real ROM, framebuffer SHA and guest state passed\ncrates/restart: real ROM, framebuffer SHA and guest state passed\ncrates/blocked: real ROM, framebuffer SHA and guest state passed\npixel_studio/blank: real ROM, framebuffer SHA and guest state passed\npixel_studio/drawing: real ROM, framebuffer SHA and guest state passed\npixel_studio/undo: real ROM, framebuffer SHA and guest state passed\npixel_studio/clear: real ROM, framebuffer SHA and guest state passed\nAll application replays passed\n"
+    },
+    {
+      "command": "python3 scripts/v2_contract_vectors.py",
+      "exit": 0,
+      "seconds": 0.042,
+      "output": "V2 specification vectors, independent audio math, and V2 ROM activation and V1 snapshot profile isolation passed\n"
+    },
+    {
+      "command": "python3 scripts/v2_acceptance.py",
+      "exit": 0,
+      "seconds": 1.342,
+      "output": "nova_sound: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\ninterrupt_canvas: guest voices/timer/IRQs, deterministic PCM/PPM, source breakpoint and exact reverse/snapshot passed\nV2 black-box acceptance passed; complete original V1 gates remain separate\n"
+    },
+    {
+      "command": "python3 scripts/game_acceptance.py",
+      "exit": 0,
+      "seconds": 2.242,
+      "output": "title: real guest replay/framebuffer SHA256 OK\nplay: real guest replay/framebuffer SHA256 OK\nwin: real guest replay/framebuffer SHA256 OK\nloss: real guest replay/framebuffer SHA256 OK\n"
+    },
+    {
+      "command": "python3 scripts/package.py",
+      "exit": 0,
+      "seconds": 2.462,
+      "output": "test 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\ntest 4: passed\ntest 5: passed\n/tmp/tmp2rqyynzm/crates.zip\ntest 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\n/tmp/tmp6v1pibjx/pixel_studio.zip\n/workspace/scratch/e983ae4eca3e/NOVA-16/dist/nova16-0.5.0-dev-linux-x86_64.zip\n"
+    },
+    {
+      "command": "python3 scripts/package_reproducibility.py",
+      "exit": 1,
+      "seconds": 2.534,
+      "output": "test 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\ntest 4: passed\ntest 5: passed\n/tmp/tmpk_nd2mix/crates.zip\ntest 0: passed\ntest 1: passed\ntest 2: passed\ntest 3: passed\n/tmp/tmpaunmav2j/pixel_studio.zip\n/workspace/scratch/e983ae4eca3e/NOVA-16/dist/nova16-0.5.0-dev-linux-x86_64.zip\nTraceback (most recent call last):\n  File \"/workspace/scratch/e983ae4eca3e/NOVA-16/scripts/package_reproducibility.py\", line 10, in <module>\n    assert hashlib.sha256(archive.read_bytes()).hexdigest()==first,'SDK archive changed after cached project rebuilds'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: SDK archive changed after cached project rebuilds\n",
+      "measurement_note": "This initial package comparison was invalid: the progress collector rewrote this tracked source report between the two package builds. Repeated with source frozen; see v2-package.json for passing exact-byte reproducibility and extracted acceptance."
+    }
+  ],
+  "cross_builds": {
+    "exit": 0,
+    "output": "native: build and ROM identity passed\nx86_64-windows: build and ROM identity passed\naarch64-macos: build and ROM identity passed\nx86_64-macos: build and ROM identity passed\n"
+  },
+  "final_v2_fuzz": {
+    "exit": 0,
+    "seed": "0x4e313602",
+    "runs": 1240,
+    "unique_runs": 152,
+    "feedback_pcs": 1413,
+    "instrumented_pcs": 22084,
+    "families": 14,
+    "note": "Feedback PCs are not source-line coverage. Expanded V2 inputs were also included in normal Debug/ReleaseSafe 116/116 test runs."
+  }
+}

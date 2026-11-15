@@ -36,6 +36,7 @@ jobs:
       - run: python scripts/project_acceptance.py
       - run: python scripts/application_acceptance.py
       - run: python scripts/v2_contract_vectors.py
+      - run: python scripts/v2_acceptance.py
       - run: python scripts/game_acceptance.py
       - if: matrix.mode == 'ReleaseSafe'
         run: python scripts/package.py

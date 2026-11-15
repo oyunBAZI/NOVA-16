@@ -11,7 +11,7 @@ with tempfile.TemporaryDirectory(prefix='nova16-cross-') as tmp:
         subprocess.run(['zig', 'build', f'-Dtarget={target}', '-Doptimize=ReleaseSafe',
                         '--prefix', str(prefix)], cwd=root, check=True, timeout=300)
         images = {p.name: p.read_bytes() for p in (prefix / 'demos').glob('*.n16')}
-        assert len(images) == 7, target
+        assert len(images) == 9, target
         if baseline is None:
             baseline = images
         assert images == baseline, f'{target}: assets differ'

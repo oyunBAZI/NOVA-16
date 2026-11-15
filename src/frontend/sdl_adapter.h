@@ -13,3 +13,8 @@ uint64_t n16_sdl_clock(void);
 int n16_sdl_test_event(N16Host *host, int key, int up);
 void n16_sdl_resize(N16Host *host, int width, int height);
 #endif
+
+int n16_sdl_audio_open(N16Host *host);
+void n16_sdl_audio_clear(N16Host *host);
+void n16_sdl_audio_queue(N16Host *host, const int16_t *samples);
+int n16_sdl_audio_test(N16Host *host);

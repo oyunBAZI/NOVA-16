@@ -1,3 +1,3 @@
-pub const Fault = error{ InvalidOpcode, Unaligned, ExecuteDenied, AddressOverflow, ReadDenied, WriteDenied, ReservedBits, StackUnderflow, StackOverflow, InvalidStack, InstructionLimit };
+pub const Fault = error{ InvalidOpcode, Unaligned, ExecuteDenied, AddressOverflow, ReadDenied, WriteDenied, ReservedBits, StackUnderflow, StackOverflow, InvalidStack, InstructionLimit, InvalidInterruptState, InterruptNesting, ClockLimit, DeviceValue };
 pub const Access = enum { fetch, read, write, stack, decode };
 pub const Trap = struct { kind: Fault, pc: u16, address: i32, access: Access, instruction: u16 = 0 };

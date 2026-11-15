@@ -3,6 +3,7 @@ fn coreModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bui
     const core = b.createModule(.{ .root_source_file = b.path("src/root.zig"), .target = target, .optimize = optimize });
     core.addAnonymousImport("examples", .{ .root_source_file = b.path("examples/sources.zig") });
     core.addAnonymousImport("guest", .{ .root_source_file = b.path("guest/sources.zig") });
+    core.addAnonymousImport("v2-contract", .{ .root_source_file = b.path("docs/vectors/source.zig") });
     return core;
 }
 fn executable(b: *std.Build, name: []const u8, source: []const u8, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, core: *std.Build.Module, strip: bool) *std.Build.Step.Compile {
@@ -62,6 +63,21 @@ pub fn build(b: *std.Build) void {
         demos.dependOn(&install_symbols.step);
         b.getInstallStep().dependOn(&install.step);
         b.getInstallStep().dependOn(&install_symbols.step);
+    }
+    inline for (.{ "nova_sound", "interrupt_canvas" }) |name| {
+        const assemble = b.addRunArtifact(host_assembler);
+        assemble.addFileArg(b.path("examples/projects/" ++ name ++ "/main.asm"));
+        assemble.addFileInput(b.path("examples/projects/" ++ name ++ "/lib/v2.asm"));
+        assemble.addArg("--architecture");
+        assemble.addArg("nova16-v2");
+        assemble.addArg("--out");
+        const image = assemble.addOutputFileArg(name ++ ".n16");
+        assemble.addArg("--debug-symbols");
+        const map = assemble.addOutputFileArg(name ++ ".map.json");
+        inline for (.{ b.addInstallFile(image, "demos/" ++ name ++ ".n16"), b.addInstallFile(map, "demos/" ++ name ++ ".map.json") }) |install| {
+            demos.dependOn(&install.step);
+            b.getInstallStep().dependOn(&install.step);
+        }
     }
     const game = b.addRunArtifact(host_assembler);
     game.addFileArg(b.path("examples/projects/breakout/main.asm"));

@@ -96,23 +96,44 @@ pub const Debugger = struct {
             try arity(count, 0);
             const b = &self.machine.bus;
             try out.print("held={x:0>2} pressed={x:0>2} frame={d} vblank={any} enabled={any}\n", .{ b.input.held, b.input.pressed, b.frame, b.vblank, b.enabled });
+            if (b.profile == .v2) {
+                try out.print("profile=2 slots={d} irq_entries={d} IE={any} pending={x:0>2} mask={x:0>2} active={x:0>2} depth={d} timer={d}/{d} reload={any} samples={d} prefix={d} remainder={d} master={any} gain={d}\n", .{ self.machine.slots, self.machine.irq_entries, b.irq.ie, b.irq.pending, b.irq.mask, b.irq.active(), b.irq.depth, b.irq.remaining, b.irq.period, b.irq.reload, b.audio.generated, b.audio.prefix, self.machine.slots % 25, b.audio.enabled, b.audio.gain });
+                for (b.audio.voices, 0..) |v, i| try out.print("voice{d} step={x:0>8} phase={x:0>8} lfsr={x:0>4} volume={d} wave={d} enable={any}\n", .{ i, v.step, v.phase, v.noise, v.volume, v.wave, v.enabled });
+                for (b.audio.pcm[0..b.audio.prefix], 0..) |sample, i| try out.print("pcm[{d}]={d}\n", .{ i, sample });
+            }
             for (0..16) |k| try out.print("palette {d}: {x:0>2}{x:0>2}{x:0>2}\n", .{ k, b.palette[k * 3], b.palette[k * 3 + 1], b.palette[k * 3 + 2] });
         } else if (eq(cmd, "frame")) {
             if (count > 1) return error.ArgumentCount;
             const frames = if (count == 1) try number(tokens[0], 1000) else 1;
-            self.machine.cpu.paused = false;
-            for (0..frames) |_| {
-                if (self.machine.cpu.halted or self.machine.cpu.paused or self.machine.cpu.trap != null) break;
-                self.machine.bus.input.inject(self.machine.bus.input.held);
-                var running = true;
-                for (0..@import("../arch/isa.zig").frame_budget) |_| if (!try self.runOne(out, true)) {
-                    running = false;
-                    break;
-                };
-                self.recorder.capture(self.machine);
-                self.machine.bus.frame +%= 1;
-                self.machine.bus.vblank = true;
-                if (!running) break;
+            if (self.machine.bus.profile == .v2) {
+                for (0..frames) |_| {
+                    const remaining = 20000 - self.machine.slots % 20000;
+                    self.recorder.capture(self.machine);
+                    self.machine.injectInput(self.machine.bus.input.held);
+                    for (0..remaining) |_| {
+                        if (self.machine.cpu.halted or self.machine.cpu.paused or self.machine.cpu.trap != null) {
+                            self.recorder.capture(self.machine);
+                            if (!self.machine.transition(false, null)) break;
+                        } else if (!try self.runOne(out, true)) {
+                            if (!self.machine.cpu.halted and !self.machine.cpu.paused and self.machine.cpu.trap == null) break;
+                        }
+                    }
+                }
+            } else {
+                self.machine.cpu.paused = false;
+                for (0..frames) |_| {
+                    if (self.machine.cpu.halted or self.machine.cpu.paused or self.machine.cpu.trap != null) break;
+                    self.machine.bus.input.inject(self.machine.bus.input.held);
+                    var running = true;
+                    for (0..@import("../arch/isa.zig").frame_budget) |_| if (!try self.runOne(out, true)) {
+                        running = false;
+                        break;
+                    };
+                    self.recorder.capture(self.machine);
+                    self.machine.bus.frame +%= 1;
+                    self.machine.bus.vblank = true;
+                    if (!running) break;
+                }
             }
             try self.status(out);
         } else if (eq(cmd, "trace")) {
@@ -183,7 +204,7 @@ pub const Debugger = struct {
                     if (l != null and h != null) imm = @as(u16, l.?) | (@as(u16, h.?) << 8);
                 }
                 try out.print("{x:0>4}: ", .{addr});
-                addr += try disasm.instruction(out, w, imm, @intCast(addr));
+                addr += try disasm.instructionProfile(out, w, imm, @intCast(addr), self.machine.bus.profile);
                 try out.writeByte('\n');
             }
         } else if (eq(cmd, "stack")) {
@@ -229,7 +250,7 @@ pub const Debugger = struct {
         for (self.sources) |loc| if (std.mem.eql(u8, loc.file, text[0..colon]) and loc.line == line) {
             const addr: u16 = @intCast(loc.address);
             const word = try self.machine.bus.fetch(addr);
-            _ = try @import("../arch/isa.zig").decode(word);
+            _ = try @import("../arch/isa.zig").decodeProfile(word, self.machine.bus.profile);
             return addr;
         };
         return error.SourceLocationNotFound;
@@ -258,7 +279,7 @@ pub const Debugger = struct {
                 const hi = self.machine.bus.peek(t.pc + 3) catch break :blk null;
                 break :blk @as(u16, lo) | (@as(u16, hi) << 8);
             } else null;
-            _ = try disasm.instruction(out, t.instruction, immediate, t.pc);
+            _ = try disasm.instructionProfile(out, t.instruction, immediate, t.pc, self.machine.bus.profile);
             try out.writeByte('\n');
         } else try out.print("PC={x:0>4} {s}\n", .{ c.pc, if (c.halted) "HALT" else if (c.paused) "BRK" else "ready" });
         if (c.paused and self.sourceAt(c.pc) != null and std.mem.eql(u8, self.sourceAt(c.pc).?.file, "<n16-runtime>")) {

@@ -60,3 +60,12 @@ to C000); trapped CPUs preserve faulting PCs, including odd/denied addresses.
 This preserves diagnosis and genuine stop states while rejecting active C000.
 Input pressed bits need not be a subset of held bits: releases do not erase
 latched edges. Frame-counter wrap and maximum retirement values remain valid.
+
+## Explicit profile2 dispatch
+
+`Bus.profile` is selected only by a validated N16R container and survives reset.
+V1 follows the existing CPU/frame path. Profile2 uses `Machine.transition`: one
+instruction, IRQ entry or idle slot, followed by timer/audio/frame device events.
+Audio and IRQ state live in separate device modules owned by Bus; CPU handles
+validated interrupt frames. Headless callers receive PCM by value, SDL is only a
+bounded optional presentation sink. See v2-implementation.md for API contracts.

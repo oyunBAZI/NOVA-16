@@ -9,7 +9,7 @@ const Debugger = @import("debug/debugger.zig").Debugger;
 const runtime = @import("core/runtime.zig");
 pub fn exercise(a: std.mem.Allocator, data: []const u8) !void {
     if (data.len == 0) return;
-    switch (data[0] % 10) {
+    switch (data[0] % 14) {
         0 => {
             _ = rom.parse(data[1..]) catch {};
         },
@@ -79,6 +79,46 @@ pub fn exercise(a: std.mem.Allocator, data: []const u8) !void {
             const maps = @import("debug/symbols.zig");
             if (maps.load(a, data[1..], 0)) |loaded| loaded.deinit() else |_| {}
         },
+        10 => {
+            const image = try rom.packProfile(a, &.{ 1, 0 }, 0, .v2);
+            defer a.free(image);
+            for (data[1..], 0..) |byte, i| image[(i * 7) % image.len] ^= byte;
+            var m: Machine = .{};
+            m.load(image) catch {};
+        },
+        11 => {
+            const image = try rom.packProfile(a, &.{ 1, 0 }, 0, .v2);
+            defer a.free(image);
+            var m: Machine = .{};
+            try m.load(image);
+            const saved = try snapshot.encodeChecked(a, &m);
+            defer a.free(saved);
+            const offsets = [_]usize{ 112, 272, 65856, 67552 };
+            const lengths = [_]usize{ 160, 65584, 1696, 128 };
+            for (data[1..], 0..) |byte, i| saved[offsets[i % 4] + (i * 257) % lengths[i % 4]] ^= byte;
+            for (offsets, lengths, 0..) |offset, len, i| std.mem.writeInt(u32, saved[44 + i * 20 ..][0..4], std.hash.Crc32.hash(saved[offset..][0..len]), .little);
+            std.mem.writeInt(u32, saved[12..16], std.hash.Crc32.hash(saved[32..]), .little);
+            snapshot.restore(&m, saved, m.checksum) catch {};
+            try m.validateState();
+            for (0..32) |_| m.step();
+        },
+        12 => {
+            if (data.len <= 1) return;
+            const image = try rom.packProfile(a, data[1..], 0, .v2);
+            defer a.free(image);
+            var m: Machine = .{};
+            try m.load(image);
+            for (data[1..], 0..) |byte, i| {
+                const address: u16 = 0xd900 + @as(u16, @intCast(i % 128));
+                if (byte & 1 == 0) m.bus.write16(address, @as(u16, byte) * 257) catch {} else m.bus.write8(address, byte) catch {};
+            }
+            for (0..64) |_| m.step();
+            try m.validateState();
+        },
+        13 => {
+            var diagnostic: assembler.Diagnostic = .{};
+            if (assembler.assembleProfile(a, data[1..], &diagnostic, .v2)) |result| result.deinit() else |_| {}
+        },
         else => unreachable,
     }
 }
@@ -89,14 +129,14 @@ fn guided(_: void, smith: *std.testing.Smith) !void {
     try exercise(std.testing.allocator, data[0..len]);
 }
 test "coverage guided bounded machine toolchain and snapshot inputs" {
-    try std.testing.fuzz({}, guided, .{ .corpus = &.{ "\x01.entry missing\nHALT", "\x02frame 1", "\x03 0 16\n1 0", "\x04seed", "\x05\x01\x00", "\x08fn main()->u16{return 7;}", "\x08fn main()->u16{var a:[2]u16;return a[3];}", "\x09{\"schema_version\":3}" } });
+    try std.testing.fuzz({}, guided, .{ .corpus = &.{ "\x01.entry missing\nHALT", "\x02frame 1", "\x03 0 16\n1 0", "\x04seed", "\x05\x01\x00", "\x08fn main()->u16{return 7;}", "\x08fn main()->u16{var a:[2]u16;return a[3];}", "\x09{\"schema_version\":3}", "\x0bseed", "\x0c\x06\x00\x08\x00", "\x0dEI\nDI\nIRET" } });
 }
-test "deterministic malformed input smoke across all ten target families" {
+test "deterministic malformed input smoke across all fourteen target families" {
     var random = std.Random.DefaultPrng.init(0x4e313653);
     var bytes: [256]u8 = undefined;
     for (0..1000) |k| {
         random.random().bytes(&bytes);
-        bytes[0] = @intCast(k % 10);
+        bytes[0] = @intCast(k % 14);
         try exercise(std.testing.allocator, bytes[0..random.random().intRangeAtMost(usize, 1, bytes.len)]);
     }
 }

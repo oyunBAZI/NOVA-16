@@ -17,7 +17,7 @@ fn run(init: std.process.Init) !void {
         const builtin = @import("builtin");
         var out: std.Io.Writer.Allocating = .init(a);
         defer out.deinit();
-        try std.json.Stringify.value(.{ .version = n.version, .zig_version = "0.17.1", .isa_version = @as(u16, 1), .rom_version = @as(u16, 1), .optimization = @tagName(builtin.mode), .os = @tagName(builtin.os.tag), .arch = @tagName(builtin.cpu.arch), .cpu_model = builtin.cpu.model.name, .gui = options.gui }, .{}, &out.writer);
+        try std.json.Stringify.value(.{ .version = n.version, .zig_version = "0.17.1", .isa_version = @as(u16, 1), .rom_version = @as(u16, 1), .supported_profiles = [_]u16{ 1, 2 }, .supported_snapshot_versions = [_]u16{ 1, 2 }, .optimization = @tagName(builtin.mode), .os = @tagName(builtin.os.tag), .arch = @tagName(builtin.cpu.arch), .cpu_model = builtin.cpu.model.name, .gui = options.gui }, .{}, &out.writer);
         try out.writer.writeByte('\n');
         try std.Io.File.stdout().writeStreamingAll(init.io, out.written());
         return;
@@ -27,7 +27,7 @@ fn run(init: std.process.Init) !void {
         return;
     }
     if (args.len == 1 or eq(args[1], "--help")) {
-        try std.Io.File.stdout().writeStreamingAll(init.io, "nova16 inspect ROM [--json]\nnova16 run ROM [--headless|--gui] [--frames N] [--max-instructions N]\n  [--screenshot PATH] [--state-json PATH] [--input SCHEDULE] [--scale N]\n");
+        try std.Io.File.stdout().writeStreamingAll(init.io, "nova16 inspect ROM [--json]\nnova16 run ROM [--headless|--gui] [--frames N] [--max-instructions N]\n  [--wav PATH] [--screenshot PATH] [--state-json PATH] [--input SCHEDULE] [--scale N]\n");
         return;
     }
     if (args.len < 3) return error.MissingRomPath;
@@ -41,15 +41,16 @@ fn run(init: std.process.Init) !void {
         defer out.deinit();
         const image = try n.rom.parse(data);
         if (json) {
-            try std.json.Stringify.value(.{ .schema_version = @as(u16, 1), .format = "N16R", .rom_version = @as(u16, 1), .isa_version = @as(u16, 1), .payload_bytes = image.payload.len, .entry_offset = image.entry, .entry_address = m.cpu.pc, .crc32 = image.checksum }, .{}, &out.writer);
+            try std.json.Stringify.value(.{ .schema_version = @as(u16, 1), .format = "N16R", .rom_version = @backingInt(image.profile), .isa_version = @backingInt(image.profile), .payload_bytes = image.payload.len, .entry_offset = image.entry, .entry_address = m.cpu.pc, .crc32 = image.checksum }, .{}, &out.writer);
             try out.writer.writeByte('\n');
-        } else try out.writer.print("N16R v1 payload={d} entry=0x{x:0>4} crc32={x:0>8}\n", .{ image.payload.len, m.cpu.pc, image.checksum });
+        } else try out.writer.print("N16R v{d} payload={d} entry=0x{x:0>4} crc32={x:0>8}\n", .{ @backingInt(image.profile), image.payload.len, m.cpu.pc, image.checksum });
         try std.Io.File.stdout().writeStreamingAll(init.io, out.written());
         return;
     }
     if (!eq(args[1], "run")) return error.UnknownCommand;
     var frames: u64 = 120;
     var cap: u64 = 10_000_000;
+    var wav_path: ?[]const u8 = null;
     var shot: ?[]const u8 = null;
     var state: ?[]const u8 = null;
     var gui = false;
@@ -72,8 +73,12 @@ fn run(init: std.process.Init) !void {
         k += 1;
         if (k >= args.len) return error.MissingOptionValue;
         const v = args[k];
-        if (eq(opt, "--frames")) frames = try std.fmt.parseInt(u64, v, 0) else if (eq(opt, "--max-instructions")) cap = try std.fmt.parseInt(u64, v, 0) else if (eq(opt, "--scale")) scale = try std.fmt.parseInt(u32, v, 0) else if (eq(opt, "--screenshot")) shot = v else if (eq(opt, "--state-json")) state = v else if (eq(opt, "--input")) input = v else return error.UnknownOption;
+        if (eq(opt, "--frames")) frames = try std.fmt.parseInt(u64, v, 0) else if (eq(opt, "--max-instructions")) cap = try std.fmt.parseInt(u64, v, 0) else if (eq(opt, "--scale")) scale = try std.fmt.parseInt(u32, v, 0) else if (eq(opt, "--screenshot")) shot = v else if (eq(opt, "--state-json")) state = v else if (eq(opt, "--wav")) wav_path = v else if (eq(opt, "--input")) input = v else return error.UnknownOption;
     }
+    if (wav_path != null and (m.bus.profile != .v2 or gui or frames > 3600)) return error.WavRequiresV2HeadlessAtMost3600Frames;
+    var samples: std.ArrayList(i16) = .empty;
+    defer samples.deinit(a);
+    if (wav_path != null) try samples.ensureTotalCapacity(a, @intCast(frames * 800));
     if (scale == 0 or scale > 32 or frames > 1_000_000 or cap == 0) return error.InvalidLimit;
     if (gui and input != null) return error.InputScheduleRequiresHeadless;
     if (!gui and seen.contains("--scale")) return error.ScaleRequiresGui;
@@ -88,10 +93,19 @@ fn run(init: std.process.Init) !void {
         var input_bits: u8 = 0;
         var event: usize = 0;
         var f: u64 = 0;
-        while (f < frames and m.cpu.retired < cap and !m.cpu.halted and !m.cpu.paused and m.cpu.trap == null) : (f += 1) {
+        while (f < frames and (m.bus.profile == .v2 or (m.cpu.retired < cap and !m.cpu.halted and !m.cpu.paused and m.cpu.trap == null))) : (f += 1) {
             while (event < events.len and events[event].frame == f) : (event += 1) input_bits = events[event].bits;
-            m.frame(input_bits, cap);
+            if (m.bus.profile == .v2 and wav_path != null) {
+                var pcm: [800]i16 = undefined;
+                if (!m.frameAudio(input_bits, cap, &pcm)) return error.ClockLimit;
+                samples.appendSliceAssumeCapacity(&pcm);
+            } else m.frame(input_bits, cap);
         }
+    }
+    if (wav_path) |path| {
+        const bytes = try n.audio.wav(a, samples.items);
+        defer a.free(bytes);
+        try std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = path, .data = bytes });
     }
     if (shot) |path| {
         const bytes = try n.video.ppm(a, m.bus.bytes[0xc000..0xd800], &m.bus.palette, m.bus.enabled);
