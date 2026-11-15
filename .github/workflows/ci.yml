@@ -122,6 +122,7 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 scripts/security_check.py
+      - run: python3 scripts/validation_driver_acceptance.py
   wasm:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -136,6 +137,7 @@ jobs:
       - run: node scripts/offline_acceptance.mjs
       - run: node scripts/offline_worker_acceptance.mjs
       - run: node scripts/frontend_acceptance.mjs
+      - run: node scripts/session_soak.mjs --cycles 20 --seconds 0 --out zig-out/session-soak.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wasm-runtime
@@ -144,6 +146,7 @@ jobs:
             wasm/nova16.mjs
             wasm/offline-host.mjs
             zig-out/web/NOVA16-Offline-Workbench.html
+            zig-out/session-soak.json
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

@@ -228,7 +228,7 @@ class WorkbenchAcceptance(unittest.TestCase):
             model.close()
 
     def test_native_replay_grammar_and_actual_completed_count(self):
-        cases = json.loads((w.ROOT / 'docs/quality/replay-cases.json').read_text())
+        cases = json.loads((w.ROOT / 'docs/quality/replay-cases.json').read_text(encoding='utf-8'))
         model = w.Workbench()
         try:
             def dispatch(**request):

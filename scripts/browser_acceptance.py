@@ -98,6 +98,10 @@ def exercise(browser, url, mode, destination):
         imported = b'fn main()->u16{return 99;}'
         page.locator('#source-file').set_input_files({'name': 'main.n16c', 'mimeType': 'text/plain', 'buffer': imported})
         wait("document.getElementById('source').value.includes('99')")
+        page.locator('#rom-file').set_input_files(str(ROOT / 'zig-out/demos/nova_sound.n16'))
+        wait("current.title==='Imported ROM'")
+        assert page.evaluate('current.profile') == 2
+        assert page.locator('#source').input_value() == imported.decode()
         page.locator('#demos').select_option('paint')
         page.locator('#load').click()
         wait("current.title==='Paint'")
@@ -109,6 +113,9 @@ def exercise(browser, url, mode, destination):
         page.locator('#reverse').click()
         wait('current.input_held===16')
         assert page.locator('[data-bit="16"]').get_attribute('aria-pressed') == 'true'
+        # Reverse deliberately restores the historical device state. Refocus
+        # the controller before testing its focus-loss release contract.
+        page.locator('#screen').focus()
         page.locator('#source').focus()
         wait('current.input_held===0')
         page.locator('#frame').click()

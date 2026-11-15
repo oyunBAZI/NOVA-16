@@ -166,7 +166,8 @@ function render(result) {
   }
   $('memory').textContent = memory;
   renderAudio(result.audio,s);
-  if (s.trapped) $('diagnostics').textContent = `Trap: ${s.trap.kind} at 0x${hex(s.trap.pc)} · ${s.trap.access} 0x${hex(s.trap.address)}`;
+  $('trap-detail').hidden=!s.trapped;
+  $('trap-detail').textContent=s.trapped?`Trap: ${s.trap.kind} at 0x${hex(s.trap.pc)} · ${s.trap.access} 0x${hex(s.trap.address)}`:'';
   updateEditor();
 }
 function renderAudio(audio, state) {
@@ -266,7 +267,13 @@ function updateEditor() {
     last=match.index+word.length;
   }
   highlight.innerHTML=output+escape(source.slice(last))+'\n';
-  $('line-numbers').innerHTML=source.split('\n').map((_,i)=>`<span class="${i+1===line?'current-line':''}">${i+1}</span>`).join('\n');
+  const count=source.split('\n').length;
+  const gutter=Math.max(45,String(count).length*8+16);
+  $('line-numbers').style.width=`${gutter}px`;
+  highlight.style.left=`${gutter}px`;
+  // Large valid source can contain 65,537 lines. Keep one text run and at most
+  // one highlighted span instead of allocating a DOM element for every line.
+  $('line-numbers').innerHTML=Array.from({length:count},(_,i)=>i+1===line?`<span class="current-line">${i+1}</span>`:String(i+1)).join('\n');
   syncScroll();
 }
 function syncScroll() {
@@ -391,6 +398,7 @@ $('load').onclick=async()=> {
     editorChanged('EDITOR NOT LOADED');
     romBytes=null;
     $('download-rom').disabled=true;
+    $('diagnostics').classList.remove('error');
     $('diagnostics').textContent='ROM loaded. Focus the display to use controller keys.';
   }
 };
@@ -503,12 +511,23 @@ $('memory-form').onsubmit=event=> {
   inspect($('memory-address').value);
 };
 document.querySelectorAll('[data-address]').forEach(button=>button.onclick=()=>inspect(button.dataset.address));
-for(const name of ['memory','audio'])$(name+'-tab').onclick=()=> {
+function selectInspector(name) {
   for(const tab of ['memory','audio']) {
     $(tab+'-tab').setAttribute('aria-selected',String(tab===name));
+    $(tab+'-tab').tabIndex=tab===name?0:-1;
     $(tab+'-panel').hidden=tab!==name;
   }
-};
+}
+for(const name of ['memory','audio']) {
+  $(name+'-tab').onclick=()=>selectInspector(name);
+  $(name+'-tab').onkeydown=event=> {
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    event.preventDefault();
+    const next=event.key==='Home'?'memory':event.key==='End'?'audio':name==='memory'?'audio':'memory';
+    selectInspector(next);
+    $(next+'-tab').focus();
+  };
+}
 // Multiple keys/pointers may own the same guest bit. Releasing one owner must
 // not release another. Never use a historic VM mask as physical keyboard state.
 const inputOwners=new Map();

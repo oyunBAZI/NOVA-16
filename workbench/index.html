@@ -66,6 +66,7 @@ Build your own program, or explore a verified ROM from the library.
 </div>
 <div id="registers" class="registers">
 </div>
+<pre id="trap-detail" class="trap-detail" role="status" hidden></pre>
 <div class="cpu-detail">
 <div>
 <h3>Next instructions</h3><pre id="disassembly"></pre>
@@ -84,7 +85,7 @@ Build your own program, or explore a verified ROM from the library.
 
 <section class="panel inspector-panel">
 <div class="panel-heading tabs" role="tablist">
-<button id="memory-tab" role="tab" aria-selected="true" aria-controls="memory-panel">Memory</button><button id="audio-tab" role="tab" aria-selected="false" aria-controls="audio-panel">Audio & IRQ</button><span class="quiet">LIVE OBSERVATION</span>
+<button id="memory-tab" role="tab" aria-selected="true" aria-controls="memory-panel" tabindex="0">Memory</button><button id="audio-tab" role="tab" aria-selected="false" aria-controls="audio-panel" tabindex="-1">Audio & IRQ</button><span class="quiet">LIVE OBSERVATION</span>
 </div>
 <div id="memory-panel" role="tabpanel" aria-labelledby="memory-tab">
 <form id="memory-form">

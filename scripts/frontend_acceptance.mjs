@@ -58,6 +58,10 @@ async function frontend({drafts=new Map(),denyStorage=false,native=false,delay,d
   document.getElementById=id=>{assert.ok(elements.has(id),'Unknown DOM element '+id);return $(id);};
   document.createElement=tag=>{const element=new Element(tag);if(tag==='a')element.click=()=>downloads.push({name:element.download,url:element.href});return element;};
   document.querySelectorAll=selector=>selector==='[data-bit]'?buttons:[];
+  for(const element of elements.values())element.focus=()=> {
+    const previous=document.activeElement;document.activeElement=element;
+    if(previous!==element)previous?.dispatchEvent({type:'blur'});
+  };
   const host=createOfflineHost(data);
   const request=async payload=> {
     requests.push(JSON.parse(JSON.stringify(payload)));
@@ -260,6 +264,51 @@ await check('actual guest PCM is queued once per frame despite observations/inpu
     assert.equal(denied.audioClosed(),1,'Rejected activation closes the candidate audio device');
     assert.equal(denied.$('listen').textContent,''); // DOM double does not parse static inner text.
   } finally {denied.close();}
+});
+
+await check('maximum-line drafts keep a bounded gutter DOM and inspector tabs support keys',async()=> {
+  let f=await frontend();const drafts=f.drafts;
+  try {
+    await f.edit('\n'.repeat(65536));f.evaluate('saveDraftNow()');
+    assert.equal(f.$('line-numbers').innerHTML.split('\n').length,65537);
+    assert.ok(!f.$('line-numbers').innerHTML.includes('<span'),'No per-line element explosion');
+    assert.equal(f.$('line-numbers').style.width,'56px');
+    f.$('memory-tab').onkeydown({key:'ArrowRight',preventDefault(){}});
+    assert.equal(f.document.activeElement,f.$('audio-tab'));
+    assert.equal(f.$('audio-tab').getAttribute('aria-selected'),'true');
+    assert.equal(f.$('memory-panel').hidden,true);assert.equal(f.$('audio-panel').hidden,false);
+    f.$('audio-tab').onkeydown({key:'Home',preventDefault(){}});
+    assert.equal(f.$('memory-tab').tabIndex,0);assert.equal(f.$('audio-tab').tabIndex,-1);
+  } finally {f.close();}
+  f=await frontend({drafts});
+  try {assert.equal(f.$('source').value,'\n'.repeat(65536),'Escaped draft JSON may exceed 100K while source fits 64 KiB');}
+  finally{f.close();}
+});
+
+await check('custom cartridge file imports commit only valid ROMs and preserve editor text',async()=> {
+  const f=await frontend();
+  try {
+    const editor=f.$('source').value;
+    for(const name of ['paint','nova_sound']) {
+      const bytes=Uint8Array.from(Buffer.from(data.cartridges[name].rom,'base64'));
+      f.$('rom-file').files=[{name:name+'.n16',size:bytes.length,arrayBuffer:async()=>bytes.buffer}];
+      await f.$('rom-file').onchange();await f.flush();
+      assert.equal(f.state().ok,true);assert.equal(f.state().title,'Imported ROM');
+      assert.equal(f.state().profile,name==='paint'?1:2);
+      assert.equal(f.$('source').value,editor);assert.equal(f.$('download-rom').disabled,false);
+      await f.evaluate("vm({op:'frame'})");
+      const snapshot=(await f.evaluate("vm({op:'snapshot'})")).snapshot;
+      const retained=f.evaluate("Array.from(romBytes).join(',')");
+      const corrupt=Uint8Array.from(bytes);corrupt[corrupt.length-1]^=1;
+      for(const data of [Uint8Array.from([0]),corrupt,new Uint8Array(8225)]) {
+        f.$('rom-file').files=[{name:'bad.n16',size:data.length,arrayBuffer:async()=>data.buffer}];
+        await f.$('rom-file').onchange();await f.flush();
+        assert.equal((await f.evaluate("vm({op:'snapshot'})")).snapshot,snapshot);
+        assert.equal(f.evaluate("Array.from(romBytes).join(',')"),retained);
+        assert.equal(f.$('rom-file').value,'');
+      }
+    }
+  }finally{f.close();}
 });
 
 console.log(JSON.stringify({schema_version:1,checks,frontend:'shipped app.js with real Wasm/compiler host',browser_rendering:false}));

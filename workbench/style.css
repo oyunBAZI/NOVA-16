@@ -354,6 +354,15 @@ textarea#source {
 .register.changed b {
   color:var(--signal)
 }
+.trap-detail {
+  margin:0 14px 10px;
+  padding:8px;
+  color:#f2ad98;
+  border:1px solid #f2ad9855;
+  font:11px/1.6 var(--mono);
+  white-space:pre-wrap;
+  overflow-wrap:anywhere
+}
 .cpu-detail {
   display:grid;
   grid-template-columns:1fr 1fr;
